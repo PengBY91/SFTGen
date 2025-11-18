@@ -213,13 +213,13 @@
           <el-divider content-position="left">生成配置</el-divider>
 
           <el-form-item label="生成模式">
-            <el-radio-group v-model="taskConfig.mode">
-              <el-radio value="atomic">Atomic</el-radio>
-              <el-radio value="multi_hop">Multi-hop</el-radio>
-              <el-radio value="aggregated">Aggregated</el-radio>
-              <el-radio value="CoT">CoT</el-radio>
-              <el-radio value="all">all</el-radio>
-            </el-radio-group>
+            <el-checkbox-group v-model="taskConfig.mode">
+              <el-checkbox label="atomic">Atomic - 原子级问答</el-checkbox>
+              <el-checkbox label="multi_hop">Multi-hop - 多跳问答</el-checkbox>
+              <el-checkbox label="aggregated">Aggregated - 聚合问答</el-checkbox>
+              <el-checkbox label="cot">CoT - 思维链问答</el-checkbox>
+            </el-checkbox-group>
+            <div class="form-item-tip">可选择多个生成模式，将同时生成所有选中模式的数据</div>
           </el-form-item>
 
           <el-form-item label="数据格式">
@@ -266,7 +266,7 @@
               <ul>
                 <li v-for="file in fileList" :key="file.uid">{{ file.name }}</li>
               </ul>
-              <p><strong>生成模式：</strong>{{ taskConfig.mode }}</p>
+              <p><strong>生成模式：</strong>{{ Array.isArray(taskConfig.mode) ? taskConfig.mode.join(', ') : taskConfig.mode }}</p>
               <p><strong>数据格式：</strong>{{ taskConfig.data_format }}</p>
               <p><strong>分区方法：</strong>{{ taskConfig.partition_method }}</p>
             </div>
@@ -319,13 +319,27 @@ const taskInfo = ref({
 })
 
 // 任务配置（从 store 初始化）
-const taskConfig = ref<TaskConfig>({ ...configStore.config })
+const initialConfig = { ...configStore.config }
+// 确保 mode 是数组格式
+if (typeof initialConfig.mode === 'string') {
+  initialConfig.mode = [initialConfig.mode]
+} else if (!Array.isArray(initialConfig.mode)) {
+  initialConfig.mode = ['aggregated']
+}
+const taskConfig = ref<TaskConfig>(initialConfig)
 
 // 页面加载时从后端加载最新配置
 onMounted(async () => {
   await configStore.loadConfig()
   // 重新初始化任务配置，使用最新的配置
-  taskConfig.value = { ...configStore.config }
+  const loadedConfig = { ...configStore.config }
+  // 确保 mode 是数组格式
+  if (typeof loadedConfig.mode === 'string') {
+    loadedConfig.mode = [loadedConfig.mode]
+  } else if (!Array.isArray(loadedConfig.mode)) {
+    loadedConfig.mode = ['aggregated']
+  }
+  taskConfig.value = loadedConfig
 })
 
 // 文件变化处理
@@ -352,7 +366,16 @@ const canNext = computed(() => {
     return fileList.value.length > 0
   }
   if (currentStep.value === 2) {
-    return taskConfig.value.api_key !== ''
+    // 验证必填项
+    if (!taskConfig.value.api_key) {
+      return false
+    }
+    // 验证至少选择一个生成模式
+    const mode = taskConfig.value.mode
+    if (!mode || (Array.isArray(mode) && mode.length === 0)) {
+      return false
+    }
+    return true
   }
   return true
 })
@@ -399,6 +422,22 @@ const submitTask = async () => {
   try {
     submitting.value = true
     
+    // 验证生成模式
+    const mode = taskConfig.value.mode
+    if (!mode || (Array.isArray(mode) && mode.length === 0)) {
+      ElMessage.error('请至少选择一个生成模式')
+      submitting.value = false
+      return
+    }
+    
+    // 确保 mode 是数组格式
+    const configToSubmit = { ...taskConfig.value }
+    if (typeof configToSubmit.mode === 'string') {
+      configToSubmit.mode = [configToSubmit.mode]
+    } else if (!Array.isArray(configToSubmit.mode)) {
+      configToSubmit.mode = ['aggregated']
+    }
+    
     // 创建任务
     const filenames = fileList.value.map(f => f.name)
     const createResponse = await api.createTask(
@@ -417,8 +456,8 @@ const submitTask = async () => {
       throw new Error('未获取到任务ID')
     }
     
-    // 启动任务
-    const startResponse = await api.startTask(taskId, taskConfig.value)
+    // 启动任务（使用处理后的配置）
+    const startResponse = await api.startTask(taskId, configToSubmit)
     
     if (!startResponse.success) {
       throw new Error(startResponse.error || '启动任务失败')
@@ -489,5 +528,17 @@ const submitTask = async () => {
 
 .step-actions .el-button {
   margin: 0 10px;
+}
+
+.form-item-tip {
+  margin-left: 0;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+:deep(.el-checkbox) {
+  display: block;
+  margin: 10px 0;
 }
 </style>
