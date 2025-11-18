@@ -36,8 +36,11 @@ router = APIRouter()
 
 
 @router.post("/test-connection", response_model=TaskResponse)
-async def test_connection(request: APITestRequest):
-    """测试 API 连接"""
+async def test_connection(
+    request: APITestRequest,
+    current_user: User = Depends(require_admin)
+):
+    """测试 API 连接（需要管理员权限）"""
     from backend.utils.api_test import test_api_connection
     try:
         test_api_connection(request.base_url, request.api_key, request.model_name)

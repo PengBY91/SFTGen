@@ -271,16 +271,36 @@ const handleTestConnection = async () => {
     return
   }
 
+  if (!config.value.synthesizer_url) {
+    ElMessage.error('请先填写 Synthesizer Base URL')
+    return
+  }
+
+  if (!config.value.synthesizer_model) {
+    ElMessage.error('请先填写 Synthesizer Model')
+    return
+  }
+
   testing.value = true
   try {
-    await api.testConnection({
+    const response = await api.testConnection({
       base_url: config.value.synthesizer_url || '',
       api_key: config.value.api_key,
       model_name: config.value.synthesizer_model || ''
     })
-    ElMessage.success('连接测试成功')
-  } catch (error) {
-    ElMessage.error('连接测试失败')
+    if (response.success) {
+      ElMessage.success(response.message || '连接测试成功')
+    } else {
+      ElMessage.error(response.error || '连接测试失败')
+    }
+  } catch (error: any) {
+    // 提取错误信息
+    const errorMessage = error?.response?.data?.detail || 
+                        error?.response?.data?.error || 
+                        error?.message || 
+                        '连接测试失败，请检查配置和网络连接'
+    ElMessage.error(errorMessage)
+    console.error('连接测试失败:', error)
   } finally {
     testing.value = false
   }

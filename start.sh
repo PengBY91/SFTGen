@@ -167,6 +167,8 @@ start_frontend() {
 stop_services() {
     print_message "停止所有服务..."
     
+    # 停止后端服务 (端口 8000)
+    print_message "停止后端服务..."
     if [ -f .backend.pid ]; then
         BACKEND_PID=$(cat .backend.pid)
         if ps -p $BACKEND_PID > /dev/null 2>&1 || kill -0 $BACKEND_PID 2>/dev/null; then
@@ -176,6 +178,29 @@ stop_services() {
         rm -f .backend.pid
     fi
     
+    # 通过端口查找并杀死后端进程（备用方案）
+    if command -v lsof &> /dev/null; then
+        BACKEND_PIDS=$(lsof -ti:8000 2>/dev/null)
+        if [ -n "$BACKEND_PIDS" ]; then
+            echo "$BACKEND_PIDS" | xargs kill -9 2>/dev/null
+            print_message "通过端口 8000 停止后端进程"
+        fi
+    elif command -v netstat &> /dev/null; then
+        # Windows/WSL 环境使用 netstat
+        BACKEND_PIDS=$(netstat -ano | grep :8000 | grep LISTENING | awk '{print $5}' | sort -u 2>/dev/null)
+        if [ -n "$BACKEND_PIDS" ]; then
+            echo "$BACKEND_PIDS" | xargs kill -9 2>/dev/null || taskkill //F //PID $BACKEND_PIDS 2>/dev/null
+            print_message "通过端口 8000 停止后端进程"
+        fi
+    fi
+    
+    # 通过进程名查找并杀死 uvicorn 进程（备用方案）
+    if command -v pkill &> /dev/null; then
+        pkill -f "uvicorn backend.app:app" 2>/dev/null && print_message "通过进程名停止后端服务"
+    fi
+    
+    # 停止 Web UI 服务 (端口 7860)
+    print_message "停止 Web UI 服务..."
     if [ -f .webui.pid ]; then
         WEBUI_PID=$(cat .webui.pid)
         if ps -p $WEBUI_PID > /dev/null 2>&1 || kill -0 $WEBUI_PID 2>/dev/null; then
@@ -185,6 +210,28 @@ stop_services() {
         rm -f .webui.pid
     fi
     
+    # 通过端口查找并杀死 Web UI 进程（备用方案）
+    if command -v lsof &> /dev/null; then
+        WEBUI_PIDS=$(lsof -ti:7860 2>/dev/null)
+        if [ -n "$WEBUI_PIDS" ]; then
+            echo "$WEBUI_PIDS" | xargs kill -9 2>/dev/null
+            print_message "通过端口 7860 停止 Web UI 进程"
+        fi
+    elif command -v netstat &> /dev/null; then
+        WEBUI_PIDS=$(netstat -ano | grep :7860 | grep LISTENING | awk '{print $5}' | sort -u 2>/dev/null)
+        if [ -n "$WEBUI_PIDS" ]; then
+            echo "$WEBUI_PIDS" | xargs kill -9 2>/dev/null || taskkill //F //PID $WEBUI_PIDS 2>/dev/null
+            print_message "通过端口 7860 停止 Web UI 进程"
+        fi
+    fi
+    
+    # 通过进程名查找并杀死 gradio 进程（备用方案）
+    if command -v pkill &> /dev/null; then
+        pkill -f "python.*webui/app.py" 2>/dev/null && print_message "通过进程名停止 Web UI 服务"
+    fi
+    
+    # 停止前端服务 (端口 3000)
+    print_message "停止前端服务..."
     if [ -f .frontend.pid ]; then
         FRONTEND_PID=$(cat .frontend.pid)
         if ps -p $FRONTEND_PID > /dev/null 2>&1 || kill -0 $FRONTEND_PID 2>/dev/null; then
@@ -197,6 +244,41 @@ stop_services() {
         fi
         rm -f .frontend.pid
     fi
+    
+    # 通过端口查找并杀死前端进程（备用方案）
+    if command -v lsof &> /dev/null; then
+        FRONTEND_PIDS=$(lsof -ti:3000 2>/dev/null)
+        if [ -n "$FRONTEND_PIDS" ]; then
+            # 杀死所有相关进程（包括子进程）
+            for pid in $FRONTEND_PIDS; do
+                if command -v pkill &> /dev/null; then
+                    pkill -P $pid 2>/dev/null
+                fi
+                kill -9 $pid 2>/dev/null
+            done
+            print_message "通过端口 3000 停止前端进程"
+        fi
+    elif command -v netstat &> /dev/null; then
+        FRONTEND_PIDS=$(netstat -ano | grep :3000 | grep LISTENING | awk '{print $5}' | sort -u 2>/dev/null)
+        if [ -n "$FRONTEND_PIDS" ]; then
+            for pid in $FRONTEND_PIDS; do
+                kill -9 $pid 2>/dev/null || taskkill //F //PID $pid 2>/dev/null
+            done
+            print_message "通过端口 3000 停止前端进程"
+        fi
+    fi
+    
+    # 通过进程名查找并杀死 vite/node 进程（备用方案）
+    if command -v pkill &> /dev/null; then
+        pkill -f "vite" 2>/dev/null && print_message "通过进程名停止 Vite 进程"
+        # 查找 npm/node 进程
+        pkill -f "npm run dev" 2>/dev/null && print_message "通过进程名停止 npm 进程"
+    fi
+    
+    # 清理 PID 文件
+    rm -f .backend.pid .webui.pid .frontend.pid
+    
+    print_message "所有服务已停止"
 }
 
 # 显示服务状态
