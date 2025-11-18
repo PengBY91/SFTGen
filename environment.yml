@@ -1,0 +1,43 @@
+name: graphgen
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - nodejs>=16
+  - npm
+  - git
+  - curl
+  - wget
+  - build-essential
+  - pip:
+    - tqdm
+    - openai
+    - python-dotenv
+    - numpy
+    - networkx
+    - tiktoken
+    - pyecharts
+    - wikipedia
+    - tenacity
+    - nltk
+    - jieba
+    - plotly
+    - pandas
+    - gradio>=5.44.1
+    - kaleido
+    - pyyaml
+    - langcodes
+    - requests
+    - fastapi>=0.104.0
+    - uvicorn[standard]>=0.24.0
+    - python-multipart>=0.0.6
+    - pydantic-settings>=2.0.0
+    - python-jose[cryptography]
+    - passlib[bcrypt]
+    - leidenalg
+    - igraph
+    - python-louvain
+    - matplotlib
+    - trafilatura

@@ -1,0 +1,34 @@
+tqdm
+openai
+python-dotenv
+numpy
+networkx
+# graspologic
+tiktoken
+pyecharts
+wikipedia
+tenacity
+nltk
+jieba
+plotly
+pandas
+# gradio>=5.44.1
+kaleido
+pyyaml
+langcodes
+requests
+fastapi
+uvicorn
+python-multipart
+pydantic-settings
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic[email]
+trafilatura
+
+leidenalg
+igraph
+python-louvain
+
+# For visualization
+matplotlib
