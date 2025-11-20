@@ -109,6 +109,7 @@ class TaskService:
             )
             thread.start()
             
+            # 只返回最小必要的数据，避免响应过大
             return {
                 "success": True,
                 "message": "任务已启动",

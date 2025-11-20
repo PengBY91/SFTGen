@@ -13,10 +13,10 @@
         <el-button type="primary" @click="handleSave" :loading="saveLoading" v-if="isEditing">
           保存并通过
         </el-button>
-        <el-button type="success" @click="handleApprove" :loading="actionLoading" v-else>
+        <el-button type="success" @click="handleApprove" :loading="actionLoading" v-if="!isEditing">
           通过
         </el-button>
-        <el-button type="danger" @click="handleReject" :loading="actionLoading" v-else>
+        <el-button type="danger" @click="handleReject" :loading="actionLoading" v-if="!isEditing">
           拒绝
         </el-button>
       </div>
@@ -74,9 +74,6 @@
                 placeholder="请输入审核备注（可选）"
               />
             </el-form-item>
-            <el-form-item label="审核人">
-              <el-input v-model="editForm.reviewer" placeholder="请输入审核人姓名" />
-            </el-form-item>
           </el-form>
 
           <!-- 只读模式 -->
@@ -128,7 +125,7 @@
       <!-- 右侧：只读信息 -->
       <div class="right-panel">
         <!-- 上下文与图谱 -->
-        <el-card class="context-card" v-if="currentItem.content.context || currentItem.content.graph">
+        <el-card class="context-card" v-if="currentItem.content.context?.edges && currentItem.content.context.edges.length > 0">
           <template #header>
             <div class="card-header">
               <el-icon><Connection /></el-icon>
@@ -136,39 +133,11 @@
             </div>
           </template>
 
-          <!-- 实体信息 -->
-          <div v-if="currentItem.content.context?.nodes && currentItem.content.context.nodes.length > 0" class="info-section">
-            <div class="section-title">
-              <el-icon><Collection /></el-icon>
-              <span>实体 ({{ currentItem.content.context.nodes.length }})</span>
-            </div>
-            <div class="entity-list">
-              <el-tag 
-                v-for="(node, idx) in currentItem.content.context.nodes" 
-                :key="`node-${idx}`"
-                class="entity-tag"
-                type="info"
-                effect="plain"
-                :title="getNodeTooltip(node)"
-              >
-                {{ getNodeName(node) }}
-              </el-tag>
-            </div>
-            <el-collapse v-if="hasNodeDescriptions(currentItem.content.context.nodes)" class="detail-collapse">
-              <el-collapse-item title="查看实体详情" name="entities">
-                <div v-for="(node, idx) in currentItem.content.context.nodes" :key="`desc-${idx}`" class="entity-detail">
-                  <strong>{{ getNodeName(node) }}:</strong>
-                  <span class="entity-desc-text">{{ getNodeDescription(node) || '无描述' }}</span>
-                </div>
-              </el-collapse-item>
-            </el-collapse>
-          </div>
-
-          <!-- 关系信息 -->
+          <!-- 关系图谱 -->
           <div v-if="currentItem.content.context?.edges && currentItem.content.context.edges.length > 0" class="info-section">
             <div class="section-title">
               <el-icon><Share /></el-icon>
-              <span>关系 ({{ currentItem.content.context.edges.length }})</span>
+              <span>关系图谱 ({{ currentItem.content.context.edges.length }})</span>
             </div>
             <div class="relation-list">
               <div 
@@ -183,28 +152,10 @@
               </div>
             </div>
           </div>
-
-          <!-- 图谱结构 -->
-          <div v-if="currentItem.content.graph" class="info-section">
-            <div class="section-title">图谱结构</div>
-            <div class="graph-info">
-              <div class="info-item" v-if="currentItem.content.graph.entity_count">
-                <strong>实体数量:</strong> {{ currentItem.content.graph.entity_count }}
-              </div>
-              <div class="info-item" v-if="currentItem.content.graph.relationship_count">
-                <strong>关系数量:</strong> {{ currentItem.content.graph.relationship_count }}
-              </div>
-            </div>
-            <el-collapse class="detail-collapse">
-              <el-collapse-item title="查看完整图谱结构 (JSON)" name="graph">
-                <pre class="graph-content">{{ JSON.stringify(currentItem.content.graph, null, 2) }}</pre>
-              </el-collapse-item>
-            </el-collapse>
-          </div>
         </el-card>
 
         <!-- 来源信息 -->
-        <el-card class="source-card" v-if="currentItem.content.source_chunks || currentItem.content.source_documents">
+        <el-card class="source-card">
           <template #header>
             <div class="card-header">
               <el-icon><Document /></el-icon>
@@ -212,112 +163,65 @@
             </div>
           </template>
 
-          <!-- 来源Chunks -->
-          <div v-if="currentItem.content.source_chunks && currentItem.content.source_chunks.length > 0" class="info-section">
-            <div class="section-title">来源文本块 ({{ currentItem.content.source_chunks.length }})</div>
-            <el-collapse>
-              <el-collapse-item 
-                v-for="(chunk, idx) in currentItem.content.source_chunks" 
-                :key="`chunk-${idx}`"
-                :title="`文本块 ${idx + 1}: ${chunk.chunk_id || '未知'}`"
-                :name="`chunk-${idx}`"
-              >
-                <div class="chunk-detail">
-                  <div class="detail-row">
-                    <strong>Chunk ID:</strong> {{ chunk.chunk_id }}
-                  </div>
-                  <div class="detail-row">
-                    <strong>类型:</strong> {{ chunk.type }}
-                  </div>
-                  <div class="detail-row" v-if="chunk.language">
-                    <strong>语言:</strong> {{ chunk.language }}
-                  </div>
-                  <div class="detail-row" v-if="chunk.length">
-                    <strong>长度:</strong> {{ chunk.length }} tokens
-                  </div>
-                  <div class="detail-row" v-if="chunk.full_doc_id">
-                    <strong>来源文档ID:</strong> {{ chunk.full_doc_id }}
-                  </div>
-                  <div class="detail-row" v-if="chunk.content">
-                    <strong>内容:</strong>
-                    <div class="chunk-content">{{ chunk.content }}</div>
-                  </div>
+          <!-- 展示chunks原文内容 -->
+          <div v-if="currentItem.content.source_chunks && currentItem.content.source_chunks.length > 0" class="chunks-content">
+            <div 
+              v-for="(chunk, idx) in currentItem.content.source_chunks" 
+              :key="`chunk-${idx}`"
+              class="chunk-item"
+            >
+              <div class="chunk-header">
+                <div class="chunk-title">
+                  <el-icon><Document /></el-icon>
+                  <span>文本块 {{ idx + 1 }}</span>
+                  <el-tag size="small" type="info" v-if="chunk.chunk_id" style="margin-left: 8px;">
+                    {{ chunk.chunk_id }}
+                  </el-tag>
                 </div>
-              </el-collapse-item>
-            </el-collapse>
-          </div>
-
-          <!-- 来源文档 -->
-          <div v-if="currentItem.content.source_documents && currentItem.content.source_documents.length > 0" class="info-section">
-            <div class="section-title">来源文档 ({{ currentItem.content.source_documents.length }})</div>
-            <el-collapse>
-              <el-collapse-item 
-                v-for="(doc, idx) in currentItem.content.source_documents" 
-                :key="`doc-${idx}`"
-                :title="`文档 ${idx + 1}: ${doc.doc_id || '未知'}`"
-                :name="`doc-${idx}`"
-              >
-                <div class="doc-detail">
-                  <div class="detail-row">
-                    <strong>文档ID:</strong> {{ doc.doc_id }}
-                  </div>
-                  <div class="detail-row">
-                    <strong>类型:</strong> {{ doc.type }}
-                  </div>
-                  <div class="detail-row" v-if="doc.content_preview">
-                    <strong>内容预览:</strong>
-                    <div class="doc-content">{{ doc.content_preview }}...</div>
-                  </div>
-                  <div class="detail-row" v-if="doc.metadata && Object.keys(doc.metadata).length > 0">
-                    <strong>元数据:</strong>
-                    <pre class="metadata-content">{{ JSON.stringify(doc.metadata, null, 2) }}</pre>
-                  </div>
+                <div class="chunk-meta" v-if="chunk.type || chunk.language || chunk.length">
+                  <span v-if="chunk.type" class="meta-item">类型: {{ chunk.type }}</span>
+                  <span v-if="chunk.language" class="meta-item">语言: {{ chunk.language }}</span>
+                  <span v-if="chunk.length" class="meta-item">长度: {{ chunk.length }} tokens</span>
                 </div>
-              </el-collapse-item>
-            </el-collapse>
+              </div>
+              <div class="chunk-text" v-if="chunk.content">
+                {{ chunk.content }}
+              </div>
+              <div class="chunk-text empty" v-else>
+                暂无内容
+              </div>
+            </div>
           </div>
-        </el-card>
-
-        <!-- 元数据 -->
-        <el-card class="metadata-card" v-if="currentItem.content.metadata">
-          <template #header>
-            <div class="card-header">
-              <el-icon><InfoFilled /></el-icon>
-              <span>元数据</span>
-            </div>
-          </template>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="生成模式" v-if="currentItem.content.metadata.generation_mode">
-              {{ currentItem.content.metadata.generation_mode }}
-            </el-descriptions-item>
-            <el-descriptions-item label="批次大小" v-if="currentItem.content.metadata.batch_size">
-              {{ currentItem.content.metadata.batch_size }}
-            </el-descriptions-item>
-            <el-descriptions-item label="包含Chunks" v-if="currentItem.content.metadata.has_chunks !== undefined">
-              {{ currentItem.content.metadata.has_chunks ? '是' : '否' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="包含文档" v-if="currentItem.content.metadata.has_documents !== undefined">
-              {{ currentItem.content.metadata.has_documents ? '是' : '否' }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-
-        <!-- 完整JSON -->
-        <el-card class="json-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon><DocumentCopy /></el-icon>
-              <span>完整数据 (JSON)</span>
-            </div>
-          </template>
-          <el-collapse>
-            <el-collapse-item title="展开查看完整 JSON 数据" name="full-json">
-              <pre class="json-content">{{ JSON.stringify(currentItem.content, null, 2) }}</pre>
-            </el-collapse-item>
-          </el-collapse>
+          <div v-else class="empty-chunks">
+            <el-empty description="暂无来源信息" :image-size="80" />
+          </div>
         </el-card>
       </div>
     </div>
+
+    <!-- 文档内容弹窗 -->
+    <el-dialog
+      v-model="documentDialogVisible"
+      title="原文档内容"
+      width="80%"
+      :close-on-click-modal="false"
+    >
+      <div v-if="currentDocument" class="document-content">
+        <div class="doc-header">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="文档ID">{{ currentDocument.doc_id || currentDocument.chunk_id || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="类型">{{ currentDocument.type || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="语言" v-if="currentDocument.language">{{ currentDocument.language }}</el-descriptions-item>
+            <el-descriptions-item label="长度" v-if="currentDocument.length">{{ currentDocument.length }} tokens</el-descriptions-item>
+            <el-descriptions-item label="来源文档ID" v-if="currentDocument.full_doc_id" :span="2">{{ currentDocument.full_doc_id }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+        <div class="doc-body">
+          <div class="content-label">文档内容：</div>
+          <div class="content-text">{{ getDocumentFullContent(currentDocument) }}</div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -326,21 +230,21 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataItem } from '@/api/types'
 import api from '@/api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElDialog } from 'element-plus'
 import {
   ArrowLeft,
   Edit,
   Connection,
   Collection,
   Share,
-  Document,
-  InfoFilled,
-  DocumentCopy
+  Document
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const taskId = route.params.id as string
 const itemId = route.params.itemId as string
 
@@ -373,9 +277,12 @@ const editForm = ref({
   instruction: '',
   input: '',
   output: '',
-  comment: '',
-  reviewer: ''
+  comment: ''
 })
+
+// 文档内容弹窗
+const documentDialogVisible = ref(false)
+const currentDocument = ref<any>(null)
 
 // 加载数据
 const loadData = async () => {
@@ -390,8 +297,7 @@ const loadData = async () => {
           instruction: item.content.instruction || '',
           input: item.content.input || '',
           output: item.content.output || '',
-          comment: item.review_comment || '',
-          reviewer: item.reviewer || ''
+          comment: item.review_comment || ''
         }
       } else {
         ElMessage.error('数据项不存在')
@@ -418,8 +324,7 @@ const handleCancel = () => {
       instruction: currentItem.value.content.instruction || '',
       input: currentItem.value.content.input || '',
       output: currentItem.value.content.output || '',
-      comment: currentItem.value.review_comment || '',
-      reviewer: currentItem.value.reviewer || ''
+      comment: currentItem.value.review_comment || ''
     }
   }
   isEditing.value = false
@@ -442,7 +347,7 @@ const handleSave = async () => {
       item_id: currentItem.value.item_id,
       review_status: 'modified',
       review_comment: editForm.value.comment,
-      reviewer: editForm.value.reviewer || '手动审核',
+      reviewer: authStore.user?.username || '未知用户',
       modified_content: modifiedContent
     })
 
@@ -468,7 +373,7 @@ const handleApprove = async () => {
       task_id: taskId,
       item_id: currentItem.value.item_id,
       review_status: 'approved',
-      reviewer: '手动审核'
+      reviewer: authStore.user?.username || '未知用户'
     })
 
     if (response.success) {
@@ -492,7 +397,7 @@ const handleReject = async () => {
       task_id: taskId,
       item_id: currentItem.value.item_id,
       review_status: 'rejected',
-      reviewer: '手动审核'
+      reviewer: authStore.user?.username || '未知用户'
     })
 
     if (response.success) {
@@ -557,6 +462,46 @@ const getEdgeDescription = (edge: any): string => {
   if (typeof edge === 'object' && edge.description) return edge.description
   if (typeof edge === 'object' && edge.relation) return edge.relation
   return ''
+}
+
+// 显示文档内容
+const showDocumentContent = (doc: any) => {
+  currentDocument.value = doc
+  documentDialogVisible.value = true
+}
+
+// 显示chunk内容
+const showChunkContent = (chunk: any) => {
+  // 将chunk转换为类似文档的格式显示
+  currentDocument.value = {
+    doc_id: chunk.chunk_id || '未知',
+    type: chunk.type || '文本块',
+    content: chunk.content || '',
+    full_doc_id: chunk.full_doc_id || '',
+    chunk_id: chunk.chunk_id,
+    language: chunk.language,
+    length: chunk.length
+  }
+  documentDialogVisible.value = true
+}
+
+// 获取文档完整内容
+const getDocumentFullContent = (doc: any): string => {
+  // 如果有完整内容，直接返回
+  if (doc.content && doc.content.length > 200) return doc.content
+  // 如果有预览内容，返回预览
+  if (doc.content_preview) {
+    // 如果预览内容以...结尾，说明是截断的，尝试获取完整内容
+    if (doc.content_preview.endsWith('...')) {
+      return doc.content_preview + '\n\n（注：此为预览内容，完整内容可能需要从存储中获取）'
+    }
+    return doc.content_preview
+  }
+  // 如果是chunk，显示chunk内容
+  if (doc.chunk_id && doc.content) {
+    return doc.content
+  }
+  return '暂无内容'
 }
 
 onMounted(() => {
@@ -808,17 +753,136 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.json-content {
+.entity-relation-section {
+  margin-bottom: 20px;
+}
+
+.entity-relation-section:last-child {
+  margin-bottom: 0;
+}
+
+.subsection-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #606266;
+}
+
+.document-links,
+.chunk-links {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.doc-link,
+.chunk-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
   background-color: #f5f7fa;
-  padding: 15px;
   border-radius: 4px;
-  font-size: 13px;
-  line-height: 1.6;
-  overflow-x: auto;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.doc-link:hover,
+.chunk-link:hover {
+  background-color: #e4e7ed;
+  color: #409eff;
+}
+
+.document-content {
+  padding: 20px 0;
+}
+
+.doc-header {
+  margin-bottom: 20px;
+}
+
+.doc-body {
+  margin-top: 20px;
+}
+
+.content-label {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #303133;
+}
+
+.content-text {
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
   white-space: pre-wrap;
   word-wrap: break-word;
+  line-height: 1.8;
   max-height: 500px;
   overflow-y: auto;
+  color: #606266;
+}
+
+.chunks-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chunk-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.chunk-header {
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.chunk-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
+.chunk-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+}
+
+.chunk-text {
+  padding: 16px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.8;
+  color: #606266;
+  background-color: #ffffff;
+}
+
+.chunk-text.empty {
+  color: #909399;
+  font-style: italic;
+}
+
+.empty-chunks {
+  padding: 40px 0;
+  text-align: center;
 }
 
 /* 响应式布局 */

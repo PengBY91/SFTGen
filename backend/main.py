@@ -13,5 +13,13 @@ from backend.app import app
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    # 增加超时和 keepalive 配置，避免 IncompleteRead 错误
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        timeout_keep_alive=300,  # 保持连接300秒
+        timeout_graceful_shutdown=10  # 优雅关闭超时10秒
+    )
 

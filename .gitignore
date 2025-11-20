@@ -37,6 +37,8 @@ ENV/
 *.swp
 *.swo
 *~
+test_data/
+tasks/
 
 # OS
 .DS_Store

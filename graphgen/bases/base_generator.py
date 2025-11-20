@@ -22,12 +22,40 @@ async def _add_context_and_source_info(
     """
     nodes, edges = batch
     
-    # Collect chunk IDs and document IDs from nodes
+    def _normalize_ids(raw_value):
+        """将 chunk/doc id 统一整理成列表"""
+        if not raw_value:
+            return []
+        values = []
+        if isinstance(raw_value, (list, tuple, set)):
+            values.extend(raw_value)
+        else:
+            values.append(raw_value)
+        normalized = []
+        for value in values:
+            if not value:
+                continue
+            if isinstance(value, str):
+                parts = [v.strip() for v in value.split("<SEP>") if v.strip()]
+                if parts:
+                    normalized.extend(parts)
+                else:
+                    normalized.append(value.strip())
+            else:
+                normalized.append(str(value))
+        return normalized
+
+    # Collect chunk IDs and document IDs from nodes / edges
     chunk_ids = set()
     doc_ids = set()
     for node_id, node_data in nodes:
-        chunk_id = node_data.get('chunk_id')
-        if chunk_id:
+        chunk_or_source = node_data.get("chunk_id") or node_data.get("source_id")
+        for chunk_id in _normalize_ids(chunk_or_source):
+            chunk_ids.add(chunk_id)
+    for edge in edges:
+        edge_data = edge[2] if len(edge) > 2 else {}
+        chunk_or_source = edge_data.get("chunk_id") or edge_data.get("source_id")
+        for chunk_id in _normalize_ids(chunk_or_source):
             chunk_ids.add(chunk_id)
     
     # Get chunk information
@@ -46,8 +74,8 @@ async def _add_context_and_source_info(
                         "language": chunk_data.get("language", ""),
                     }
                     doc_id = chunk_data.get("full_doc_id")
-                    if doc_id:
-                        doc_ids.add(doc_id)
+                    for did in _normalize_ids(doc_id):
+                        doc_ids.add(did)
             except Exception:
                 pass
     

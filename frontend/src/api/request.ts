@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 // 创建 axios 实例
 const instance: AxiosInstance = axios.create({
   baseURL: '/api',
-  timeout: 60000,
+  timeout: 300000, // 增加到5分钟，用于处理大文件上传和长时间任务
   headers: {
     'Content-Type': 'application/json'
   }
@@ -39,11 +39,19 @@ instance.interceptors.response.use(
       if (url.includes('/auth/me')) {
         return Promise.reject(error)
       }
+      // 处理 IncompleteRead 错误（连接中断）
+      if (error.message.includes('IncompleteRead') || error.message.includes('Connection broken')) {
+        console.error('Connection interrupted:', url, error.message)
+        ElMessage.error('连接中断，请检查网络连接或稍后重试')
+        return Promise.reject(error)
+      }
       // 其他网络错误，显示提示但不强制跳转
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
         console.warn('Request timeout:', url)
+        ElMessage.error('请求超时，请稍后重试')
       } else if (error.message.includes('Network Error')) {
         console.warn('Network error - backend may not be running:', url)
+        ElMessage.error('网络错误，请检查后端服务是否运行')
       }
       return Promise.reject(error)
     }

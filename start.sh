@@ -57,7 +57,8 @@ activate_environment() {
 # 启动后端服务
 start_backend() {
     print_message "启动 FastAPI 后端服务..."
-    nohup uvicorn backend.app:app --host 0.0.0.0 --port 8000 > .backend.log 2>&1 &
+    # 增加超时和 keepalive 配置，避免 IncompleteRead 错误
+    nohup uvicorn backend.app:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 300 --timeout-graceful-shutdown 10 > .backend.log 2>&1 &
     BACKEND_PID=$!
     echo $BACKEND_PID > .backend.pid
     sleep 1
