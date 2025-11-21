@@ -15,6 +15,8 @@ from .format import (
 from .hash import compute_args_hash, compute_content_hash, compute_mm_hash
 from .loop import create_event_loop
 from .batch_request_manager import BatchRequestManager, batch_generate_answers
+from .prompt_cache import PromptCache
+from .adaptive_batch_manager import AdaptiveBatchRequestManager
 from .run_concurrent import run_concurrent
 from .temperature_scheduler import TemperatureScheduler
 from .wrap import async_to_sync_method

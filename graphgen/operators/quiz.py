@@ -53,11 +53,10 @@ async def quiz(
 
                 # 使用批量管理器或直接调用
                 if batch_manager:
-                    # 对于批量请求，需要临时设置temperature
-                    # 由于批量管理器不支持per-request参数，这里直接调用
-                    # 或者可以创建一个带temperature的包装器
-                    new_description = await synth_llm_client.generate_answer(
-                        prompt, temperature=1
+                    # 使用批量管理器，支持per-request参数（如temperature）
+                    new_description = await batch_manager.add_request(
+                        prompt,
+                        extra_params={"temperature": 1}
                     )
                 else:
                     new_description = await synth_llm_client.generate_answer(

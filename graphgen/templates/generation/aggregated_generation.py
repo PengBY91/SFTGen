@@ -219,15 +219,126 @@ QUESTION_GENERATION_ZH: str = """下面提供了一个问题的答案，请生�
 问题：
 """
 
+# 合并的 Aggregated 提示词（一次性生成重述文本和问题）
+AGGREGATED_COMBINED_EN = """You are an NLP expert responsible for generating a logically structured and coherent rephrased version of the text based on ENTITIES and RELATIONSHIPS provided below, and then generating a relevant question based on the rephrased text.
+
+---Goal---
+1. Generate a rephrased version of the text that conveys the same meaning as the original entity and relationship descriptions, while:
+   - Following a clear logical flow and structure
+   - Establishing proper cause-and-effect relationships
+   - Ensuring temporal and sequential consistency
+   - Creating smooth transitions between ideas using conjunctions and appropriate linking words
+
+2. Generate a relevant question that corresponds to the rephrased text (which serves as the answer).
+
+---Instructions---
+1. Analyze the provided ENTITIES and RELATIONSHIPS carefully to identify:
+   - Key concepts and their hierarchies
+   - Temporal sequences and chronological order
+   - Cause-and-effect relationships
+   - Dependencies between different elements
+
+2. Organize the information in a logical sequence by:
+   - Starting with foundational concepts
+   - Building up to more complex relationships
+   - Grouping related ideas together
+   - Creating clear transitions between sections
+
+3. Rephrase the text while maintaining:
+   - Logical flow and progression
+   - Clear connections between ideas
+   - Proper context and background
+   - Coherent narrative structure
+
+4. Generate a question that:
+   - Corresponds to the rephrased text (answer)
+   - Is clear and specific
+   - Can be answered using the rephrased text
+
+---Output Format---
+Rephrased Text:
+[Your rephrased text here]
+
+Question:
+[Your question here]
+
+---Input---
+################
+-ENTITIES-
+################
+{entities}
+
+################
+-RELATIONSHIPS-
+################
+{relationships}
+"""
+
+AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的实体和关系生成逻辑结构清晰且连贯的文本重述版本，然后基于重述文本生成相关问题。
+
+---目标---
+1. 生成文本的重述版本，使其传达与原始实体和关系描述相同的含义，同时：
+   - 遵循清晰的逻辑流和结构
+   - 建立适当的因果关系
+   - 确保时间和顺序的一致性
+   - 使用连词和适当的连接词创造流畅的过渡
+
+2. 生成一个与重述文本（作为答案）对应的问题。
+
+---说明---
+1. 仔细分析提供的实体和关系，以识别：
+   - 关键概念及其层级关系
+   - 时间序列和时间顺序
+   - 因果关系
+   - 不同元素之间的依赖关系
+
+2. 通过以下方式将信息组织成逻辑顺序：
+   - 从基础概念开始
+   - 逐步建立更复杂的关系
+   - 将相关的想法分组在一起
+   - 在各部分之间创建清晰的过渡
+
+3. 重述文本时保持：
+   - 逻辑流畅
+   - 概念之间的清晰联系
+   - 适当的上下文和背景
+   - 连贯的叙述结构
+
+4. 生成问题时确保：
+   - 与重述文本（答案）对应
+   - 清晰具体
+   - 可以用重述文本回答
+
+---输出格式---
+重述文本:
+[你的重述文本]
+
+问题:
+[你的问题]
+
+---输入---
+################
+-实体-
+################
+{entities}
+
+################
+-关系-
+################
+{relationships}
+"""
+
 AGGREGATED_GENERATION_PROMPT = {
     "en": {
         "ANSWER_REPHRASING": ANSWER_REPHRASING_EN + REQUIREMENT_EN,
         "ANSWER_REPHRASING_CONTEXT": ANSWER_REPHRASING_CONTEXT_EN + REQUIREMENT_EN,
         "QUESTION_GENERATION": QUESTION_GENERATION_EN,
+        "AGGREGATED_COMBINED": AGGREGATED_COMBINED_EN,  # 新增：合并模式
     },
     "zh": {
         "ANSWER_REPHRASING": ANSWER_REPHRASING_ZH + REQUIREMENT_ZH,
         "ANSWER_REPHRASING_CONTEXT": ANSWER_REPHRASING_CONTEXT_ZH + REQUIREMENT_ZH,
         "QUESTION_GENERATION": QUESTION_GENERATION_ZH,
+        "AGGREGATED_COMBINED": AGGREGATED_COMBINED_ZH,  # 新增：合并模式
     },
 }

@@ -11,6 +11,7 @@ batch_process/
 dist/
 downloads/
 eggs/
+*.txt
 .eggs/
 lib/
 lib64/

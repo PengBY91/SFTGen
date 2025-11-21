@@ -184,13 +184,130 @@ Input:
 Output:
 """
 
+# 合并的 CoT 提示词（一次性生成问题和答案）
+COT_COMBINED_EN = """You are a "meta-reasoning architect" and a "CoT data generator". 
+Your task is to design a Chain-of-Thought (CoT) reasoning path template AND generate a complete CoT answer based on the provided knowledge graph.
+
+Chain-of-Thought (CoT) means that when answering a complex question, the intermediate reasoning steps are explicitly written out one by one, making the reasoning process transparent and traceable instead of giving only the final answer.
+
+--- Steps ---
+1. Entity Recognition
+   - Accurately recognize entity information in the [Entities:] section, including entity names and descriptions.
+
+2. Relationship Recognition
+   - Accurately recognize relationship information in the [Relationships:] section, including source_entity_name, target_entity_name, and relationship descriptions.
+
+3. Graph Structure Understanding
+   - Correctly associate the source entity name in the relationship information with the entity information.
+   - Reconstruct the graph structure based on the provided relationship information.
+
+4. Question Design
+   - Design a question around the "core theme" expressed by the knowledge graph.
+   - The question must be verifiable directly within the graph through entities, relationships, or attributes; avoid subjective judgments.
+   - The question should allow the model to think sufficiently, fully utilizing the entities and relationships in the graph, avoiding overly simple or irrelevant questions.
+
+5. Reasoning-Path Design
+   - Output a **blueprint that any later model can directly execute**.
+   - Keep steps minimal: each step solves one indivisible sub-problem.
+
+6. CoT Answer Generation
+   - Generate a complete CoT answer following the reasoning path.
+   - Each step completes a single, indivisible sub-task and is naturally connected, avoiding abrupt transition words.
+   - Do not use ordered lists or numbering.
+
+--- Constraints ---
+1. Use English as the output language.
+2. Do not describe your thinking process; output only the question, reasoning path, and answer.
+3. Avoid using stop words and overly common words in the reasoning path.
+4. Do not include specific numerical values or conclusions in the reasoning path, and DO NOT describe meaningless operations like "Identify the entity" or "Identify the relationship".
+
+--- Output Format ---
+Question:
+[Your question here]
+
+Reasoning-Path Design:
+[Your reasoning path template here]
+
+Answer:
+[Your complete CoT answer following the reasoning path]
+
+--- Real Data ---
+Input:
+[Entities:]:
+{entities}
+
+[Relationships:]:
+{relationships}
+
+Output:
+"""
+
+COT_COMBINED_ZH = """你是一位"元推理架构师"和"CoT数据生成器"。
+你的任务是设计一条可复用、可泛化的 CoT 推理路径模板，并基于提供的知识图谱生成完整的 CoT 答案。
+
+CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推理步骤一步一步显式写出来，使推理过程透明、可追溯，而不是直接给出最终答案。
+
+---步骤---
+1. 实体识别
+   - 准确地识别[Entities:]章节中的实体信息，包括实体名、实体描述信息。
+
+2. 关系识别
+   - 准确地识别[Relationships:]章节中的关系信息，包括来源实体名、目标实体名、关系描述信息。
+
+3. 图结构理解
+   - 正确地将关系信息中的来源实体名与实体信息关联。
+   - 根据提供的关系信息还原出图结构。
+
+4. 问题设计
+   - 围绕知识图谱所表达的"核心主题"设计一个问题。
+   - 问题必须能在图谱内部通过实体、关系或属性直接验证；避免主观判断。
+   - 问题应该能够模型足够的思考，充分利用图谱中的实体和关系，避免过于简单或无关的问题。
+
+5. 推理路径生成
+   - 根据问题设计一个**可被后续模型直接执行的推理蓝图**。
+   - 保持步骤最小化：每一步只解决一个"不可分割"的子问题。
+
+6. CoT答案生成
+   - 生成一个完整的CoT答案，遵循推理路径。
+   - 每一步只完成一个不可分割的子任务，并用自然语言衔接，但是要避免生硬的连接词。
+   - 不要使用有序列表或编号。
+
+---约束条件---
+1. 使用中文作为输出语言。
+2. 不要在回答中描述你的思考过程，直接给出问题、推理路径和答案。
+3. 推理路径中避免使用停用词和过于常见的词汇。
+4. 推理路径中不要出现具体数值或结论，不要出现"识别实体"、"识别关系"这类无意义的操作描述。
+
+---输出格式---
+问题：
+[你的问题]
+
+推理路径设计：
+[你的推理路径模板]
+
+答案：
+[遵循推理路径的完整CoT答案]
+
+---真实数据---
+输入:
+[Entities:]:
+{entities}
+
+[Relationships:]:
+{relationships}
+
+输出:
+"""
+
 COT_GENERATION_PROMPT = {
     "en": {
         "COT_GENERATION": COT_GENERATION_EN,
         "COT_TEMPLATE_DESIGN": COT_TEMPLATE_DESIGN_EN,
+        "COT_COMBINED": COT_COMBINED_EN,  # 新增：合并模式
     },
     "zh": {
         "COT_GENERATION": COT_GENERATION_ZH,
         "COT_TEMPLATE_DESIGN": COT_TEMPLATE_DESIGN_ZH,
+        "COT_COMBINED": COT_COMBINED_ZH,  # 新增：合并模式
     },
 }

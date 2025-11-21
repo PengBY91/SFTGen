@@ -110,11 +110,14 @@
         </el-table-column>
         <el-table-column label="生成模式" min-width="100">
           <template #default="{ row }">
-            <div class="content-preview">
-              <div v-if="row.content.instruction" class="preview-line">
-                <span class="text-content">{{ row.content.mode }}</span>
-              </div>
-            </div>
+            <el-tag 
+              v-if="getGenerationMode(row)" 
+              type="info" 
+              size="small"
+            >
+              {{ getGenerationMode(row) }}
+            </el-tag>
+            <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
         <el-table-column label="审核状态" width="120">
@@ -289,6 +292,23 @@ const refreshData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 获取生成模式（从多个可能的位置）
+const getGenerationMode = (row: DataItem): string => {
+  // 优先从 content.mode 获取
+  if (row.content?.mode) {
+    return row.content.mode
+  }
+  // 其次从 content.metadata.generation_mode 获取
+  if (row.content?.metadata?.generation_mode) {
+    return row.content.metadata.generation_mode
+  }
+  // 最后从顶层 mode 获取（如果存在）
+  if ((row as any).mode) {
+    return (row as any).mode
+  }
+  return ''
 }
 
 // 截断文本

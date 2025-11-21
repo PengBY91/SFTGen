@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from graphgen.graphgen import GraphGen
 from graphgen.models import OpenAIClient, Tokenizer
 from graphgen.models.llm.limitter import RPM, TPM
-from graphgen.utils import set_logger
+from graphgen.utils import set_logger, logger
 from webui.task_manager import task_manager, TaskStatus
 from webui.utils import setup_workspace, cleanup_workspace
 from backend.schemas import TaskConfig
@@ -258,6 +258,16 @@ class TaskProcessor:
                 "mode_ratios": mode_ratios,
             },
         }
+        
+        # 记录配置信息用于调试
+        qa_limit = getattr(config, "qa_pair_limit", None)
+        if qa_limit:
+            logger.info(
+                "[TaskProcessor] Target QA pairs configured: %d, Mode: %s, Mode ratios: %s",
+                qa_limit, mode, mode_ratios
+            )
+        else:
+            logger.info("[TaskProcessor] No QA pair limit configured (unlimited generation)")
     
     def _build_env(self, config: TaskConfig) -> Dict[str, Any]:
         """构建环境变量字典"""

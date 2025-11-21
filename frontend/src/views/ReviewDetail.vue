@@ -103,8 +103,8 @@
                 {{ STATUS_TEXT_MAP[currentItem.review_status] || currentItem.review_status }}
               </el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="生成模式" v-if="currentItem.content.mode">
-              <el-tag type="info">{{ currentItem.content.mode }}</el-tag>
+            <el-descriptions-item label="生成模式" v-if="getGenerationMode(currentItem)">
+              <el-tag type="info">{{ getGenerationMode(currentItem) }}</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="自动评分" v-if="currentItem.auto_review_score">
               {{ (currentItem.auto_review_score * 100).toFixed(0) }}%
@@ -419,6 +419,24 @@ const goBack = () => {
 // 格式化日期
 const formatDate = (date: string) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 获取生成模式（从多个可能的位置）
+const getGenerationMode = (item: DataItem | null): string => {
+  if (!item) return ''
+  // 优先从 content.mode 获取
+  if (item.content?.mode) {
+    return item.content.mode
+  }
+  // 其次从 content.metadata.generation_mode 获取
+  if (item.content?.metadata?.generation_mode) {
+    return item.content.metadata.generation_mode
+  }
+  // 最后从顶层 mode 获取（如果存在）
+  if ((item as any).mode) {
+    return (item as any).mode
+  }
+  return ''
 }
 
 // 辅助函数
