@@ -562,6 +562,23 @@ GraphGen.generate()
       return results
   ```
 
+**C. 动态并发控制**
+- **位置**：`graphgen/models/llm/limitter.py` 和 `graphgen/utils/run_concurrent.py`
+- **建议**：根据LLM服务的速率限制动态调整并发数，避免超载
+  ```python
+  # 在 run_concurrent 中集成动态并发控制
+  class AdaptiveConcurrencyController:
+      def __init__(self, initial_concurrency=10):
+          self.current_concurrency = initial_concurrency
+          self.success_rate = 1.0
+      
+      async def adjust_concurrency(self, success_rate):
+          if success_rate < 0.8:
+              self.current_concurrency = max(1, int(self.current_concurrency * 0.8))
+          elif success_rate > 0.95:
+              self.current_concurrency = min(100, int(self.current_concurrency * 1.1))
+  ```
+
 #### 2. 缓存与存储优化
 
 **现状分析**：
@@ -613,6 +630,20 @@ GraphGen.generate()
           return communities
   ```
 
+**C. 分布式存储**
+- **位置**：`graphgen/models/storage/`
+- **建议**：对于超大规模图谱，改用图数据库（如Neo4j）或分布式存储（如Redis），提升查询效率
+  ```python
+  # 实现 Neo4jStorage 作为 BaseGraphStorage 的实现
+  class Neo4jStorage(BaseGraphStorage):
+      def __init__(self, uri, user, password):
+          self.driver = GraphDatabase.driver(uri, auth=(user, password))
+      
+      async def add_node(self, node_id, data):
+          # 使用Cypher查询语言高效存储
+          query = "CREATE (n:Entity {id: $id, data: $data})"
+          # ...
+  ```
 
 #### 3. 算法与策略优化
 
@@ -623,6 +654,40 @@ GraphGen.generate()
 
 **优化建议**：
 
+**A. 启发式采样**
+- **位置**：`graphgen/models/partitioner/ece_partitioner.py::_grow_community()`
+- **建议**：在子图扩展时，使用优先级队列（基于损失值）替代简单BFS，优先扩展高价值边
+  ```python
+  import heapq
+  
+  async def _grow_community_priority_queue(self, seed_unit):
+      # 使用优先级队列替代普通队列
+      priority_queue = []
+      heapq.heappush(priority_queue, (-seed_unit[-1]["loss"], seed_unit))
+      
+      while priority_queue:
+          neg_loss, unit = heapq.heappop(priority_queue)
+          # 处理单元并添加邻居到优先级队列
+          neighbors = self._get_neighbors(unit)
+          for nb in neighbors:
+              priority = -nb[-1]["loss"]  # 负号因为heapq是最小堆
+              heapq.heappush(priority_queue, (priority, nb))
+  ```
+
+**B. 提前终止**
+- **位置**：`graphgen/models/partitioner/ece_partitioner.py::_grow_community()`
+- **建议**：在子图生长过程中，若当前子图已满足质量阈值（如损失降低到一定水平），提前终止扩展
+  ```python
+  async def _grow_community(self, seed_unit):
+      # ... 现有代码 ...
+      while not queue.empty():
+          # 计算当前社区的平均损失
+          avg_loss = sum(e[-1].get("loss", 0) for e in community_edges.values()) / len(community_edges)
+          if avg_loss < quality_threshold:  # 质量阈值
+              logger.info("Quality threshold reached, early stopping")
+              break
+          # ... 继续扩展 ...
+  ```
 
 **C. 近似算法**
 - **位置**：`graphgen/models/partitioner/`
@@ -662,6 +727,9 @@ GraphGen.generate()
       return base_size
   ```
 
+**B. GPU内存优化**
+- **位置**：训练阶段（不在当前代码库中，但建议在SFT阶段使用）
+- **建议**：在SFT阶段使用梯度累积和混合精度训练，减少显存占用
 
 **C. 流水线处理**
 - **位置**：`graphgen/graphgen.py`
@@ -683,6 +751,60 @@ GraphGen.generate()
 
 生成质量优化聚焦于**事实准确性、多样性、长尾覆盖和逻辑一致性**。
 
+#### 1. 事实准确性提升
+
+**现状分析**：
+- 依赖LLM提取和生成（见`graphgen/models/kg_builder/`和`graphgen/models/generator/`）
+- 可能仍有幻觉问题
+
+**优化建议**：
+
+**A. 多源验证**
+- **位置**：`graphgen/operators/search/search_all.py`
+- **建议**：在实体丰富模块中，集成更多外部知识源（如领域知识库、学术论文），交叉验证生成内容
+  ```python
+  async def multi_source_verify(entity_name, extracted_info):
+      """多源验证实体信息"""
+      sources = []
+      # 1. 搜索Wikipedia
+      wiki_result = await search_wikipedia(entity_name)
+      # 2. 搜索领域知识库
+      domain_result = await search_domain_kb(entity_name)
+      # 3. 交叉验证
+      verified_info = cross_validate(extracted_info, [wiki_result, domain_result])
+      return verified_info
+  ```
+
+**B. 一致性检查**
+- **位置**：`graphgen/models/generator/` 和 `graphgen/evaluate.py`
+- **建议**：在QA生成后，使用小规模判别模型（如DeBERTa）对生成答案进行事实一致性评分，过滤低分样本
+  ```python
+  class FactualConsistencyChecker:
+      def __init__(self, model_path):
+          self.model = load_model(model_path)  # DeBERTa等判别模型
+      
+      async def check_consistency(self, qa_pair, source_context):
+          """检查QA对与源上下文的一致性"""
+          score = self.model.predict(qa_pair, source_context)
+          return score > 0.7  # 阈值可调
+  ```
+
+**C. 迭代修正**
+- **位置**：`graphgen/graphgen.py::generate()`
+- **建议**：引入反馈循环，使用训练后的模型对生成数据重新评分，迭代优化
+  ```python
+  async def iterative_refinement(self, qa_pairs, max_iterations=3):
+      """迭代优化QA对质量"""
+      for iteration in range(max_iterations):
+          scores = await self.evaluate_qa_pairs(qa_pairs)
+          low_quality = [qa for qa, score in zip(qa_pairs, scores) if score < 0.6]
+          if not low_quality:
+              break
+          # 重新生成低质量样本
+          refined = await self.regenerate_qa_pairs(low_quality)
+          qa_pairs = [r if r in refined else qa for qa, r in zip(qa_pairs, refined)]
+      return qa_pairs
+  ```
 
 #### 2. 多样性与风格控制
 
@@ -726,6 +848,9 @@ GraphGen.generate()
           self.step += 1
   ```
 
+**C. 对抗训练**
+- **位置**：训练阶段（不在当前代码库中）
+- **建议**：在SFT阶段引入对抗样本，增强模型对多样化输入的鲁棒性
 
 #### 3. 长尾知识覆盖
 
@@ -735,6 +860,21 @@ GraphGen.generate()
 
 **优化建议**：
 
+**A. 主动学习**
+- **位置**：`graphgen/models/partitioner/ece_partitioner.py`
+- **建议**：在理解评估阶段，不仅基于损失排序，还结合信息增益（如熵值）选择样本
+  ```python
+  def calculate_information_gain(edge, current_knowledge):
+      """计算选择该边的信息增益"""
+      loss = edge[-1]["loss"]
+      entropy = calculate_entropy(edge, current_knowledge)
+      information_gain = loss * entropy  # 综合损失和熵
+      return information_gain
+  
+  def _sort_units_by_information_gain(self, units):
+      """基于信息增益排序"""
+      return sorted(units, key=lambda x: calculate_information_gain(x, self.current_knowledge), reverse=True)
+  ```
 
 **B. 合成增强**
 - **位置**：`graphgen/operators/quiz.py`
@@ -795,6 +935,19 @@ GraphGen.generate()
   """
   ```
 
+**B. 多跳推理验证**
+- **位置**：`graphgen/models/generator/multi_hop_generator.py`
+- **建议**：对多跳QA，使用规则引擎或符号逻辑验证答案的推理路径是否正确
+  ```python
+  class MultiHopValidator:
+      def validate_reasoning_path(self, question, answer, knowledge_graph):
+          """验证多跳推理路径"""
+          # 提取推理路径中的实体和关系
+          path = extract_reasoning_path(question, answer)
+          # 验证路径在知识图谱中是否存在
+          is_valid = verify_path_in_kg(path, knowledge_graph)
+          return is_valid
+  ```
 
 **C. 一致性损失**
 - **位置**：训练阶段（不在当前代码库中）
@@ -802,6 +955,29 @@ GraphGen.generate()
 
 ---
 
+### 三、实施优先级建议
+
+基于**实施难度**和**预期收益**，建议按以下优先级实施优化：
+
+#### 高优先级（低难度、高收益）
+1. ✅ **批量LLM调用优化** - 显著减少网络延迟，实施简单
+2. ✅ **多模板采样** - 提升多样性，代码改动小
+3. ✅ **实体/关系缓存** - 避免重复提取，节省成本
+4. ✅ **动态参数调整** - 提升适应性，实施简单
+
+#### 中优先级（中等难度、中等收益）
+1. ⚠️ **启发式采样（优先级队列）** - 提升采样质量，需要算法优化
+2. ⚠️ **多源验证** - 提升准确性，需要集成外部API
+3. ⚠️ **一致性检查** - 过滤低质量样本，需要训练判别模型
+4. ⚠️ **提前终止** - 提升效率，需要质量阈值设计
+
+#### 低优先级（高难度、长期收益）
+1. 🔄 **分布式存储** - 需要架构重构
+2. 🔄 **主动学习** - 需要复杂的信息增益计算
+3. 🔄 **迭代修正** - 需要反馈循环设计
+4. 🔄 **流水线处理** - 需要增量处理机制
+
+---
 
 ### 四、总结
 
