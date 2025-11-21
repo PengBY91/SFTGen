@@ -187,6 +187,7 @@ cd ..
 
 ## 📚 文档
 
+- [GraphGen框架详细解析](docs/FRAMEWORK_ANALYSIS.md) - 框架四步工作流程、技术实现细节、代码对应关系
 - [认证系统使用指南](docs/AUTH_GUIDE.md) - 用户登录、权限管理、角色说明
 - [数据审核功能指南](docs/REVIEW_GUIDE.md) - 人工审核、自动审核、批量操作
 - [任务故障排查指南](docs/TASK_TROUBLESHOOTING.md) - 常见问题和解决方案
