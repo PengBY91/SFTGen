@@ -216,11 +216,21 @@ class TaskProcessor:
             "split": {
                 "chunk_size": config.chunk_size,
                 "chunk_overlap": config.chunk_overlap,
+                # 优化配置
+                "dynamic_chunk_size": getattr(config, "dynamic_chunk_size", False),
+                "enable_extraction_cache": getattr(config, "enable_extraction_cache", True),
+                "enable_batch_requests": getattr(config, "enable_batch_requests", True),
+                "batch_size": getattr(config, "batch_size", 10),
+                "max_wait_time": getattr(config, "max_wait_time", 0.5),
             },
             "search": {"enabled": False},
             "quiz_and_judge": {
                 "enabled": config.if_trainee_model,
                 "quiz_samples": config.quiz_samples,
+                # 批量请求配置
+                "enable_batch_requests": getattr(config, "enable_batch_requests", True),
+                "batch_size": getattr(config, "batch_size", 10),
+                "max_wait_time": getattr(config, "max_wait_time", 0.5),
             },
             "partition": {
                 "method": config.partition_method,
@@ -229,6 +239,13 @@ class TaskProcessor:
             "generate": {
                 "mode": mode,
                 "data_format": config.data_format,
+                # 优化配置
+                "use_multi_template": getattr(config, "use_multi_template", True),
+                "template_seed": getattr(config, "template_seed", None),
+                # 批量请求配置
+                "enable_batch_requests": getattr(config, "enable_batch_requests", True),
+                "batch_size": getattr(config, "batch_size", 10),
+                "max_wait_time": getattr(config, "max_wait_time", 0.5),
             },
         }
     

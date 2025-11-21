@@ -144,9 +144,9 @@ class BaseGenerator(ABC):
     def __init__(self, llm_client: BaseLLMClient):
         self.llm_client = llm_client
 
-    @staticmethod
     @abstractmethod
     def build_prompt(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """Build prompt for LLM based on the given batch"""

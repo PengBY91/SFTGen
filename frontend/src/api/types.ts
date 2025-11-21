@@ -24,6 +24,15 @@ export interface TaskConfig {
   data_format?: string
   rpm?: number
   tpm?: number
+  // 优化配置
+  enable_extraction_cache?: boolean  // 启用提取缓存
+  dynamic_chunk_size?: boolean  // 动态chunk大小调整
+  use_multi_template?: boolean  // 多模板采样
+  template_seed?: number  // 模板随机种子（可选）
+  // 批量请求配置
+  enable_batch_requests?: boolean  // 启用批量请求
+  batch_size?: number  // 批量大小
+  max_wait_time?: number  // 最大等待时间（秒）
 }
 
 export interface TaskInfo {

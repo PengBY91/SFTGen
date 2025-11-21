@@ -35,6 +35,15 @@ class TaskConfig(BaseModel):
     data_format: str = "Alpaca"
     rpm: int = 1000
     tpm: int = 50000
+    # 优化配置
+    enable_extraction_cache: bool = True  # 启用提取缓存（默认开启）
+    dynamic_chunk_size: bool = False  # 动态chunk大小调整（默认关闭）
+    use_multi_template: bool = True  # 多模板采样（默认开启）
+    template_seed: Optional[int] = None  # 模板随机种子（可选）
+    # 批量请求配置
+    enable_batch_requests: bool = True  # 启用批量请求（默认开启）
+    batch_size: int = 10  # 批量大小
+    max_wait_time: float = 0.5  # 最大等待时间（秒）
 
 
 class APITestRequest(BaseModel):

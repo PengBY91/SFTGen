@@ -94,6 +94,13 @@
               />
               <span class="form-item-tip">文本块之间的重叠大小（token数）</span>
             </el-form-item>
+
+            <el-divider content-position="left">优化选项</el-divider>
+
+            <el-form-item label="动态 Chunk Size 调整">
+              <el-switch v-model="config.dynamic_chunk_size" />
+              <span class="form-item-tip">根据文本长度和复杂度自动调整chunk大小，提升分块质量</span>
+            </el-form-item>
           </el-collapse-item>
 
           <!-- 分区配置 -->
@@ -180,6 +187,23 @@
                 <el-radio label="ChatML">ChatML</el-radio>
               </el-radio-group>
             </el-form-item>
+
+            <el-divider content-position="left">生成优化选项</el-divider>
+
+            <el-form-item label="多模板采样">
+              <el-switch v-model="config.use_multi_template" />
+              <span class="form-item-tip">为原子QA生成使用多个模板变体，提升生成数据多样性（推荐开启）</span>
+            </el-form-item>
+
+            <el-form-item label="模板随机种子">
+              <el-input-number 
+                v-model="config.template_seed" 
+                :min="0" 
+                :max="999999"
+                :disabled="!config.use_multi_template"
+              />
+              <span class="form-item-tip">设置随机种子以保证可复现性（可选，留空则随机）</span>
+            </el-form-item>
           </el-collapse-item>
 
           <!-- 限流配置 -->
@@ -204,6 +228,69 @@
               />
             </el-form-item>
           </el-collapse-item>
+
+          <!-- 性能优化配置 -->
+          <el-collapse-item title="性能优化配置" name="optimization">
+            <el-alert
+              title="优化功能说明"
+              type="info"
+              :closable="false"
+              style="margin-bottom: 20px"
+            >
+              <template #default>
+                <div style="font-size: 12px; line-height: 1.6">
+                  <p>以下优化功能可以显著提升处理效率和生成质量：</p>
+                  <ul style="margin: 8px 0; padding-left: 20px">
+                    <li><strong>提取缓存</strong>：避免重复提取相同内容，节省30-50%的API调用</li>
+                    <li><strong>动态Chunk大小</strong>：根据文本特性自动调整，提升分块质量</li>
+                    <li><strong>多模板采样</strong>：提升生成数据多样性20-30%</li>
+                  </ul>
+                </div>
+              </template>
+            </el-alert>
+
+            <el-form-item label="启用提取缓存">
+              <el-switch v-model="config.enable_extraction_cache" />
+              <span class="form-item-tip">缓存知识提取结果，避免重复提取相同内容（推荐开启）</span>
+            </el-form-item>
+
+            <el-form-item label="动态 Chunk Size 调整">
+              <el-switch v-model="config.dynamic_chunk_size" />
+              <span class="form-item-tip">根据文本长度和复杂度自动调整chunk大小（在"文本切分配置"中也可设置）</span>
+            </el-form-item>
+
+            <el-form-item label="多模板采样">
+              <el-switch v-model="config.use_multi_template" />
+              <span class="form-item-tip">为原子QA生成使用多个模板变体，提升多样性（在"数据生成配置"中也可设置）</span>
+            </el-form-item>
+
+            <el-divider content-position="left">批量请求优化</el-divider>
+
+            <el-form-item label="启用批量请求">
+              <el-switch v-model="config.enable_batch_requests" />
+              <span class="form-item-tip">将多个LLM请求合并处理，减少网络延迟（推荐开启）</span>
+            </el-form-item>
+
+            <el-form-item label="批量大小" v-if="config.enable_batch_requests">
+              <el-input-number 
+                v-model="config.batch_size" 
+                :min="1" 
+                :max="50"
+              />
+              <span class="form-item-tip">每批处理的请求数量，建议值：5-20</span>
+            </el-form-item>
+
+            <el-form-item label="最大等待时间（秒）" v-if="config.enable_batch_requests">
+              <el-slider
+                v-model="config.max_wait_time"
+                :min="0.1"
+                :max="2.0"
+                :step="0.1"
+                show-input
+              />
+              <span class="form-item-tip">超过此时间即使未达到批量大小也会发送请求</span>
+            </el-form-item>
+          </el-collapse-item>
         </el-collapse>
       </el-form>
     </el-card>
@@ -225,7 +312,7 @@ if (typeof initialConfig.mode === 'string') {
   initialConfig.mode = ['aggregated']
 }
 const config = ref(initialConfig)
-const activeNames = ref(['model', 'split', 'partition', 'generate', 'rate_limit'])
+const activeNames = ref(['model', 'split', 'partition', 'generate', 'rate_limit', 'optimization'])
 const saving = ref(false)
 const testing = ref(false)
 

@@ -13,8 +13,8 @@ class AggregatedGenerator(BaseGenerator):
     2. question generation: Generate relevant questions based on the rephrased text.
     """
 
-    @staticmethod
     def build_prompt(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """

@@ -83,6 +83,10 @@ class GraphGen:
             os.path.join(self.working_dir, "data", "graphgen", f"{self.unique_id}"),
             namespace="qa",
         )
+        # Cache storage for extraction results (optimization)
+        self.extraction_cache_storage: JsonKVStorage = JsonKVStorage(
+            self.working_dir, namespace="extraction_cache"
+        )
 
     @async_to_sync_method
     async def insert(self, read_config: Dict, split_config: Dict):
@@ -119,6 +123,7 @@ class GraphGen:
                 split_config["chunk_overlap"],
                 self.tokenizer_instance,
                 self.progress_bar,
+                dynamic_chunk_size=split_config.get("dynamic_chunk_size", False),
             )
 
             _add_chunk_keys = await self.chunks_storage.filter_keys(
@@ -145,6 +150,11 @@ class GraphGen:
                     for k, v in inserting_chunks.items()
                 ],
                 progress_bar=self.progress_bar,
+                cache_storage=self.extraction_cache_storage,
+                enable_cache=split_config.get("enable_extraction_cache", True),
+                enable_batch_requests=split_config.get("enable_batch_requests", True),
+                batch_size=split_config.get("batch_size", 10),
+                max_wait_time=split_config.get("max_wait_time", 0.5),
             )
             if not _add_entities_and_relations:
                 logger.warning("No entities or relations extracted from text chunks")
@@ -167,6 +177,7 @@ class GraphGen:
                 split_config["chunk_overlap"],
                 self.tokenizer_instance,
                 self.progress_bar,
+                dynamic_chunk_size=split_config.get("dynamic_chunk_size", False),
             )
 
             _add_chunk_keys = await self.chunks_storage.filter_keys(
@@ -192,6 +203,11 @@ class GraphGen:
                 kg_instance=self.graph_storage,
                 chunks=[Chunk.from_dict(k, v) for k, v in inserting_chunks.items()],
                 progress_bar=self.progress_bar,
+                cache_storage=self.extraction_cache_storage,
+                enable_cache=split_config.get("enable_extraction_cache", True),
+                enable_batch_requests=split_config.get("enable_batch_requests", True),
+                batch_size=split_config.get("batch_size", 10),
+                max_wait_time=split_config.get("max_wait_time", 0.5),
             )
             if not _add_entities_and_relations:
                 logger.warning(
@@ -267,6 +283,9 @@ class GraphGen:
             self.graph_storage,
             self.rephrase_storage,
             max_samples,
+            enable_batch_requests=quiz_and_judge_config.get("enable_batch_requests", True),
+            batch_size=quiz_and_judge_config.get("batch_size", 10),
+            max_wait_time=quiz_and_judge_config.get("max_wait_time", 0.5),
         )
 
         # TODO： assert trainee_llm_client is valid before judge
@@ -316,5 +335,6 @@ class GraphGen:
         await self.graph_storage.clear()
         await self.rephrase_storage.drop()
         await self.qa_storage.drop()
+        await self.extraction_cache_storage.drop()
 
         logger.info("All caches are cleared")

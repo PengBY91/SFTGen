@@ -26,7 +26,74 @@ TEMPLATE_ZH: str = """给定一个文本段落。你的任务是根据该文本�
 """
 
 
+# Alternative templates for diversity
+TEMPLATE_EN_V2: str = """Based on the following text, create a question-answer pair that captures key information.
+
+Guidelines:
+- The question should be clear and specific
+- The answer must be factual and based solely on the text
+- Focus on important details or relationships mentioned
+
+Text:
+{context}
+
+Generate one QA pair following this format:
+Question: [your question]
+Answer: [your answer]
+"""
+
+TEMPLATE_EN_V3: str = """Extract the most important information from this text and formulate it as a question-answer pair.
+
+Requirements:
+- Question should test understanding of the main content
+- Answer should be concise and accurate
+- Ensure the QA pair is informative
+
+Text content:
+{context}
+
+Provide your QA pair:
+Question: 
+Answer: 
+"""
+
+TEMPLATE_ZH_V2: str = """根据以下文本，创建一个捕获关键信息的问答对。
+
+要求：
+- 问题应清晰具体
+- 答案必须基于文本事实
+- 关注文本中提到的重要细节或关系
+
+文本：
+{context}
+
+生成一个问答对，格式如下：
+问题：[你的问题]
+答案：[你的答案]
+"""
+
+TEMPLATE_ZH_V3: str = """从这段文本中提取最重要的信息，并将其表述为一个问答对。
+
+要求：
+- 问题应测试对主要内容的理解
+- 答案应简洁准确
+- 确保问答对具有信息量
+
+文本内容：
+{context}
+
+提供你的问答对：
+问题：
+答案：
+"""
+
 ATOMIC_GENERATION_PROMPT = {
     "en": TEMPLATE_EN,
     "zh": TEMPLATE_ZH,
+}
+
+# Multiple template variants for diversity
+ATOMIC_GENERATION_PROMPT_VARIANTS = {
+    "en": [TEMPLATE_EN, TEMPLATE_EN_V2, TEMPLATE_EN_V3],
+    "zh": [TEMPLATE_ZH, TEMPLATE_ZH_V2, TEMPLATE_ZH_V3],
 }

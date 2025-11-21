@@ -1,11 +1,13 @@
 import asyncio
 from collections import defaultdict
+from typing import Optional
 
 from tqdm.asyncio import tqdm as tqdm_async
 
 from graphgen.models import JsonKVStorage, NetworkXStorage, OpenAIClient
 from graphgen.templates import DESCRIPTION_REPHRASING_PROMPT
 from graphgen.utils import detect_main_language, logger
+from graphgen.utils.batch_request_manager import BatchRequestManager, batch_generate_answers
 
 
 async def quiz(
@@ -14,6 +16,9 @@ async def quiz(
     rephrase_storage: JsonKVStorage,
     max_samples: int = 1,
     max_concurrent: int = 1000,
+    enable_batch_requests: bool = True,
+    batch_size: int = 10,
+    max_wait_time: float = 0.5,
 ) -> JsonKVStorage:
     """
     Get all edges and quiz them
@@ -27,6 +32,16 @@ async def quiz(
     """
 
     semaphore = asyncio.Semaphore(max_concurrent)
+    
+    # 创建批量请求管理器
+    batch_manager = None
+    if enable_batch_requests:
+        batch_manager = BatchRequestManager(
+            llm_client=synth_llm_client,
+            batch_size=batch_size,
+            max_wait_time=max_wait_time,
+            enable_batching=True
+        )
 
     async def _process_single_quiz(des: str, prompt: str, gt: str):
         async with semaphore:
@@ -36,9 +51,18 @@ async def quiz(
                 if descriptions:
                     return None
 
-                new_description = await synth_llm_client.generate_answer(
-                    prompt, temperature=1
-                )
+                # 使用批量管理器或直接调用
+                if batch_manager:
+                    # 对于批量请求，需要临时设置temperature
+                    # 由于批量管理器不支持per-request参数，这里直接调用
+                    # 或者可以创建一个带temperature的包装器
+                    new_description = await synth_llm_client.generate_answer(
+                        prompt, temperature=1
+                    )
+                else:
+                    new_description = await synth_llm_client.generate_answer(
+                        prompt, temperature=1
+                    )
                 return {des: [(new_description, gt)]}
 
             except Exception as e:  # pylint: disable=broad-except
@@ -115,6 +139,10 @@ async def quiz(
             for key, value in new_result.items():
                 results[key].extend(value)
 
+    # 刷新批量管理器，确保所有请求完成
+    if batch_manager:
+        await batch_manager.flush()
+    
     for key, value in results.items():
         results[key] = list(set(value))
         await rephrase_storage.upsert({key: results[key]})

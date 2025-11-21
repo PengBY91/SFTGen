@@ -43,7 +43,11 @@ class MMKGBuilder(LightRAGKGBuilder):
                 chunk_id=chunk_id,
                 chunk_text=image_caption,
             )
-            result = await self.llm_client.generate_answer(prompt_template)
+            # 使用批量管理器（如果启用）
+            if self.batch_manager:
+                result = await self.batch_manager.add_request(prompt_template)
+            else:
+                result = await self.llm_client.generate_answer(prompt_template)
             logger.debug("Image chunk extraction result: %s", result)
 
             # parse the result

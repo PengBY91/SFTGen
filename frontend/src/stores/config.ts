@@ -31,7 +31,16 @@ export const useConfigStore = defineStore('config', () => {
     mode: ['aggregated'],  // 改为数组格式，默认选择 aggregated
     data_format: 'Alpaca',
     rpm: 1000,
-    tpm: 50000
+    tpm: 50000,
+    // 优化配置
+    enable_extraction_cache: true,  // 默认启用提取缓存
+    dynamic_chunk_size: false,  // 默认关闭动态chunk大小
+    use_multi_template: true,  // 默认启用多模板采样
+    template_seed: undefined,  // 可选，用于可复现性
+    // 批量请求配置
+    enable_batch_requests: true,  // 默认启用批量请求
+    batch_size: 10,  // 默认批量大小
+    max_wait_time: 0.5  // 默认最大等待时间（秒）
   })
 
   // 加载配置
@@ -97,7 +106,16 @@ export const useConfigStore = defineStore('config', () => {
       mode: ['aggregated'],  // 改为数组格式，默认选择 aggregated
       data_format: 'Alpaca',
       rpm: 1000,
-      tpm: 50000
+      tpm: 50000,
+      // 优化配置
+      enable_extraction_cache: true,
+      dynamic_chunk_size: false,
+      use_multi_template: true,
+      template_seed: undefined,
+      // 批量请求配置
+      enable_batch_requests: true,
+      batch_size: 10,
+      max_wait_time: 0.5
     }
   }
 
