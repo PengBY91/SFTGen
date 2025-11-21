@@ -33,6 +33,12 @@ export interface TaskConfig {
   enable_batch_requests?: boolean  // 启用批量请求
   batch_size?: number  // 批量大小
   max_wait_time?: number  // 最大等待时间（秒）
+  // 生成数量与比例配置
+  qa_pair_limit?: number  // 目标QA数量
+  qa_ratio_atomic?: number  // Atomic占比（百分比）
+  qa_ratio_aggregated?: number  // Aggregated占比
+  qa_ratio_multi_hop?: number  // Multi-hop占比
+  qa_ratio_cot?: number  // CoT占比
 }
 
 export interface TaskInfo {

@@ -209,6 +209,13 @@ class TaskProcessor:
                     # 或者可以提示用户，这里选择使用 "all" 以生成所有模式的数据
                     mode = "all"
         
+        mode_ratios = {
+            "atomic": float(getattr(config, "qa_ratio_atomic", 25.0)),
+            "aggregated": float(getattr(config, "qa_ratio_aggregated", 25.0)),
+            "multi_hop": float(getattr(config, "qa_ratio_multi_hop", 25.0)),
+            "cot": float(getattr(config, "qa_ratio_cot", 25.0)),
+        }
+
         return {
             "if_trainee_model": config.if_trainee_model,
             "tokenizer": config.tokenizer,
@@ -246,6 +253,9 @@ class TaskProcessor:
                 "enable_batch_requests": getattr(config, "enable_batch_requests", True),
                 "batch_size": getattr(config, "batch_size", 10),
                 "max_wait_time": getattr(config, "max_wait_time", 0.5),
+                # 生成数量与比例
+                "target_qa_pairs": getattr(config, "qa_pair_limit", None),
+                "mode_ratios": mode_ratios,
             },
         }
     

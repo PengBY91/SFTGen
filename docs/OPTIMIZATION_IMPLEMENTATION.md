@@ -39,6 +39,39 @@ split_config = {
 
 ---
 
+### 2. ✅ 问答数量与类型比例配置
+
+**实现位置**：
+- `backend/schemas.py` / `backend/core/task_processor.py` - 新增任务配置字段及传递逻辑
+- `graphgen/operators/generate/generate_qas.py` - 按目标数量与比例限制输出
+- `frontend/src/views/Config.vue` / `frontend/src/stores/config.ts` - 前端可视化配置入口
+
+**功能说明**：
+- 支持为单次任务设定目标问答数量（`qa_pair_limit`）
+- 当选择“生成全部类型”时，可为 Atomic / Aggregated / Multi-hop / CoT 配置占比
+- 生成器按照占比及总量自动裁剪，保证不同类型的平衡
+
+**使用方法**：
+```yaml
+generate:
+  mode: all
+  data_format: Alpaca
+  target_qa_pairs: 600          # 目标生成600条问答
+  mode_ratios:                  # 类型占比（单位：百分比）
+    atomic: 40
+    aggregated: 30
+    multi_hop: 20
+    cot: 10
+```
+前端 `/config` 页面同步提供输入框，并实时展示占比合计，方便调参。
+
+**技术细节**：
+- 允许按照百分比配置占比，内部会自动归一化
+- 剩余数量自动分配至最后一个类型，保证总量精确
+- 当目标数量为空或≤0时视为不限制输出
+
+---
+
 ### 2. ✅ 实体/关系缓存机制
 
 **实现位置**：

@@ -40,7 +40,13 @@ export const useConfigStore = defineStore('config', () => {
     // 批量请求配置
     enable_batch_requests: true,  // 默认启用批量请求
     batch_size: 10,  // 默认批量大小
-    max_wait_time: 0.5  // 默认最大等待时间（秒）
+    max_wait_time: 0.5,  // 默认最大等待时间（秒）
+    // 生成配置
+    qa_pair_limit: 200,  // 默认目标QA数量
+    qa_ratio_atomic: 25,
+    qa_ratio_aggregated: 25,
+    qa_ratio_multi_hop: 25,
+    qa_ratio_cot: 25
   })
 
   // 加载配置
@@ -115,7 +121,13 @@ export const useConfigStore = defineStore('config', () => {
       // 批量请求配置
       enable_batch_requests: true,
       batch_size: 10,
-      max_wait_time: 0.5
+      max_wait_time: 0.5,
+      // 生成配置
+      qa_pair_limit: 200,
+      qa_ratio_atomic: 25,
+      qa_ratio_aggregated: 25,
+      qa_ratio_multi_hop: 25,
+      qa_ratio_cot: 25
     }
   }
 

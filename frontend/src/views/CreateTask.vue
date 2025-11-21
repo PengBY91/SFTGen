@@ -230,6 +230,61 @@
             </el-radio-group>
           </el-form-item>
 
+          <el-divider content-position="left">数量与类型控制</el-divider>
+
+          <el-form-item label="目标问答数量">
+            <el-input-number
+              v-model="taskConfig.qa_pair_limit"
+              :min="0"
+              :max="20000"
+              :step="50"
+              controls-position="right"
+            />
+            <div class="form-item-tip">0 或留空表示不限制数量，建议根据训练需求设定目标值</div>
+          </el-form-item>
+
+          <el-form-item label="类型占比（%）">
+            <div class="qa-ratio-grid">
+              <div class="qa-ratio-item">
+                <span class="qa-ratio-label">Atomic</span>
+                <el-input-number
+                  v-model="taskConfig.qa_ratio_atomic"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                />
+              </div>
+              <div class="qa-ratio-item">
+                <span class="qa-ratio-label">Aggregated</span>
+                <el-input-number
+                  v-model="taskConfig.qa_ratio_aggregated"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                />
+              </div>
+              <div class="qa-ratio-item">
+                <span class="qa-ratio-label">Multi-hop</span>
+                <el-input-number
+                  v-model="taskConfig.qa_ratio_multi_hop"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                />
+              </div>
+              <div class="qa-ratio-item">
+                <span class="qa-ratio-label">CoT</span>
+                <el-input-number
+                  v-model="taskConfig.qa_ratio_cot"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                />
+              </div>
+            </div>
+            <div class="form-item-tip">当前占比合计：{{ ratioTotal }}%，建议接近 100%</div>
+          </el-form-item>
+
           <el-divider content-position="left">限流配置</el-divider>
 
           <el-form-item label="RPM">
@@ -327,6 +382,19 @@ if (typeof initialConfig.mode === 'string') {
   initialConfig.mode = ['aggregated']
 }
 const taskConfig = ref<TaskConfig>(initialConfig)
+const ratioTotal = computed(() => {
+  const ratios = [
+    Number(taskConfig.value.qa_ratio_atomic ?? 0),
+    Number(taskConfig.value.qa_ratio_aggregated ?? 0),
+    Number(taskConfig.value.qa_ratio_multi_hop ?? 0),
+    Number(taskConfig.value.qa_ratio_cot ?? 0)
+  ]
+  const total = ratios.reduce((sum, value) => {
+    const normalized = Number.isFinite(value) ? value : 0
+    return sum + normalized
+  }, 0)
+  return Math.round(total * 10) / 10
+})
 
 // 页面加载时从后端加载最新配置
 onMounted(async () => {
@@ -540,5 +608,24 @@ const submitTask = async () => {
 :deep(.el-checkbox) {
   display: block;
   margin: 10px 0;
+}
+
+.qa-ratio-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.qa-ratio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.qa-ratio-label {
+  font-size: 13px;
+  color: #606266;
+  min-width: 90px;
 }
 </style>

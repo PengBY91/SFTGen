@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 from graphgen.bases import BaseLLMClient
 from graphgen.models import (
@@ -37,12 +37,43 @@ async def generate_qas(
     mode = generation_config["mode"]
     logger.debug("[Generation] mode: %s, batches: %d", mode, len(batches))
     
+    def limit_results(items: list[dict[str, Any]], limit: Optional[int]) -> list[dict[str, Any]]:
+        if limit is None or limit <= 0:
+            return items if limit is None else []
+        return items[:limit]
+
+    def normalize_mode_ratios(ratios: Dict[str, Any], modes: list[str]) -> Dict[str, float]:
+        normalized = {}
+        for mode_name in modes:
+            value = ratios.get(mode_name, 0)
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                value = 0.0
+            normalized[mode_name] = max(0.0, value)
+        total = sum(normalized.values())
+        if total <= 0:
+            equal_ratio = 1.0 / len(modes) if modes else 0
+            return {mode_name: equal_ratio for mode_name in modes}
+        return {mode_name: normalized[mode_name] / total for mode_name in modes}
+
+    def parse_target_count(raw_value: Any) -> Optional[int]:
+        if raw_value in (None, "", False):
+            return None
+        try:
+            parsed = int(raw_value)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed > 0 else None
+
     # 获取优化配置
     use_multi_template = generation_config.get("use_multi_template", True)
     template_seed = generation_config.get("template_seed", None)
     enable_batch_requests = generation_config.get("enable_batch_requests", True)
     batch_size = generation_config.get("batch_size", 10)
     max_wait_time = generation_config.get("max_wait_time", 0.5)
+    target_qa_pairs = parse_target_count(generation_config.get("target_qa_pairs"))
+    mode_ratios_config = generation_config.get("mode_ratios") or {}
     
     # 创建批量LLM包装器（如果启用批量请求）
     actual_llm_client = llm_client
@@ -89,6 +120,23 @@ async def generate_qas(
             )
             tasks.append(task)
 
+        per_mode_limits: Dict[str, Optional[int]] = {}
+        generator_modes = [gen_mode for _, gen_mode in generators]
+        if target_qa_pairs:
+            ratio_map = normalize_mode_ratios(mode_ratios_config, generator_modes)
+            remaining = target_qa_pairs
+            for idx, gen_mode in enumerate(generator_modes):
+                if idx == len(generator_modes) - 1:
+                    limit = max(0, remaining)
+                else:
+                    ratio_value = ratio_map.get(gen_mode, 0)
+                    limit = max(0, int(round(target_qa_pairs * ratio_value)))
+                    limit = min(limit, remaining)
+                    remaining -= limit
+                per_mode_limits[gen_mode] = limit
+        else:
+            per_mode_limits = {gen_mode: None for gen_mode in generator_modes}
+
         # 并发执行所有任务
         results_list = await asyncio.gather(*tasks)
 
@@ -99,9 +147,14 @@ async def generate_qas(
                 results,
                 output_data_format=data_format
             )
+            per_mode_limit = per_mode_limits.get(gen_mode)
+            formatted_results = limit_results(formatted_results, per_mode_limit)
             for result in formatted_results:
                 result["mode"] = gen_mode
             all_results.extend(formatted_results)
+
+        if target_qa_pairs:
+            all_results = limit_results(all_results, target_qa_pairs)
 
         return all_results
     else:
@@ -143,6 +196,9 @@ async def generate_qas(
         results = generator.format_generation_results(
             results, output_data_format=data_format
         )
+
+        if target_qa_pairs:
+            results = limit_results(results, target_qa_pairs)
     
     # 刷新批量包装器，确保所有请求完成
     if batch_wrapper:

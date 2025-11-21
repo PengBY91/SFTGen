@@ -44,6 +44,12 @@ class TaskConfig(BaseModel):
     enable_batch_requests: bool = True  # 启用批量请求（默认开启）
     batch_size: int = 10  # 批量大小
     max_wait_time: float = 0.5  # 最大等待时间（秒）
+    # 生成数量与比例配置
+    qa_pair_limit: Optional[int] = None  # 目标生成QA数量（None表示不限制）
+    qa_ratio_atomic: float = 25.0  # Atomic 类型占比（百分比）
+    qa_ratio_aggregated: float = 25.0  # Aggregated 类型占比
+    qa_ratio_multi_hop: float = 25.0  # Multi-hop 类型占比
+    qa_ratio_cot: float = 25.0  # CoT 类型占比
 
 
 class APITestRequest(BaseModel):

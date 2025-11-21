@@ -188,6 +188,61 @@
               </el-radio-group>
             </el-form-item>
 
+            <el-divider content-position="left">数量与类型控制</el-divider>
+
+            <el-form-item label="目标问答数量">
+              <el-input-number
+                v-model="config.qa_pair_limit"
+                :min="0"
+                :max="20000"
+                :step="50"
+                controls-position="right"
+              />
+              <span class="form-item-tip">0 或留空表示不限制数量，建议根据训练需求设定目标值</span>
+            </el-form-item>
+
+            <el-form-item label="类型占比（%）">
+              <div class="qa-ratio-grid">
+                <div class="qa-ratio-item">
+                  <span class="qa-ratio-label">Atomic</span>
+                  <el-input-number
+                    v-model="config.qa_ratio_atomic"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                  />
+                </div>
+                <div class="qa-ratio-item">
+                  <span class="qa-ratio-label">Aggregated</span>
+                  <el-input-number
+                    v-model="config.qa_ratio_aggregated"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                  />
+                </div>
+                <div class="qa-ratio-item">
+                  <span class="qa-ratio-label">Multi-hop</span>
+                  <el-input-number
+                    v-model="config.qa_ratio_multi_hop"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                  />
+                </div>
+                <div class="qa-ratio-item">
+                  <span class="qa-ratio-label">CoT</span>
+                  <el-input-number
+                    v-model="config.qa_ratio_cot"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                  />
+                </div>
+              </div>
+              <span class="form-item-tip">当前占比合计：{{ ratioTotal }}%，建议接近 100%</span>
+            </el-form-item>
+
             <el-divider content-position="left">生成优化选项</el-divider>
 
             <el-form-item label="多模板采样">
@@ -298,7 +353,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useConfigStore } from '@/stores/config'
 import api from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -315,6 +370,20 @@ const config = ref(initialConfig)
 const activeNames = ref(['model', 'split', 'partition', 'generate', 'rate_limit', 'optimization'])
 const saving = ref(false)
 const testing = ref(false)
+
+const ratioTotal = computed(() => {
+  const ratios = [
+    Number(config.value.qa_ratio_atomic ?? 0),
+    Number(config.value.qa_ratio_aggregated ?? 0),
+    Number(config.value.qa_ratio_multi_hop ?? 0),
+    Number(config.value.qa_ratio_cot ?? 0)
+  ]
+  const total = ratios.reduce((sum, value) => {
+    const normalized = Number.isFinite(value) ? value : 0
+    return sum + normalized
+  }, 0)
+  return Math.round(total * 10) / 10
+})
 
 // 保存配置
 const handleSave = async () => {
@@ -429,6 +498,25 @@ onMounted(async () => {
   margin-left: 10px;
   font-size: 12px;
   color: #909399;
+}
+
+.qa-ratio-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.qa-ratio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.qa-ratio-label {
+  font-size: 13px;
+  color: #606266;
+  min-width: 90px;
 }
 
 :deep(.el-collapse-item__header) {
