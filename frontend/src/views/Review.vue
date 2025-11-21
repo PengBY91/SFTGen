@@ -89,13 +89,18 @@
         <el-table-column label="内容预览" min-width="400">
           <template #default="{ row }">
             <div class="content-preview">
-              <div v-if="row.content.instruction" class="preview-line">
+              <div v-if="getQuestion(row.content)" class="preview-line">
                 <strong>问题：</strong>
-                <span class="text-content">{{ row.content.instruction }}</span>
+                <span class="text-content">{{ getQuestion(row.content) }}</span>
               </div>
-              <div v-if="row.content.output" class="preview-line">
+              <!-- 显示 COT 推理路径 -->
+              <div v-if="getGenerationMode(row) === 'cot' && getReasoningPath(row.content)" class="preview-line">
+                <strong>推理路径：</strong>
+                <span class="text-content reasoning-path">{{ getReasoningPath(row.content) }}</span>
+              </div>
+              <div v-if="getAnswer(row.content)" class="preview-line">
                 <strong>答案：</strong>
-                <span class="text-content">{{ row.content.output }}</span>
+                <span class="text-content">{{ getAnswer(row.content) }}</span>
               </div>
               <!-- 显示上下文信息 -->
               <div v-if="row.content.context" class="context-info">
@@ -222,7 +227,7 @@ const STATUS_TYPE_MAP: Record<string, any> = {
   auto_approved: '',
   auto_rejected: 'info'
 }
-import type { DataItem, ReviewStats } from '@/api/types'
+import type { DataItem, ReviewStats, DataContent } from '@/api/types'
 import api from '@/api'
 import { ElMessage } from 'element-plus'
 import {
@@ -307,6 +312,60 @@ const getGenerationMode = (row: DataItem): string => {
   // 最后从顶层 mode 获取（如果存在）
   if ((row as any).mode) {
     return (row as any).mode
+  }
+  return ''
+}
+
+// 获取问题/指令内容（兼容不同数据格式）
+const getQuestion = (content: DataContent): string => {
+  // Alpaca 格式
+  if ('instruction' in content && content.instruction) {
+    return content.instruction
+  }
+  // Sharegpt 格式
+  if ('conversations' in content && Array.isArray(content.conversations)) {
+    const humanMsg = content.conversations.find(msg => msg.from === 'human')
+    if (humanMsg?.value) {
+      return humanMsg.value
+    }
+  }
+  // ChatML 格式
+  if ('messages' in content && Array.isArray(content.messages)) {
+    const userMsg = content.messages.find(msg => msg.role === 'user')
+    if (userMsg?.content) {
+      return userMsg.content
+    }
+  }
+  return ''
+}
+
+// 获取答案/输出内容（兼容不同数据格式）
+const getAnswer = (content: DataContent): string => {
+  // Alpaca 格式
+  if ('output' in content && content.output) {
+    return content.output
+  }
+  // Sharegpt 格式
+  if ('conversations' in content && Array.isArray(content.conversations)) {
+    const gptMsg = content.conversations.find(msg => msg.from === 'gpt')
+    if (gptMsg?.value) {
+      return gptMsg.value
+    }
+  }
+  // ChatML 格式
+  if ('messages' in content && Array.isArray(content.messages)) {
+    const assistantMsg = content.messages.find(msg => msg.role === 'assistant')
+    if (assistantMsg?.content) {
+      return assistantMsg.content
+    }
+  }
+  return ''
+}
+
+// 获取推理路径（COT 格式）
+const getReasoningPath = (content: DataContent): string => {
+  if ('reasoning_path' in content && content.reasoning_path) {
+    return content.reasoning_path
   }
   return ''
 }
@@ -554,6 +613,16 @@ onMounted(() => {
   white-space: normal;
   word-wrap: break-word;
   word-break: break-all;
+}
+
+.reasoning-path {
+  color: #409eff;
+  font-style: italic;
+  background-color: #ecf5ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 4px;
 }
 
 .context-info {

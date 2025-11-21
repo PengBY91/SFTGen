@@ -50,6 +50,20 @@
                 placeholder="请输入问题或指令"
               />
             </el-form-item>
+            <!-- 显示 COT 推理路径（只读） -->
+            <el-form-item 
+              v-if="getGenerationMode(currentItem) === 'cot' && currentItem.content.reasoning_path" 
+              label="推理路径"
+            >
+              <el-input
+                :model-value="currentItem.content.reasoning_path"
+                type="textarea"
+                :rows="3"
+                readonly
+                disabled
+                placeholder="推理路径（只读）"
+              />
+            </el-form-item>
             <el-form-item label="输入" v-if="currentItem.content.input">
               <el-input
                 v-model="editForm.input"
@@ -80,15 +94,20 @@
           <div v-else class="read-only-content">
             <div class="content-section">
               <div class="section-label">问题/指令</div>
-              <div class="section-content">{{ currentItem.content.instruction || '-' }}</div>
+              <div class="section-content">{{ getQuestion(currentItem.content) || '-' }}</div>
             </div>
-            <div class="content-section" v-if="currentItem.content.input">
+            <!-- 显示 COT 推理路径 -->
+            <div class="content-section" v-if="getGenerationMode(currentItem) === 'cot' && getReasoningPath(currentItem.content)">
+              <div class="section-label">推理路径</div>
+              <div class="section-content reasoning-path-content">{{ getReasoningPath(currentItem.content) }}</div>
+            </div>
+            <div class="content-section" v-if="'input' in currentItem.content && currentItem.content.input">
               <div class="section-label">输入</div>
               <div class="section-content">{{ currentItem.content.input }}</div>
             </div>
             <div class="content-section">
               <div class="section-label">输出/答案</div>
-              <div class="section-content">{{ currentItem.content.output || '-' }}</div>
+              <div class="section-content">{{ getAnswer(currentItem.content) || '-' }}</div>
             </div>
           </div>
         </el-card>
@@ -228,7 +247,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { DataItem } from '@/api/types'
+import type { DataItem, DataContent } from '@/api/types'
 import api from '@/api'
 import { ElMessage, ElDialog } from 'element-plus'
 import {
@@ -294,9 +313,9 @@ const loadData = async () => {
       if (item) {
         currentItem.value = item
         editForm.value = {
-          instruction: item.content.instruction || '',
-          input: item.content.input || '',
-          output: item.content.output || '',
+          instruction: getQuestion(item.content) || '',
+          input: ('input' in item.content ? item.content.input : '') || '',
+          output: getAnswer(item.content) || '',
           comment: item.review_comment || ''
         }
       } else {
@@ -321,9 +340,9 @@ const startEdit = () => {
 const handleCancel = () => {
   if (currentItem.value) {
     editForm.value = {
-      instruction: currentItem.value.content.instruction || '',
-      input: currentItem.value.content.input || '',
-      output: currentItem.value.content.output || '',
+      instruction: getQuestion(currentItem.value.content) || '',
+      input: ('input' in currentItem.value.content ? currentItem.value.content.input : '') || '',
+      output: getAnswer(currentItem.value.content) || '',
       comment: currentItem.value.review_comment || ''
     }
   }
@@ -435,6 +454,60 @@ const getGenerationMode = (item: DataItem | null): string => {
   // 最后从顶层 mode 获取（如果存在）
   if ((item as any).mode) {
     return (item as any).mode
+  }
+  return ''
+}
+
+// 获取问题/指令内容（兼容不同数据格式）
+const getQuestion = (content: DataContent): string => {
+  // Alpaca 格式
+  if ('instruction' in content && content.instruction) {
+    return content.instruction
+  }
+  // Sharegpt 格式
+  if ('conversations' in content && Array.isArray(content.conversations)) {
+    const humanMsg = content.conversations.find(msg => msg.from === 'human')
+    if (humanMsg?.value) {
+      return humanMsg.value
+    }
+  }
+  // ChatML 格式
+  if ('messages' in content && Array.isArray(content.messages)) {
+    const userMsg = content.messages.find(msg => msg.role === 'user')
+    if (userMsg?.content) {
+      return userMsg.content
+    }
+  }
+  return ''
+}
+
+// 获取答案/输出内容（兼容不同数据格式）
+const getAnswer = (content: DataContent): string => {
+  // Alpaca 格式
+  if ('output' in content && content.output) {
+    return content.output
+  }
+  // Sharegpt 格式
+  if ('conversations' in content && Array.isArray(content.conversations)) {
+    const gptMsg = content.conversations.find(msg => msg.from === 'gpt')
+    if (gptMsg?.value) {
+      return gptMsg.value
+    }
+  }
+  // ChatML 格式
+  if ('messages' in content && Array.isArray(content.messages)) {
+    const assistantMsg = content.messages.find(msg => msg.role === 'assistant')
+    if (assistantMsg?.content) {
+      return assistantMsg.content
+    }
+  }
+  return ''
+}
+
+// 获取推理路径（COT 格式）
+const getReasoningPath = (content: DataContent): string => {
+  if ('reasoning_path' in content && content.reasoning_path) {
+    return content.reasoning_path
   }
   return ''
 }
@@ -620,6 +693,13 @@ onMounted(() => {
   word-wrap: break-word;
   line-height: 1.8;
   color: #606266;
+}
+
+.reasoning-path-content {
+  background-color: #ecf5ff;
+  border-left: 3px solid #409eff;
+  color: #409eff;
+  font-style: italic;
 }
 
 .info-section {

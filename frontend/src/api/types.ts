@@ -90,17 +90,92 @@ export type ReviewStatus =
   | 'auto_approved' 
   | 'auto_rejected'
 
+// 不同数据格式的 content 结构
+export interface AlpacaContent {
+  instruction: string
+  input?: string
+  output: string
+  mode?: string
+  reasoning_path?: string  // COT 推理路径
+  context?: {
+    nodes?: Array<{ name: string; description?: string }>
+    edges?: Array<{ source: string; target: string; description?: string }>
+  }
+  graph?: {
+    entities?: string[]
+    relationships?: string[][]
+  }
+  source_chunks?: any[]
+  source_documents?: any[]
+  metadata?: {
+    generation_mode?: string
+    [key: string]: any
+  }
+  [key: string]: any
+}
+
+export interface SharegptContent {
+  conversations: Array<{
+    from: string
+    value: string
+  }>
+  mode?: string
+  reasoning_path?: string  // COT 推理路径
+  context?: {
+    nodes?: Array<{ name: string; description?: string }>
+    edges?: Array<{ source: string; target: string; description?: string }>
+  }
+  graph?: {
+    entities?: string[]
+    relationships?: string[][]
+  }
+  source_chunks?: any[]
+  source_documents?: any[]
+  metadata?: {
+    generation_mode?: string
+    [key: string]: any
+  }
+  [key: string]: any
+}
+
+export interface ChatMLContent {
+  messages: Array<{
+    role: string
+    content: string
+  }>
+  mode?: string
+  reasoning_path?: string  // COT 推理路径
+  context?: {
+    nodes?: Array<{ name: string; description?: string }>
+    edges?: Array<{ source: string; target: string; description?: string }>
+  }
+  graph?: {
+    entities?: string[]
+    relationships?: string[][]
+  }
+  source_chunks?: any[]
+  source_documents?: any[]
+  metadata?: {
+    generation_mode?: string
+    [key: string]: any
+  }
+  [key: string]: any
+}
+
+// 联合类型，支持所有数据格式
+export type DataContent = AlpacaContent | SharegptContent | ChatMLContent
+
 export interface DataItem {
   item_id: string
   task_id: string
-  content: Record<string, any>
+  content: DataContent
   review_status: ReviewStatus
   review_comment?: string
   reviewer?: string
   review_time?: string
   auto_review_score?: number
   auto_review_reason?: string
-  modified_content?: Record<string, any>
+  modified_content?: DataContent
 }
 
 export interface ReviewRequest {

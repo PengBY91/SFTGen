@@ -198,7 +198,8 @@ class BaseGenerator(ABC):
                     "instruction": v["question"],
                     "input": "",
                     "output": v["answer"],
-                    "mode": v.get("mode") or (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
+                    "mode": v.get("mode") if v.get("mode") is not None else (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
+                    "reasoning_path": v.get("reasoning_path", ""),  # 保留 COT 推理路径
                     "context": v.get("context", {}),
                     "graph": v.get("graph", {}),
                     "source_chunks": v.get("source_chunks", []),
@@ -215,7 +216,8 @@ class BaseGenerator(ABC):
                         {"from": "human", "value": v["question"]},
                         {"from": "gpt", "value": v["answer"]},
                     ],
-                    "mode": v.get("mode") or (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
+                    "mode": v.get("mode") if v.get("mode") is not None else (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
+                    "reasoning_path": v.get("reasoning_path", ""),  # 保留 COT 推理路径
                     "context": v.get("context", {}),
                     "graph": v.get("graph", {}),
                     "source_chunks": v.get("source_chunks", []),
@@ -232,7 +234,8 @@ class BaseGenerator(ABC):
                         {"role": "user", "content": v["question"]},
                         {"role": "assistant", "content": v["answer"]},
                     ],
-                    "mode": v.get("mode") or (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
+                    "mode": v.get("mode") if v.get("mode") is not None else (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
+                    "reasoning_path": v.get("reasoning_path", ""),  # 保留 COT 推理路径
                     "context": v.get("context", {}),
                     "graph": v.get("graph", {}),
                     "source_chunks": v.get("source_chunks", []),

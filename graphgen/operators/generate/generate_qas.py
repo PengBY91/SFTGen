@@ -186,7 +186,14 @@ async def generate_qas(
             per_mode_limit = per_mode_limits.get(gen_mode)
             formatted_results = limit_results(formatted_results, per_mode_limit)
             for result in formatted_results:
+                # 强制设置 mode 为当前生成模式，确保正确性
+                old_mode = result.get("mode")
                 result["mode"] = gen_mode
+                if old_mode and old_mode != gen_mode:
+                    logger.warning(
+                        "[Generation] Mode mismatch: expected %s, found %s in result, corrected to %s",
+                        gen_mode, old_mode, gen_mode
+                    )
             all_results.extend(formatted_results)
         
         # 结果去重（基于内容hash）
@@ -195,8 +202,25 @@ async def generate_qas(
             seen_hashes = set()
             deduplicated_results = []
             for result in all_results:
-                # 使用question的hash进行去重
-                question = result.get("instruction") or result.get("question") or result.get("input", "")
+                # 使用question的hash进行去重（兼容不同数据格式）
+                question = ""
+                # Alpaca 格式
+                if "instruction" in result:
+                    question = result.get("instruction", "")
+                # Sharegpt 格式
+                elif "conversations" in result and isinstance(result.get("conversations"), list):
+                    human_msg = next((msg for msg in result["conversations"] if msg.get("from") == "human"), None)
+                    if human_msg:
+                        question = human_msg.get("value", "")
+                # ChatML 格式
+                elif "messages" in result and isinstance(result.get("messages"), list):
+                    user_msg = next((msg for msg in result["messages"] if msg.get("role") == "user"), None)
+                    if user_msg:
+                        question = user_msg.get("content", "")
+                # 兼容旧格式
+                if not question:
+                    question = result.get("question") or result.get("input", "")
+                
                 if question:
                     question_hash = compute_content_hash(question)
                     if question_hash not in seen_hashes:
@@ -264,11 +288,18 @@ async def generate_qas(
             results, output_data_format=data_format
         )
         
-        # 为单个模式添加 mode 字段（如果还没有）
+        # 为单个模式添加 mode 字段（如果还没有或与预期不符）
         if mode != "all":
             for result in results:
-                if "mode" not in result or not result.get("mode"):
+                old_mode = result.get("mode")
+                # 如果 mode 不存在或与预期不符，强制设置为当前模式
+                if not old_mode or old_mode != mode:
                     result["mode"] = mode
+                    if old_mode and old_mode != mode:
+                        logger.warning(
+                            "[Generation] Mode mismatch in single mode: expected %s, found %s in result, corrected to %s",
+                            mode, old_mode, mode
+                        )
         
         # 结果去重（基于内容hash）
         enable_deduplication = generation_config.get("enable_deduplication", True)
@@ -276,8 +307,25 @@ async def generate_qas(
             seen_hashes = set()
             deduplicated_results = []
             for result in results:
-                # 使用question的hash进行去重
-                question = result.get("instruction") or result.get("question") or result.get("input", "")
+                # 使用question的hash进行去重（兼容不同数据格式）
+                question = ""
+                # Alpaca 格式
+                if "instruction" in result:
+                    question = result.get("instruction", "")
+                # Sharegpt 格式
+                elif "conversations" in result and isinstance(result.get("conversations"), list):
+                    human_msg = next((msg for msg in result["conversations"] if msg.get("from") == "human"), None)
+                    if human_msg:
+                        question = human_msg.get("value", "")
+                # ChatML 格式
+                elif "messages" in result and isinstance(result.get("messages"), list):
+                    user_msg = next((msg for msg in result["messages"] if msg.get("role") == "user"), None)
+                    if user_msg:
+                        question = user_msg.get("content", "")
+                # 兼容旧格式
+                if not question:
+                    question = result.get("question") or result.get("input", "")
+                
                 if question:
                     question_hash = compute_content_hash(question)
                     if question_hash not in seen_hashes:
