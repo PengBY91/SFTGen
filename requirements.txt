@@ -25,6 +25,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 pydantic[email]
 trafilatura
+transformers
 
 leidenalg
 igraph
