@@ -8,7 +8,7 @@ from graphgen.models import (
     RecursiveCharacterSplitter,
     Tokenizer,
 )
-from graphgen.utils import compute_content_hash, detect_main_language
+from graphgen.utils import compute_content_hash, detect_main_language, logger
 
 _MAPPING = {
     "en": RecursiveCharacterSplitter,

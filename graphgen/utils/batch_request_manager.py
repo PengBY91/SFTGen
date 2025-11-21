@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Callable, Awaitable, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict
 
-from graphgen.utils import logger
+from .log import logger
 
 
 @dataclass

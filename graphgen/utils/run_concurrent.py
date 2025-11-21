@@ -3,7 +3,7 @@ from typing import Awaitable, Callable, List, Optional, TypeVar, Any
 
 from tqdm.asyncio import tqdm as tqdm_async
 
-from graphgen.utils.log import logger
+from .log import logger
 
 T = TypeVar("T")
 R = TypeVar("R")
