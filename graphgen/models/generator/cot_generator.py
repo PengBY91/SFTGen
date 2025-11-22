@@ -16,8 +16,8 @@ class CoTGenerator(BaseGenerator):
         super().__init__(llm_client)
         self.use_combined_mode = use_combined_mode
     
-    @staticmethod
     def build_prompt(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """

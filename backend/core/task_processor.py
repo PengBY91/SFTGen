@@ -216,7 +216,7 @@ class TaskProcessor:
             "cot": float(getattr(config, "qa_ratio_cot", 25.0)),
         }
 
-        return {
+        result = {
             "if_trainee_model": config.if_trainee_model,
             "tokenizer": config.tokenizer,
             "read": {"input_file": input_file},
@@ -268,6 +268,8 @@ class TaskProcessor:
             )
         else:
             logger.info("[TaskProcessor] No QA pair limit configured (unlimited generation)")
+        
+        return result
     
     def _build_env(self, config: TaskConfig) -> Dict[str, Any]:
         """构建环境变量字典"""

@@ -6,8 +6,8 @@ from graphgen.utils import compute_content_hash, detect_main_language, logger
 
 
 class MultiHopGenerator(BaseGenerator):
-    @staticmethod
     def build_prompt(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         nodes, edges = batch
