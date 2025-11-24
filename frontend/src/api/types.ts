@@ -39,6 +39,9 @@ export interface TaskConfig {
   qa_ratio_aggregated?: number  // Aggregated占比
   qa_ratio_multi_hop?: number  // Multi-hop占比
   qa_ratio_cot?: number  // CoT占比
+  // 去重优化
+  persistent_deduplication?: boolean  // 是否启用持久化去重
+  question_first?: boolean  // 是否启用先问后答流程
 }
 
 export interface TaskInfo {

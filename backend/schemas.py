@@ -50,6 +50,9 @@ class TaskConfig(BaseModel):
     qa_ratio_aggregated: float = 25.0  # Aggregated 类型占比
     qa_ratio_multi_hop: float = 25.0  # Multi-hop 类型占比
     qa_ratio_cot: float = 25.0  # CoT 类型占比
+    # 去重优化
+    persistent_deduplication: bool = True  # 默认启用持久化去重
+    question_first: bool = True  # 默认启用“先问后答”流程（在不支持的模式下会被忽略）
 
 
 class APITestRequest(BaseModel):

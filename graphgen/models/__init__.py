@@ -2,6 +2,7 @@ from .evaluator import LengthEvaluator, MTLDEvaluator, RewardEvaluator, UniEvalu
 from .generator import (
     AggregatedGenerator,
     AtomicGenerator,
+    AtomicQuestionGenerator,
     CoTGenerator,
     MultiHopGenerator,
 )

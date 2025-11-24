@@ -17,3 +17,5 @@ partition: # graph partition configuration
 generate:
   mode: atomic # atomic, aggregated, multi_hop, cot
   data_format: Alpaca # Alpaca, Sharegpt, ChatML
+  question_first: true
+  persistent_deduplication: true

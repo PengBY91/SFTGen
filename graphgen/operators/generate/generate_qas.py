@@ -5,11 +5,79 @@ from graphgen.bases import BaseLLMClient
 from graphgen.models import (
     AggregatedGenerator,
     AtomicGenerator,
+    AtomicQuestionGenerator,
     CoTGenerator,
     MultiHopGenerator,
 )
 from graphgen.models.llm.batch_llm_wrapper import BatchLLMWrapper
-from graphgen.utils import logger, run_concurrent, compute_content_hash
+from graphgen.templates import ATOMIC_ANSWER_PROMPT
+from graphgen.utils import compute_content_hash, detect_main_language, logger, run_concurrent
+
+
+def _extract_question_from_formatted_result(result: dict[str, Any]) -> str:
+    """Extract question text from different output formats."""
+    if not isinstance(result, dict):
+        return ""
+    if "instruction" in result:
+        return result.get("instruction", "")
+    if "conversations" in result:
+        for msg in result.get("conversations", []):
+            if msg.get("from") == "human":
+                return msg.get("value", "")
+    if "messages" in result:
+        for msg in result.get("messages", []):
+            if msg.get("role") == "user":
+                return msg.get("content", "")
+    return result.get("question") or result.get("input", "")
+
+
+def _build_context_text(context_block: dict[str, Any]) -> str:
+    """Reconstruct textual context from the stored context metadata."""
+    if not isinstance(context_block, dict):
+        return ""
+    context_lines = []
+    for node in context_block.get("nodes", []):
+        context_lines.append(f"- {node.get('name', '')}: {node.get('description', '')}")
+    for edge in context_block.get("edges", []):
+        source = edge.get("source", "")
+        target = edge.get("target", "")
+        desc = edge.get("description", "")
+        context_lines.append(f"- {source} - {target}: {desc}")
+    return "\n".join(line for line in context_lines if line.strip())
+
+
+def _parse_answer_from_response(response: str) -> str:
+    """Parse answer text from model response."""
+    if "Answer:" in response:
+        return response.split("Answer:", 1)[1].strip().strip('"')
+    if "答案：" in response:
+        return response.split("答案：", 1)[1].strip().strip('"')
+    logger.warning("Failed to parse answer from response: %s", response)
+    return ""
+
+
+def deduplicate_formatted_items(
+    items: list[dict[str, Any]],
+    seen_hashes: set[str],
+    persist_seen: Optional[set[str]] = None,
+) -> list[dict[str, Any]]:
+    deduplicated = []
+    for result in items:
+        question = _extract_question_from_formatted_result(result)
+        if not question:
+            deduplicated.append(result)
+            continue
+        question_hash = compute_content_hash(question)
+        if question_hash in seen_hashes:
+            continue
+        seen_hashes.add(question_hash)
+        if persist_seen is not None:
+            persist_seen.add(question_hash)
+        deduplicated.append(result)
+    removed = len(items) - len(deduplicated)
+    if removed > 0:
+        logger.info("Deduplication removed %d duplicated results", removed)
+    return deduplicated
 
 
 async def generate_qas(
@@ -23,6 +91,7 @@ async def generate_qas(
     progress_bar=None,
     chunks_storage=None,
     full_docs_storage=None,
+    qa_storage=None,
 ) -> list[dict[str, Any]]:
     """
     Generate question-answer pairs based on nodes and edges.
@@ -73,6 +142,24 @@ async def generate_qas(
             return None
         return parsed if parsed > 0 else None
 
+    question_first_enabled = generation_config.get("question_first", mode == "atomic")
+    persistent_deduplication = generation_config.get("persistent_deduplication", True)
+    persistent_question_hashes: set[str] = set()
+    if persistent_deduplication and qa_storage:
+        try:
+            existing_items = await qa_storage.all_items()
+            for item in existing_items or []:
+                question_text = _extract_question_from_formatted_result(item)
+                if question_text:
+                    persistent_question_hashes.add(compute_content_hash(question_text))
+            logger.info(
+                "[Generation] Loaded %d persisted questions for deduplication",
+                len(persistent_question_hashes),
+            )
+        except Exception as exc:
+            logger.warning("Failed to load persisted QA for deduplication: %s", exc)
+    session_seen_hashes: set[str] = set(persistent_question_hashes)
+    
     # 获取优化配置
     use_multi_template = generation_config.get("use_multi_template", True)
     template_seed = generation_config.get("template_seed", None)
@@ -199,43 +286,11 @@ async def generate_qas(
         # 结果去重（基于内容hash）
         enable_deduplication = generation_config.get("enable_deduplication", True)
         if enable_deduplication:
-            seen_hashes = set()
-            deduplicated_results = []
-            for result in all_results:
-                # 使用question的hash进行去重（兼容不同数据格式）
-                question = ""
-                # Alpaca 格式
-                if "instruction" in result:
-                    question = result.get("instruction", "")
-                # Sharegpt 格式
-                elif "conversations" in result and isinstance(result.get("conversations"), list):
-                    human_msg = next((msg for msg in result["conversations"] if msg.get("from") == "human"), None)
-                    if human_msg:
-                        question = human_msg.get("value", "")
-                # ChatML 格式
-                elif "messages" in result and isinstance(result.get("messages"), list):
-                    user_msg = next((msg for msg in result["messages"] if msg.get("role") == "user"), None)
-                    if user_msg:
-                        question = user_msg.get("content", "")
-                # 兼容旧格式
-                if not question:
-                    question = result.get("question") or result.get("input", "")
-                
-                if question:
-                    question_hash = compute_content_hash(question)
-                    if question_hash not in seen_hashes:
-                        seen_hashes.add(question_hash)
-                        deduplicated_results.append(result)
-                else:
-                    # 如果没有question字段，保留结果
-                    deduplicated_results.append(result)
-            
-            if len(all_results) != len(deduplicated_results):
-                logger.info(
-                    "Deduplication: %d -> %d results (removed %d duplicates)",
-                    len(all_results), len(deduplicated_results), len(all_results) - len(deduplicated_results)
-                )
-            all_results = deduplicated_results
+            all_results = deduplicate_formatted_items(
+                all_results,
+                session_seen_hashes,
+                persistent_question_hashes if persistent_deduplication else None,
+            )
 
         if target_qa_pairs:
             original_count = len(all_results)
@@ -251,16 +306,20 @@ async def generate_qas(
     else:
         if mode == "atomic":
             generator = AtomicGenerator(
-                actual_llm_client, 
-                use_multi_template=use_multi_template, 
-                template_seed=template_seed
+                actual_llm_client,
+                use_multi_template=use_multi_template,
+                template_seed=template_seed,
             )
         elif mode == "aggregated":
-            generator = AggregatedGenerator(actual_llm_client, use_combined_mode=use_combined_mode)
+            generator = AggregatedGenerator(
+                actual_llm_client, use_combined_mode=use_combined_mode
+            )
         elif mode == "multi_hop":
             generator = MultiHopGenerator(actual_llm_client)
         elif mode == "cot":
-            generator = CoTGenerator(actual_llm_client, use_combined_mode=use_combined_mode)
+            generator = CoTGenerator(
+                actual_llm_client, use_combined_mode=use_combined_mode
+            )
         else:
             raise ValueError(f"Unsupported generation mode: {mode}")
 
@@ -269,23 +328,125 @@ async def generate_qas(
             return await generator.generate(
                 batch,
                 chunks_storage=chunks_storage,
-                full_docs_storage=full_docs_storage
+                full_docs_storage=full_docs_storage,
             )
-        
-        results = await run_concurrent(
-            generate_with_storage,
-            batches,
-            desc="[4/4]Generating QAs",
-            unit="batch",
-            progress_bar=progress_bar,
-        )
+
+        async def run_atomic_two_stage() -> list[dict[str, Any]]:
+            question_generator = AtomicQuestionGenerator(
+                actual_llm_client,
+                use_multi_template=use_multi_template,
+                template_seed=template_seed,
+            )
+
+            async def generate_questions_with_storage(batch):
+                return await question_generator.generate(
+                    batch,
+                    chunks_storage=chunks_storage,
+                    full_docs_storage=full_docs_storage,
+                )
+
+            question_results = await run_concurrent(
+                generate_questions_with_storage,
+                batches,
+                desc="[4/4]Generating atomic questions",
+                unit="batch",
+                progress_bar=progress_bar,
+            )
+
+            pending_questions: list[dict[str, Any]] = []
+            for batch_result in question_results:
+                for key, payload in batch_result.items():
+                    question = payload.get("question")
+                    if not question:
+                        continue
+                    question_hash = key or compute_content_hash(question)
+                    if question_hash in session_seen_hashes:
+                        continue
+                    session_seen_hashes.add(question_hash)
+                    pending_questions.append(
+                        {
+                            "hash": question_hash,
+                            "question": question,
+                            "context": payload.get("context", {}),
+                            "graph": payload.get("graph", {}),
+                            "source_chunks": payload.get("source_chunks", []),
+                            "source_documents": payload.get("source_documents", []),
+                            "metadata": dict(payload.get("metadata") or {}),
+                            "reasoning_path": payload.get("reasoning_path", ""),
+                        }
+                    )
+
+            if target_qa_pairs:
+                pending_questions = pending_questions[:target_qa_pairs]
+
+            if not pending_questions:
+                logger.warning(
+                    "No new atomic questions available after deduplication. Skipping answer stage."
+                )
+                return []
+
+            async def answer_question(entry: dict[str, Any]) -> dict[str, Any]:
+                context_text = _build_context_text(entry.get("context", {}))
+                if not context_text:
+                    context_text = entry["question"]
+                language = detect_main_language(context_text or entry["question"])
+                template = ATOMIC_ANSWER_PROMPT.get(
+                    language, ATOMIC_ANSWER_PROMPT["en"]
+                )
+                prompt = template.format(
+                    context=context_text,
+                    question=entry["question"],
+                )
+                response = await actual_llm_client.generate_answer(prompt)
+                answer = _parse_answer_from_response(response)
+                if not answer:
+                    return {}
+                metadata = dict(entry.get("metadata") or {})
+                metadata["generation_mode"] = "atomic"
+                qa_payload = {
+                    "question": entry["question"],
+                    "answer": answer,
+                    "context": entry.get("context", {}),
+                    "graph": entry.get("graph", {}),
+                    "source_chunks": entry.get("source_chunks", []),
+                    "source_documents": entry.get("source_documents", []),
+                    "metadata": metadata,
+                    "mode": "atomic",
+                    "reasoning_path": entry.get("reasoning_path", ""),
+                }
+                return {entry["hash"]: qa_payload}
+
+            answer_results = await run_concurrent(
+                answer_question,
+                pending_questions,
+                desc="[4/4]Answering atomic questions",
+                unit="question",
+                progress_bar=progress_bar,
+            )
+            filtered = [res for res in answer_results if res]
+            logger.info(
+                "[Generation] Two-stage atomic pipeline produced %d answered questions",
+                len(filtered),
+            )
+            return filtered
+
+        if mode == "atomic" and question_first_enabled:
+            raw_generation_results = await run_atomic_two_stage()
+        else:
+            raw_generation_results = await run_concurrent(
+                generate_with_storage,
+                batches,
+                desc="[4/4]Generating QAs",
+                unit="batch",
+                progress_bar=progress_bar,
+            )
 
         # format
         data_format = generation_config["data_format"]
         logger.debug("Output data format: %s", data_format)
 
         results = generator.format_generation_results(
-            results, output_data_format=data_format
+            raw_generation_results, output_data_format=data_format
         )
         
         # 为单个模式添加 mode 字段（如果还没有或与预期不符）
@@ -304,43 +465,11 @@ async def generate_qas(
         # 结果去重（基于内容hash）
         enable_deduplication = generation_config.get("enable_deduplication", True)
         if enable_deduplication:
-            seen_hashes = set()
-            deduplicated_results = []
-            for result in results:
-                # 使用question的hash进行去重（兼容不同数据格式）
-                question = ""
-                # Alpaca 格式
-                if "instruction" in result:
-                    question = result.get("instruction", "")
-                # Sharegpt 格式
-                elif "conversations" in result and isinstance(result.get("conversations"), list):
-                    human_msg = next((msg for msg in result["conversations"] if msg.get("from") == "human"), None)
-                    if human_msg:
-                        question = human_msg.get("value", "")
-                # ChatML 格式
-                elif "messages" in result and isinstance(result.get("messages"), list):
-                    user_msg = next((msg for msg in result["messages"] if msg.get("role") == "user"), None)
-                    if user_msg:
-                        question = user_msg.get("content", "")
-                # 兼容旧格式
-                if not question:
-                    question = result.get("question") or result.get("input", "")
-                
-                if question:
-                    question_hash = compute_content_hash(question)
-                    if question_hash not in seen_hashes:
-                        seen_hashes.add(question_hash)
-                        deduplicated_results.append(result)
-                else:
-                    # 如果没有question字段，保留结果
-                    deduplicated_results.append(result)
-            
-            if len(results) != len(deduplicated_results):
-                logger.info(
-                    "Deduplication: %d -> %d results (removed %d duplicates)",
-                    len(results), len(deduplicated_results), len(results) - len(deduplicated_results)
-                )
-            results = deduplicated_results
+            results = deduplicate_formatted_items(
+                results,
+                session_seen_hashes,
+                persistent_question_hashes if persistent_deduplication else None,
+            )
 
         if target_qa_pairs:
             original_count = len(results)

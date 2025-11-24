@@ -1,9 +1,31 @@
 import random
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 from graphgen.bases import BaseGenerator
-from graphgen.templates import ATOMIC_GENERATION_PROMPT, ATOMIC_GENERATION_PROMPT_VARIANTS
+from graphgen.templates import (
+    ATOMIC_GENERATION_PROMPT,
+    ATOMIC_GENERATION_PROMPT_VARIANTS,
+    ATOMIC_QUESTION_PROMPT,
+)
 from graphgen.utils import compute_content_hash, detect_main_language, logger
+
+
+def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    Parse response and return (language_marker, question, answer)
+    """
+    markers = [("Question:", "Answer:", "en"), ("问题：", "答案：", "zh")]
+    for question_marker, answer_marker, lang in markers:
+        if question_marker in response:
+            if answer_marker in response:
+                question = response.split(question_marker, 1)[1].split(answer_marker, 1)[0].strip()
+                answer = response.split(answer_marker, 1)[1].strip()
+            else:
+                question = response.split(question_marker, 1)[1].strip()
+                answer = None
+            return lang, question.strip('"'), answer.strip('"') if answer else answer
+    logger.warning("Failed to parse response: %s", response)
+    return None, None, None
 
 
 class AtomicGenerator(BaseGenerator):
@@ -20,6 +42,18 @@ class AtomicGenerator(BaseGenerator):
         self.template_seed = template_seed
         if template_seed is not None:
             random.seed(template_seed)
+        self._generation_mode = "atomic"
+
+    @staticmethod
+    def _build_context(batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]) -> tuple[str, str]:
+        nodes, edges = batch
+        context = ""
+        for node in nodes:
+            context += f"- {node[0]}: {node[1]['description']}\n"
+        for edge in edges:
+            context += f"- {edge[0]} - {edge[1]}: {edge[2]['description']}\n"
+        language = detect_main_language(context)
+        return context, language
 
     def build_prompt(
         self,
@@ -29,13 +63,7 @@ class AtomicGenerator(BaseGenerator):
         Build prompt for LLM based on the given batch.
         Supports multi-template sampling for diversity.
         """
-        nodes, edges = batch
-        context = ""
-        for node in nodes:
-            context += f"- {node[0]}: {node[1]['description']}\n"
-        for edge in edges:
-            context += f"- {edge[0]} - {edge[1]}: {edge[2]['description']}\n"
-        language = detect_main_language(context)
+        context, language = self._build_context(batch)
 
         # Use multi-template sampling if enabled
         if self.use_multi_template and language in ATOMIC_GENERATION_PROMPT_VARIANTS:
@@ -56,17 +84,9 @@ class AtomicGenerator(BaseGenerator):
         :param response:
         :return:
         """
-        if "Question:" in response and "Answer:" in response:
-            question = response.split("Question:")[1].split("Answer:")[0].strip()
-            answer = response.split("Answer:")[1].strip()
-        elif "问题：" in response and "答案：" in response:
-            question = response.split("问题：")[1].split("答案：")[0].strip()
-            answer = response.split("答案：")[1].strip()
-        else:
-            logger.warning("Failed to parse response: %s", response)
+        _, question, answer = _extract_question_and_answer(response)
+        if not question or not answer:
             return {}
-        question = question.strip('"')
-        answer = answer.strip('"')
         logger.debug("Question: %s", question)
         logger.debug("Answer: %s", answer)
         return {
@@ -76,4 +96,34 @@ class AtomicGenerator(BaseGenerator):
             }
         }
 
+
+class AtomicQuestionGenerator(AtomicGenerator):
+    """
+    Generator that only produces questions (used for two-phase generation).
+    """
+
+    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None):
+        super().__init__(llm_client, use_multi_template, template_seed)
+        self._generation_mode = "atomic_question"
+
+    def build_prompt(
+        self,
+        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
+    ) -> str:
+        context, language = self._build_context(batch)
+        template = ATOMIC_QUESTION_PROMPT.get(language, ATOMIC_QUESTION_PROMPT["en"])
+        return template.format(context=context)
+
+    @staticmethod
+    def parse_response(response: str) -> dict:
+        _, question, _ = _extract_question_and_answer(response)
+        if not question:
+            return {}
+        logger.debug("Question (question-only stage): %s", question)
+        return {
+            compute_content_hash(question): {
+                "question": question,
+                "answer": "",
+            }
+        }
 

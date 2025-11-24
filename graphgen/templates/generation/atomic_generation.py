@@ -97,3 +97,45 @@ ATOMIC_GENERATION_PROMPT_VARIANTS = {
     "en": [TEMPLATE_EN, TEMPLATE_EN_V2, TEMPLATE_EN_V3],
     "zh": [TEMPLATE_ZH, TEMPLATE_ZH_V2, TEMPLATE_ZH_V3],
 }
+
+# Question-only prompts for two-stage generation
+ATOMIC_QUESTION_PROMPT = {
+    "en": """You are given a text passage. Create ONE concise question that captures the most important fact from the text.
+Guidelines:
+- Only output a single line starting with `Question:`
+- Do NOT provide the answer
+- Avoid repeating previously generated questions
+
+Text:
+{context}
+""",
+    "zh": """给定一段文本。请提出一个能够体现关键信息的简洁问题。
+要求：
+- 仅输出以“问题：”开头的一行
+- 不要提供答案
+- 尽量避免与已生成的问题重复
+
+文本：
+{context}
+""",
+}
+
+# Answer-only prompts for two-stage generation
+ATOMIC_ANSWER_PROMPT = {
+    "en": """You are given a question that should be answered strictly based on the following text.
+Respond with exactly one line starting with `Answer:` and keep the answer concise and factual.
+
+Text:
+{context}
+
+Question: {question}
+""",
+    "zh": """你将根据下面的文本回答给定的问题。
+请仅输出一行，以“答案：”开头，内容简洁且基于文本事实。
+
+文本：
+{context}
+
+问题：{question}
+""",
+}
