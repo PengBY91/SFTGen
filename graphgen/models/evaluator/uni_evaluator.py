@@ -48,15 +48,34 @@ class UniEvaluator:
         self.results = {}
 
     @staticmethod
+    def _get_hf_cache_dir():
+        """获取 HuggingFace 缓存目录"""
+        import os
+        current_file = os.path.abspath(__file__)
+        # 从 graphgen/models/evaluator/uni_evaluator.py 向上4级到项目根目录
+        project_root = os.path.abspath(os.path.join(current_file, "..", "..", "..", ".."))
+        hf_cache_dir = os.path.join(project_root, "models", "huggingface")
+        os.makedirs(hf_cache_dir, exist_ok=True)
+        return hf_cache_dir
+
+    @staticmethod
     def process_chunk(rank, pairs, model_name, max_length, dimension, return_dict):
         import torch
+        import os
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
         device = f"cuda:{rank}"
         torch.cuda.set_device(rank)
 
-        rank_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        # 设置缓存目录
+        hf_cache_dir = UniEvaluator._get_hf_cache_dir()
+        if "TRANSFORMERS_CACHE" not in os.environ:
+            os.environ["TRANSFORMERS_CACHE"] = hf_cache_dir
+        if "HF_HOME" not in os.environ:
+            os.environ["HF_HOME"] = hf_cache_dir
+
+        rank_model = AutoModelForSeq2SeqLM.from_pretrained(model_name, cache_dir=hf_cache_dir)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=hf_cache_dir)
         rank_model.to(device)
         rank_model.eval()
 
