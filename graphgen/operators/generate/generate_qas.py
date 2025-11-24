@@ -56,6 +56,12 @@ def _parse_answer_from_response(response: str) -> str:
     return ""
 
 
+def _build_question_hash(question: str, mode: Optional[str] = None) -> str:
+    """Build a question hash that is scoped by mode to avoid cross-mode collisions."""
+    key = f"{(mode or '').strip()}::{question.strip()}"
+    return compute_content_hash(key)
+
+
 def deduplicate_formatted_items(
     items: list[dict[str, Any]],
     seen_hashes: set[str],
@@ -67,7 +73,7 @@ def deduplicate_formatted_items(
         if not question:
             deduplicated.append(result)
             continue
-        question_hash = compute_content_hash(question)
+        question_hash = _build_question_hash(question, result.get("mode"))
         if question_hash in seen_hashes:
             continue
         seen_hashes.add(question_hash)
@@ -151,7 +157,9 @@ async def generate_qas(
             for item in existing_items or []:
                 question_text = _extract_question_from_formatted_result(item)
                 if question_text:
-                    persistent_question_hashes.add(compute_content_hash(question_text))
+                    persistent_question_hashes.add(
+                        _build_question_hash(question_text, item.get("mode"))
+                    )
             logger.info(
                 "[Generation] Loaded %d persisted questions for deduplication",
                 len(persistent_question_hashes),
@@ -221,13 +229,16 @@ async def generate_qas(
         tasks = []
         for generator, gen_mode in generators:
             # 创建包装函数，传递chunks_storage和full_docs_storage
-            async def generate_with_storage(batch):
-                return await generator.generate(
-                    batch, 
+            async def generate_with_storage(
+                batch,
+                current_generator=generator,
+            ):
+                return await current_generator.generate(
+                    batch,
                     chunks_storage=chunks_storage,
-                    full_docs_storage=full_docs_storage
+                    full_docs_storage=full_docs_storage,
                 )
-            
+
             task = asyncio.create_task(
                 run_concurrent(
                     generate_with_storage,
@@ -359,7 +370,7 @@ async def generate_qas(
                     question = payload.get("question")
                     if not question:
                         continue
-                    question_hash = key or compute_content_hash(question)
+                    question_hash = key or _build_question_hash(question, "atomic")
                     if question_hash in session_seen_hashes:
                         continue
                     session_seen_hashes.add(question_hash)
