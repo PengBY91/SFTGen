@@ -297,19 +297,62 @@ async def generate_qas(
         # 结果去重（基于内容hash）
         enable_deduplication = generation_config.get("enable_deduplication", True)
         if enable_deduplication:
+            original_before_dedup = len(all_results)
             all_results = deduplicate_formatted_items(
                 all_results,
                 session_seen_hashes,
                 persistent_question_hashes if persistent_deduplication else None,
             )
+            if original_before_dedup != len(all_results):
+                logger.info(
+                    "[Generation] After deduplication: %d -> %d results",
+                    original_before_dedup, len(all_results)
+                )
 
+        # 应用总限制（如果去重后仍然超过目标）
         if target_qa_pairs:
             original_count = len(all_results)
-            all_results = limit_results(all_results, target_qa_pairs)
-            logger.info(
-                "[Generation] Final results after limiting: %d (target: %d, original: %d)",
-                len(all_results), target_qa_pairs, original_count
-            )
+            if original_count > target_qa_pairs:
+                # 如果去重后仍然超过目标，需要按原始配置的比例重新分配
+                # 计算当前各模式的实际数量
+                mode_counts: Dict[str, int] = {}
+                mode_items: Dict[str, list] = {}
+                for result in all_results:
+                    mode = result.get("mode", "unknown")
+                    mode_counts[mode] = mode_counts.get(mode, 0) + 1
+                    if mode not in mode_items:
+                        mode_items[mode] = []
+                    mode_items[mode].append(result)
+                
+                # 使用原始配置的比例（而不是去重后的实际比例）
+                ratio_map = normalize_mode_ratios(mode_ratios_config, list(mode_items.keys()))
+                limited_results = []
+                remaining = target_qa_pairs
+                
+                # 按原始配置的比例分配
+                sorted_modes = sorted(mode_items.keys())  # 确保顺序一致
+                for idx, mode in enumerate(sorted_modes):
+                    items = mode_items[mode]
+                    if idx == len(sorted_modes) - 1:
+                        # 最后一个模式，使用剩余的所有配额
+                        limit = max(0, min(remaining, len(items)))
+                    else:
+                        ratio_value = ratio_map.get(mode, 0)
+                        limit = max(0, int(round(target_qa_pairs * ratio_value)))
+                        limit = min(limit, remaining, len(items))
+                        remaining -= limit
+                    limited_results.extend(items[:limit])
+                
+                all_results = limited_results
+                logger.info(
+                    "[Generation] Final results after limiting: %d (target: %d, original: %d, per-mode before: %s)",
+                    len(all_results), target_qa_pairs, original_count, mode_counts
+                )
+            else:
+                logger.info(
+                    "[Generation] Final results: %d (target: %d, no limiting needed)",
+                    len(all_results), target_qa_pairs
+                )
         else:
             logger.info("[Generation] Final results: %d (no limit)", len(all_results))
 
@@ -387,8 +430,17 @@ async def generate_qas(
                         }
                     )
 
+            # 在问题阶段应用一个宽松的限制（target * 1.2），以应对答案生成失败
+            # 最终结果会在后面应用精确限制
             if target_qa_pairs:
-                pending_questions = pending_questions[:target_qa_pairs]
+                # 允许生成比目标多20%的问题，以应对答案生成失败
+                question_limit = int(target_qa_pairs * 1.2)
+                if len(pending_questions) > question_limit:
+                    pending_questions = pending_questions[:question_limit]
+                    logger.info(
+                        "[Generation] Limited pending questions to %d (target: %d, actual: %d)",
+                        question_limit, target_qa_pairs, len(pending_questions)
+                    )
 
             if not pending_questions:
                 logger.warning(
@@ -484,11 +536,17 @@ async def generate_qas(
 
         if target_qa_pairs:
             original_count = len(results)
-            results = limit_results(results, target_qa_pairs)
-            logger.info(
-                "[Generation] Final results after limiting: %d (target: %d, original: %d)",
-                len(results), target_qa_pairs, original_count
-            )
+            if original_count > target_qa_pairs:
+                results = limit_results(results, target_qa_pairs)
+                logger.info(
+                    "[Generation] Final results after limiting: %d (target: %d, original: %d)",
+                    len(results), target_qa_pairs, original_count
+                )
+            else:
+                logger.info(
+                    "[Generation] Final results: %d (target: %d, no limiting needed)",
+                    len(results), target_qa_pairs
+                )
         else:
             logger.info("[Generation] Final results: %d (no limit)", len(results))
     

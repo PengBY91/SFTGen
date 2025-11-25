@@ -430,10 +430,10 @@ const handleRowClick = (task: TaskInfo) => {
 onMounted(async () => {
   await configStore.loadConfig()
   await refreshTasks()
-  // 启动自动刷新
-  refreshTimer = window.setInterval(() => {
-    refreshTasks()
-  }, 5000)
+  // 自动刷新已禁用，用户可以通过点击刷新按钮手动刷新
+  // refreshTimer = window.setInterval(() => {
+  //   refreshTasks()
+  // }, 5000)
 })
 
 // 清理

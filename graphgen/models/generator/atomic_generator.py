@@ -14,17 +14,48 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
     """
     Parse response and return (language_marker, question, answer)
     """
-    markers = [("Question:", "Answer:", "en"), ("问题：", "答案：", "zh")]
+    if not response or not response.strip():
+        logger.warning("Empty response received")
+        return None, None, None
+    
+    # Try various marker combinations
+    markers = [
+        ("Question:", "Answer:", "en"),
+        ("问题：", "答案：", "zh"),
+        ("Q:", "A:", "en"),
+        ("问：", "答：", "zh"),
+    ]
+    
     for question_marker, answer_marker, lang in markers:
         if question_marker in response:
-            if answer_marker in response:
-                question = response.split(question_marker, 1)[1].split(answer_marker, 1)[0].strip()
-                answer = response.split(answer_marker, 1)[1].strip()
-            else:
-                question = response.split(question_marker, 1)[1].strip()
-                answer = None
-            return lang, question.strip('"'), answer.strip('"') if answer else answer
-    logger.warning("Failed to parse response: %s", response)
+            try:
+                if answer_marker in response:
+                    question = response.split(question_marker, 1)[1].split(answer_marker, 1)[0].strip()
+                    answer = response.split(answer_marker, 1)[1].strip()
+                    # Remove any trailing markers or extra content
+                    answer = answer.split("\n")[0].strip() if "\n" in answer else answer
+                else:
+                    question = response.split(question_marker, 1)[1].strip()
+                    answer = None
+                
+                # Clean up question and answer
+                question = question.strip('"').strip("'").strip()
+                if answer:
+                    answer = answer.strip('"').strip("'").strip()
+                
+                if question:  # At least question should be present
+                    return lang, question, answer
+            except (IndexError, ValueError) as e:
+                logger.debug("Error parsing with markers %s/%s: %s", question_marker, answer_marker, e)
+                continue
+    
+    # If no standard markers found, try to extract as plain text (fallback)
+    response_clean = response.strip()
+    if len(response_clean) > 10:  # Only log if response has meaningful content
+        logger.warning(
+            "Failed to parse response (no standard markers found): %s",
+            response_clean[:200] if len(response_clean) > 200 else response_clean
+        )
     return None, None, None
 
 
@@ -79,22 +110,50 @@ class AtomicGenerator(BaseGenerator):
     @staticmethod
     def parse_response(response: str) -> dict:
         """
-        AtomicGenerator normally generates one QA pair per response.
-        So we just need to parse one QA pair from the response.
+        Parse response that may contain multiple QA pairs.
+        Supports multiple formats:
+        - Single QA pair: "Question: ... Answer: ..."
+        - Multiple QA pairs separated by "** **" or similar markers
         :param response:
         :return:
         """
-        _, question, answer = _extract_question_and_answer(response)
-        if not question or not answer:
-            return {}
-        logger.debug("Question: %s", question)
-        logger.debug("Answer: %s", answer)
-        return {
-            compute_content_hash(question): {
-                "question": question,
-                "answer": answer,
-            }
-        }
+        result = {}
+        
+        # Try to split by common separators first
+        separators = ["** **", "**", "\n\n", "---"]
+        parts = [response]
+        for sep in separators:
+            if sep in response:
+                parts = response.split(sep)
+                break
+        
+        # Parse each part
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+            lang, question, answer = _extract_question_and_answer(part)
+            if question and answer:
+                q_hash = compute_content_hash(question)
+                if q_hash not in result:
+                    result[q_hash] = {
+                        "question": question,
+                        "answer": answer,
+                    }
+                    logger.debug("Parsed QA pair: Q=%s, A=%s", question[:50], answer[:50])
+            elif question:
+                # Only question found, might be from question-only stage
+                q_hash = compute_content_hash(question)
+                if q_hash not in result:
+                    result[q_hash] = {
+                        "question": question,
+                        "answer": "",
+                    }
+        
+        if not result:
+            logger.warning("Failed to parse any QA pairs from response: %s", response[:200])
+        
+        return result
 
 
 class AtomicQuestionGenerator(AtomicGenerator):

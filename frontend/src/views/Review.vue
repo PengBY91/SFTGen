@@ -93,8 +93,8 @@
                 <strong>问题：</strong>
                 <span class="text-content">{{ getQuestion(row.content) }}</span>
               </div>
-              <!-- 显示 COT 推理路径 -->
-              <div v-if="getGenerationMode(row) === 'cot' && getReasoningPath(row.content)" class="preview-line">
+              <!-- 显示推理路径（COT 和 Multi-hop） -->
+              <div v-if="(getGenerationMode(row) === 'cot' || getGenerationMode(row) === 'multi_hop') && getReasoningPath(row.content)" class="preview-line">
                 <strong>推理路径：</strong>
                 <span class="text-content reasoning-path">{{ getReasoningPath(row.content) }}</span>
               </div>

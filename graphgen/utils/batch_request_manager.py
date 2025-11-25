@@ -123,6 +123,9 @@ class BatchRequestManager:
         batch = self.request_queue[:self.batch_size]
         self.request_queue = self.request_queue[self.batch_size:]
         
+        # 记录批量处理
+        logger.debug("Processing batch of %d requests", len(batch))
+        
         # 并发处理批次中的请求
         tasks = []
         for request in batch:
@@ -131,6 +134,7 @@ class BatchRequestManager:
         
         # 等待所有请求完成
         await asyncio.gather(*tasks, return_exceptions=True)
+        logger.debug("Completed batch of %d requests", len(batch))
     
     async def _process_single_request(self, request: BatchRequest):
         """处理单个请求"""
