@@ -50,9 +50,9 @@
                 placeholder="请输入问题或指令"
               />
             </el-form-item>
-            <!-- 显示 COT 推理路径（只读） -->
+            <!-- 显示推理路径（COT 和 Multi-hop，只读） -->
             <el-form-item 
-              v-if="getGenerationMode(currentItem) === 'cot' && currentItem.content.reasoning_path" 
+              v-if="(getGenerationMode(currentItem) === 'cot' || getGenerationMode(currentItem) === 'multi_hop') && currentItem.content.reasoning_path" 
               label="推理路径"
             >
               <el-input
@@ -96,8 +96,8 @@
               <div class="section-label">问题/指令</div>
               <div class="section-content">{{ getQuestion(currentItem.content) || '-' }}</div>
             </div>
-            <!-- 显示 COT 推理路径 -->
-            <div class="content-section" v-if="getGenerationMode(currentItem) === 'cot' && getReasoningPath(currentItem.content)">
+            <!-- 显示推理路径（COT 和 Multi-hop） -->
+            <div class="content-section" v-if="(getGenerationMode(currentItem) === 'cot' || getGenerationMode(currentItem) === 'multi_hop') && getReasoningPath(currentItem.content)">
               <div class="section-label">推理路径</div>
               <div class="section-content reasoning-path-content">{{ getReasoningPath(currentItem.content) }}</div>
             </div>

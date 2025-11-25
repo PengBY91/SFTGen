@@ -39,6 +39,9 @@ export interface TaskConfig {
   qa_ratio_aggregated?: number  // Aggregated占比
   qa_ratio_multi_hop?: number  // Multi-hop占比
   qa_ratio_cot?: number  // CoT占比
+  // 去重优化
+  persistent_deduplication?: boolean  // 是否启用持久化去重
+  question_first?: boolean  // 是否启用先问后答流程
 }
 
 export interface TaskInfo {
@@ -96,7 +99,7 @@ export interface AlpacaContent {
   input?: string
   output: string
   mode?: string
-  reasoning_path?: string  // COT 推理路径
+  reasoning_path?: string  // 推理路径（COT 和 Multi-hop）
   context?: {
     nodes?: Array<{ name: string; description?: string }>
     edges?: Array<{ source: string; target: string; description?: string }>
@@ -120,7 +123,7 @@ export interface SharegptContent {
     value: string
   }>
   mode?: string
-  reasoning_path?: string  // COT 推理路径
+  reasoning_path?: string  // 推理路径（COT 和 Multi-hop）
   context?: {
     nodes?: Array<{ name: string; description?: string }>
     edges?: Array<{ source: string; target: string; description?: string }>
@@ -144,7 +147,7 @@ export interface ChatMLContent {
     content: string
   }>
   mode?: string
-  reasoning_path?: string  // COT 推理路径
+  reasoning_path?: string  // 推理路径（COT 和 Multi-hop）
   context?: {
     nodes?: Array<{ name: string; description?: string }>
     edges?: Array<{ source: string; target: string; description?: string }>

@@ -317,6 +317,7 @@ class GraphGen:
             progress_bar=self.progress_bar,
             chunks_storage=self.chunks_storage,
             full_docs_storage=self.full_docs_storage,
+            qa_storage=self.qa_storage,
         )
 
         if not results:

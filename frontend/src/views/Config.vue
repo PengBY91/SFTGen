@@ -101,6 +101,44 @@
               <el-switch v-model="config.dynamic_chunk_size" />
               <span class="form-item-tip">根据文本长度和复杂度自动调整chunk大小，提升分块质量</span>
             </el-form-item>
+
+            <el-form-item label="启用提取缓存">
+              <el-switch v-model="config.enable_extraction_cache" />
+              <span class="form-item-tip">缓存知识提取结果，避免重复提取相同内容（推荐开启）</span>
+            </el-form-item>
+
+            <el-divider content-position="left">批量抽取配置</el-divider>
+
+            <el-form-item label="启用批量抽取">
+              <el-switch v-model="config.enable_batch_requests" />
+              <span class="form-item-tip">在知识抽取阶段将多个请求合并发送，降低网络开销</span>
+            </el-form-item>
+
+            <el-form-item
+              label="批量大小"
+              v-if="config.enable_batch_requests"
+            >
+              <el-input-number
+                v-model="config.batch_size"
+                :min="1"
+                :max="50"
+              />
+              <span class="form-item-tip">单次批量包含的请求数，建议 5-20</span>
+            </el-form-item>
+
+            <el-form-item
+              label="最大等待时间（秒）"
+              v-if="config.enable_batch_requests"
+            >
+              <el-slider
+                v-model="config.max_wait_time"
+                :min="0.1"
+                :max="2.0"
+                :step="0.1"
+                show-input
+              />
+              <span class="form-item-tip">超过该时间即使未达到批量大小也会发送抽取请求</span>
+            </el-form-item>
           </el-collapse-item>
 
           <!-- 分区配置 -->
@@ -259,6 +297,18 @@
               />
               <span class="form-item-tip">设置随机种子以保证可复现性（可选，留空则随机）</span>
             </el-form-item>
+
+            <el-divider content-position="left">问答生成优化</el-divider>
+
+            <el-form-item label="先问后答（双阶段生成）">
+              <el-switch v-model="config.question_first" />
+              <span class="form-item-tip">先仅生成问题并去重，再统一生成答案，显著减少重复问答（Atomic 默认开启）</span>
+            </el-form-item>
+
+            <el-form-item label="跨任务持久去重">
+              <el-switch v-model="config.persistent_deduplication" />
+              <span class="form-item-tip">与历史任务共享已生成的问题，避免重复调用 LLM（推荐开启）</span>
+            </el-form-item>
           </el-collapse-item>
 
           <!-- 限流配置 -->
@@ -304,47 +354,7 @@
               </template>
             </el-alert>
 
-            <el-form-item label="启用提取缓存">
-              <el-switch v-model="config.enable_extraction_cache" />
-              <span class="form-item-tip">缓存知识提取结果，避免重复提取相同内容（推荐开启）</span>
-            </el-form-item>
-
-            <el-form-item label="动态 Chunk Size 调整">
-              <el-switch v-model="config.dynamic_chunk_size" />
-              <span class="form-item-tip">根据文本长度和复杂度自动调整chunk大小（在"文本切分配置"中也可设置）</span>
-            </el-form-item>
-
-            <el-form-item label="多模板采样">
-              <el-switch v-model="config.use_multi_template" />
-              <span class="form-item-tip">为原子QA生成使用多个模板变体，提升多样性（在"数据生成配置"中也可设置）</span>
-            </el-form-item>
-
-            <el-divider content-position="left">批量请求优化</el-divider>
-
-            <el-form-item label="启用批量请求">
-              <el-switch v-model="config.enable_batch_requests" />
-              <span class="form-item-tip">将多个LLM请求合并处理，减少网络延迟（推荐开启）</span>
-            </el-form-item>
-
-            <el-form-item label="批量大小" v-if="config.enable_batch_requests">
-              <el-input-number 
-                v-model="config.batch_size" 
-                :min="1" 
-                :max="50"
-              />
-              <span class="form-item-tip">每批处理的请求数量，建议值：5-20</span>
-            </el-form-item>
-
-            <el-form-item label="最大等待时间（秒）" v-if="config.enable_batch_requests">
-              <el-slider
-                v-model="config.max_wait_time"
-                :min="0.1"
-                :max="2.0"
-                :step="0.1"
-                show-input
-              />
-              <span class="form-item-tip">超过此时间即使未达到批量大小也会发送请求</span>
-            </el-form-item>
+            <p class="form-item-tip">更多细粒度优化已移至对应配置面板，请在上方各分组中设置。</p>
           </el-collapse-item>
         </el-collapse>
       </el-form>
