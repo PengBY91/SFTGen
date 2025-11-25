@@ -1,0 +1,38 @@
+graph TD
+    A[知识图谱 G = E, R] --> B[种子选择策略]
+    
+    B --> C1[max_loss策略<br/>优先高损失边]
+    B --> C2[min_loss策略<br/>优先低损失边]
+    B --> C3[random策略<br/>随机选择]
+    
+    C1 --> D[选择种子单元 seed]
+    C2 --> D
+    C3 --> D
+    
+    D --> E[初始化队列 Q = seed<br/>初始化子图 S = seed]
+    
+    E --> F{队列Q非空?}
+    F -->|否| M[检查最小单元数约束]
+    F -->|是| G[取出当前单元 u]
+    
+    G --> H[获取邻居单元 N u]
+    H --> I[根据策略排序邻居]
+    
+    I --> J{遍历邻居 v}
+    J --> K{检查约束}
+    K -->|距离 ≤ k<br/>单元数 ≤ max_units<br/>Token数 ≤ τ| L[将v加入Q和S]
+    K -->|违反约束| J
+    L --> J
+    J -->|遍历完成| F
+    
+    M -->|满足| N[生成社区/子图]
+    M -->|不满足| O[丢弃该子图]
+    
+    N --> P[子图集合]
+    
+    style A fill:#e1f5ff
+    style D fill:#fff4e1
+    style K fill:#ffe0b2
+    style N fill:#e8f5e9
+    style O fill:#ffebee
+    style P fill:#e8f5e9

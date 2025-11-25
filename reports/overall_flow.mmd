@@ -1,0 +1,37 @@
+graph TD
+    A[原始文档集合] --> B[步骤1: 知识构建<br/>Knowledge Construction]
+    B --> B1[文档分割]
+    B1 --> B2[实体/关系提取]
+    B2 --> B3[知识聚合]
+    B3 --> C[知识图谱 G = E, R]
+    
+    C --> D[步骤2: 理解评估<br/>Comprehension Assessment]
+    D --> D1[语义变体生成]
+    D1 --> D2[置信度评估]
+    D2 --> D3[理解损失计算]
+    D3 --> E[带损失值的知识图谱]
+    
+    E --> F[步骤3: 图组织<br/>Graph Organization]
+    F --> F1[种子选择<br/>基于ECE损失]
+    F1 --> F2[BFS多跳扩展<br/>k-hop子图]
+    F2 --> F3[约束检查<br/>单元数/Token数]
+    F3 --> G[子图集合]
+    
+    G --> H[步骤4: QA生成<br/>QA Generation]
+    H --> H1{生成模式选择}
+    H1 -->|简单| H2[原子QA生成]
+    H1 -->|综合| H3[聚合QA生成]
+    H1 -->|推理| H4[多跳QA生成]
+    H2 --> I[合成QA数据集]
+    H3 --> I
+    H4 --> I
+    
+    style A fill:#e1f5ff
+    style C fill:#fff4e1
+    style E fill:#fff4e1
+    style G fill:#fff4e1
+    style I fill:#e8f5e9
+    style B fill:#f3e5f5
+    style D fill:#f3e5f5
+    style F fill:#f3e5f5
+    style H fill:#f3e5f5

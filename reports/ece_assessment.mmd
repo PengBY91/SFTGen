@@ -1,0 +1,31 @@
+graph TD
+    A[知识点 K_i<br/>关系描述 desc_i] --> B[语义变体生成]
+    
+    B --> C1[肯定形式变体<br/>desc_i^1, desc_i^2, ...]
+    B --> C2[否定形式变体<br/>¬desc_i^1, ¬desc_i^2, ...]
+    
+    C1 --> D[置信度评估]
+    C2 --> D
+    
+    D --> E[训练模型 M_train<br/>二元是/否问题提示]
+    E --> F1[P_yes: 模型对yes的概率]
+    E --> F2[P_no: 模型对no的概率]
+    
+    F1 --> G[理解损失计算]
+    F2 --> G
+    
+    G --> H[交叉熵损失<br/>L r_i = -1/n Σ log P_M_train y_j given desc_i^j]
+    
+    H --> I{损失值分析}
+    I -->|L ≈ 0| J[理解正确<br/>低优先级]
+    I -->|L > 0| K[理解不足<br/>知识盲点]
+    I -->|L >> 0| L[理解错误<br/>高优先级]
+    
+    K --> M[优先生成对应QA对]
+    L --> M
+    
+    style A fill:#e1f5ff
+    style H fill:#fff4e1
+    style K fill:#ffebee
+    style L fill:#ffcdd2
+    style M fill:#e8f5e9

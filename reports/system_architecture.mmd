@@ -1,0 +1,57 @@
+graph TB
+    subgraph 应用层
+        A[GraphGen主类<br/>流程编排与配置管理]
+    end
+    
+    subgraph 操作层
+        B1[知识构建操作<br/>build_text_kg, build_mm_kg]
+        B2[理解评估操作<br/>quiz, judge_statement]
+        B3[图组织操作<br/>partition_kg]
+        B4[QA生成操作<br/>generate_qas]
+    end
+    
+    subgraph 模型层
+        C1[知识提取器<br/>LightRAGKGBuilder<br/>MMKGBuilder]
+        C2[分区器<br/>ECEPartitioner<br/>BFSPartitioner<br/>DFSPartitioner]
+        C3[生成器<br/>AtomicGenerator<br/>AggregatedGenerator<br/>MultiHopGenerator]
+    end
+    
+    subgraph 基础设施层
+        D1[存储系统<br/>JsonKVStorage<br/>NetworkXStorage<br/>JsonListStorage]
+        D2[LLM客户端<br/>OpenAIClient<br/>OllamaClient]
+        D3[分词器<br/>TiktokenTokenizer<br/>HuggingFaceTokenizer]
+        D4[工具函数<br/>日志/哈希/并发处理]
+    end
+    
+    A --> B1
+    A --> B2
+    A --> B3
+    A --> B4
+    
+    B1 --> C1
+    B2 --> C1
+    B3 --> C2
+    B4 --> C3
+    
+    C1 --> D1
+    C1 --> D2
+    C2 --> D1
+    C3 --> D2
+    C3 --> D3
+    
+    D1 --> D4
+    D2 --> D4
+    D3 --> D4
+    
+    style A fill:#e3f2fd
+    style B1 fill:#f3e5f5
+    style B2 fill:#f3e5f5
+    style B3 fill:#f3e5f5
+    style B4 fill:#f3e5f5
+    style C1 fill:#fff9c4
+    style C2 fill:#fff9c4
+    style C3 fill:#fff9c4
+    style D1 fill:#e8f5e9
+    style D2 fill:#e8f5e9
+    style D3 fill:#e8f5e9
+    style D4 fill:#e8f5e9

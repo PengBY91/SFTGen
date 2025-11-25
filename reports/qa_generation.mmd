@@ -1,0 +1,45 @@
+graph TD
+    A[子图 S = E_S, R_S] --> B{子图复杂度分析}
+    
+    B -->|单节点/边| C[原子QA生成<br/>Atomic Generator]
+    B -->|多节点/边| D[聚合QA生成<br/>Aggregated Generator]
+    B -->|复杂路径| E[多跳QA生成<br/>Multi-hop Generator]
+    
+    C --> C1[上下文构建]
+    C1 --> C2[多模板采样]
+    C2 --> C3[LLM生成QA对]
+    C3 --> F[QA对集合]
+    
+    D --> D1{生成模式}
+    D1 -->|两步模式| D2[步骤1: 重述文本]
+    D1 -->|合并模式| D5[一次性生成<br/>答案+问题]
+    D2 --> D3[步骤2: 生成问题]
+    D3 --> D4[组合QA对]
+    D4 --> F
+    D5 --> F
+    
+    E --> E1[路径识别]
+    E1 --> E2[构建多跳提示]
+    E2 --> E3[生成推理路径]
+    E3 --> E4[生成问题和答案]
+    E4 --> F
+    
+    F --> G[去重处理<br/>基于问题哈希]
+    G --> H[质量过滤<br/>长度/格式验证]
+    H --> I[格式化输出]
+    
+    I --> J1[Alpaca格式]
+    I --> J2[ShareGPT格式]
+    I --> J3[ChatML格式]
+    
+    J1 --> K[最终QA数据集]
+    J2 --> K
+    J3 --> K
+    
+    style A fill:#e1f5ff
+    style C fill:#e8f5e9
+    style D fill:#fff9c4
+    style E fill:#f3e5f5
+    style K fill:#e8f5e9
+    style G fill:#ffe0b2
+    style H fill:#ffe0b2
