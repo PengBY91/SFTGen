@@ -158,10 +158,16 @@ async def delete_task(
 @router.get("/tasks/{task_id}/source", response_model=TaskResponse)
 async def get_task_source(
     task_id: str,
+    file_index: int = 0,
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取任务的原始输入文件内容（需要登录）"""
-    result = task_service.get_task_source(task_id)
+    """获取任务的原始输入文件内容（需要登录）
+    
+    Args:
+        task_id: 任务ID
+        file_index: 文件索引，默认为0（第一个文件）
+    """
+    result = task_service.get_task_source(task_id, file_index)
     return result
 
 

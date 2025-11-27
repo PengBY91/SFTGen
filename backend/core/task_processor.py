@@ -73,8 +73,24 @@ class TaskProcessor:
             
             graph_gen.clear()
             
-            # 处理数据
-            graph_gen.insert(read_config=graphgen_config["read"], split_config=graphgen_config["split"])
+            # 处理多个文件：循环处理每个文件，累积到知识图谱中
+            filepaths = task.filepaths if task.filepaths else []
+            if not filepaths:
+                raise Exception("任务没有关联的文件")
+            
+            logger.info(f"[TaskProcessor] 开始处理 {len(filepaths)} 个文件")
+            for idx, filepath in enumerate(filepaths, 1):
+                if not os.path.exists(filepath):
+                    logger.warning(f"[TaskProcessor] 文件不存在，跳过: {filepath}")
+                    continue
+                
+                logger.info(f"[TaskProcessor] 正在处理文件 {idx}/{len(filepaths)}: {filepath}")
+                # 为每个文件创建读取配置
+                file_read_config = {"input_file": filepath}
+                # 对每个文件调用 insert，知识图谱会累积所有文件的内容
+                graph_gen.insert(read_config=file_read_config, split_config=graphgen_config["split"])
+            
+            logger.info(f"[TaskProcessor] 所有文件处理完成，共处理 {len(filepaths)} 个文件")
             
             if graphgen_config["if_trainee_model"]:
                 graph_gen.quiz_and_judge(quiz_and_judge_config=graphgen_config["quiz_and_judge"])
@@ -185,9 +201,9 @@ class TaskProcessor:
                 "unit_sampling": config.ece_unit_sampling,
             }
         
-        # 支持多文件：使用第一个文件或合并多个文件
-        # 这里简化处理，使用第一个文件
-        # TODO: 未来可以支持多文件合并处理
+        # 注意：多文件处理已在 process_task 方法中实现
+        # 这里保留 input_file 字段以保持配置结构兼容性，但实际不会被使用
+        # 因为 process_task 会循环处理每个文件
         input_file = filepaths[0] if filepaths else ""
         
         # 处理 mode：支持数组格式
@@ -249,10 +265,16 @@ class TaskProcessor:
                 # 优化配置
                 "use_multi_template": getattr(config, "use_multi_template", True),
                 "template_seed": getattr(config, "template_seed", None),
-                # 批量请求配置
+                # 批量生成配置（问题生成阶段）
                 "enable_batch_requests": getattr(config, "enable_batch_requests", True),
                 "batch_size": getattr(config, "batch_size", 10),
                 "max_wait_time": getattr(config, "max_wait_time", 0.5),
+                "use_adaptive_batching": getattr(config, "use_adaptive_batching", False),
+                "min_batch_size": getattr(config, "min_batch_size", 5),
+                "max_batch_size": getattr(config, "max_batch_size", 50),
+                "enable_prompt_cache": getattr(config, "enable_prompt_cache", True),
+                "cache_max_size": getattr(config, "cache_max_size", 10000),
+                "cache_ttl": getattr(config, "cache_ttl", None),
                 # 生成数量与比例
                 "target_qa_pairs": getattr(config, "qa_pair_limit", None),
                 "mode_ratios": mode_ratios,

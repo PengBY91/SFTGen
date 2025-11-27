@@ -37,10 +37,17 @@ export const useConfigStore = defineStore('config', () => {
     dynamic_chunk_size: false,  // 默认关闭动态chunk大小
     use_multi_template: true,  // 默认启用多模板采样
     template_seed: undefined,  // 可选，用于可复现性
-    // 批量请求配置
+    // 批量请求配置（知识抽取阶段）
     enable_batch_requests: true,  // 默认启用批量请求
     batch_size: 10,  // 默认批量大小
     max_wait_time: 0.5,  // 默认最大等待时间（秒）
+    // 批量生成配置（问题生成阶段）
+    use_adaptive_batching: false,  // 默认关闭自适应批量
+    min_batch_size: 5,  // 默认最小批量大小
+    max_batch_size: 50,  // 默认最大批量大小
+    enable_prompt_cache: true,  // 默认启用提示缓存
+    cache_max_size: 10000,  // 默认缓存最大大小
+    cache_ttl: undefined,  // 默认缓存不过期
     // 生成配置
     qa_pair_limit: 200,  // 默认目标QA数量
     qa_ratio_atomic: 25,
@@ -120,10 +127,17 @@ export const useConfigStore = defineStore('config', () => {
       dynamic_chunk_size: false,
       use_multi_template: true,
       template_seed: undefined,
-      // 批量请求配置
+      // 批量请求配置（知识抽取阶段）
       enable_batch_requests: true,
       batch_size: 10,
       max_wait_time: 0.5,
+      // 批量生成配置（问题生成阶段）
+      use_adaptive_batching: false,
+      min_batch_size: 5,
+      max_batch_size: 50,
+      enable_prompt_cache: true,
+      cache_max_size: 10000,
+      cache_ttl: undefined,
       // 生成配置
       qa_pair_limit: 200,
       qa_ratio_atomic: 25,

@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from graphgen.bases import BaseGenerator
@@ -6,10 +7,25 @@ from graphgen.utils import compute_content_hash, detect_main_language, logger
 
 
 class MultiHopGenerator(BaseGenerator):
-    def build_prompt(
-        self,
+    def __init__(self, llm_client):
+        """
+        初始化 Multi-hop 生成器
+        
+        :param llm_client: LLM客户端
+        """
+        super().__init__(llm_client)
+        self._generation_mode = "multi_hop"
+    
+    @staticmethod
+    def _format_batch_data(
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
-    ) -> str:
+    ) -> tuple[str, str, str]:
+        """
+        格式化批次数据为实体和关系字符串，并检测语言
+        
+        :param batch: 包含节点和边的批次数据
+        :return: (entities_str, relationships_str, language)
+        """
         nodes, edges = batch
         entities_str = "\n".join(
             [
@@ -17,7 +33,6 @@ class MultiHopGenerator(BaseGenerator):
                 for index, node in enumerate(nodes)
             ]
         )
-
         relationships_str = "\n".join(
             [
                 f"{index + 1}. {edge[0]} -- {edge[1]}: {edge[2]['description']}"
@@ -25,6 +40,18 @@ class MultiHopGenerator(BaseGenerator):
             ]
         )
         language = detect_main_language(entities_str + relationships_str)
+        return entities_str, relationships_str, language
+    
+    def build_prompt(
+        self,
+        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
+    ) -> str:
+        """
+        Build prompts for multi-hop QA generation.
+        :param batch: tuple of (nodes, edges)
+        :return: formatted prompt string
+        """
+        entities_str, relationships_str, language = self._format_batch_data(batch)
         prompt = MULTI_HOP_GENERATION_PROMPT[language].format(
             entities=entities_str, relationships=relationships_str
         )
@@ -33,78 +60,94 @@ class MultiHopGenerator(BaseGenerator):
     @staticmethod
     def parse_response(response: str) -> dict:
         """
-        Parse multi-hop response that should include reasoning path.
+        Parse multi-hop response that should include question, answer, and reasoning path.
         Expected format:
         Question: ...
         Answer: ...
         Reasoning Path: ... (optional)
+        
+        Uses robust regex-based parsing to handle various format variations.
         """
         if not response or not response.strip():
             logger.warning("Empty multi-hop response received")
             return {}
         
-        reasoning_path = ""
+        # 定义匹配模式（支持多种变体）
+        patterns = {
+            "question_en": [
+                r"Question:\s*(.+?)(?=Answer:|Reasoning Path:|Reasoning:|Path:|\Z)",
+                r"Question\s*:\s*(.+?)(?=Answer:|Reasoning Path:|Reasoning:|Path:|\Z)",
+            ],
+            "question_zh": [
+                r"问题：\s*(.+?)(?=答案：|推理路径：|路径：|推理：|\Z)",
+                r"问题\s*：\s*(.+?)(?=答案：|推理路径：|路径：|推理：|\Z)",
+            ],
+            "answer_en": [
+                r"Answer:\s*(.+?)(?=Reasoning Path:|Reasoning:|Path:|\Z)",
+                r"Answer\s*:\s*(.+?)(?=Reasoning Path:|Reasoning:|Path:|\Z)",
+            ],
+            "answer_zh": [
+                r"答案：\s*(.+?)(?=推理路径：|路径：|推理：|\Z)",
+                r"答案\s*：\s*(.+?)(?=推理路径：|路径：|推理：|\Z)",
+            ],
+            "reasoning_en": [
+                r"Reasoning Path:\s*(.+?)(?=\Z)",
+                r"Reasoning:\s*(.+?)(?=\Z)",
+                r"Path:\s*(.+?)(?=\Z)",
+            ],
+            "reasoning_zh": [
+                r"推理路径：\s*(.+?)(?=\Z)",
+                r"路径：\s*(.+?)(?=\Z)",
+                r"推理：\s*(.+?)(?=\Z)",
+            ],
+        }
+        
         question = ""
         answer = ""
+        reasoning_path = ""
         
-        # Try English format first
-        if "Question:" in response:
-            parts = response.split("Question:", 1)
-            if len(parts) > 1:
-                question_part = parts[1]
-                if "Answer:" in question_part:
-                    question = question_part.split("Answer:")[0].strip()
-                    answer_part = question_part.split("Answer:")[1]
-                    if "Reasoning Path:" in answer_part or "Reasoning:" in answer_part:
-                        # Extract reasoning path
-                        reasoning_markers = ["Reasoning Path:", "Reasoning:", "Path:"]
-                        for marker in reasoning_markers:
-                            if marker in answer_part:
-                                answer = answer_part.split(marker)[0].strip()
-                                reasoning_path = answer_part.split(marker)[1].strip()
-                                break
-                        if not reasoning_path:
-                            answer = answer_part.strip()
-                    else:
-                        answer = answer_part.strip()
-        # Try Chinese format
-        elif "问题：" in response:
-            parts = response.split("问题：", 1)
-            if len(parts) > 1:
-                question_part = parts[1]
-                if "答案：" in question_part:
-                    question = question_part.split("答案：")[0].strip()
-                    answer_part = question_part.split("答案：")[1]
-                    if "推理路径：" in answer_part or "路径：" in answer_part:
-                        # Extract reasoning path
-                        reasoning_markers = ["推理路径：", "路径：", "推理："]
-                        for marker in reasoning_markers:
-                            if marker in answer_part:
-                                answer = answer_part.split(marker)[0].strip()
-                                reasoning_path = answer_part.split(marker)[1].strip()
-                                break
-                        if not reasoning_path:
-                            answer = answer_part.strip()
-                    else:
-                        answer = answer_part.strip()
-        else:
-            # No standard markers found
-            response_preview = response.strip()[:200] if response.strip() else "(empty)"
+        # 解析问题
+        for pattern in patterns["question_en"] + patterns["question_zh"]:
+            match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
+            if match:
+                question = match.group(1).strip()
+                break
+        
+        # 解析答案
+        for pattern in patterns["answer_en"] + patterns["answer_zh"]:
+            match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
+            if match:
+                answer = match.group(1).strip()
+                break
+        
+        # 解析推理路径（可选）
+        for pattern in patterns["reasoning_en"] + patterns["reasoning_zh"]:
+            match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
+            if match:
+                reasoning_path = match.group(1).strip()
+                break
+        
+        # 清理引号
+        question = question.strip('"').strip("'")
+        answer = answer.strip('"').strip("'")
+        reasoning_path = reasoning_path.strip('"').strip("'")
+        
+        # 验证必需字段
+        if not question or not answer:
             logger.warning(
-                "Failed to parse multi-hop response (no Question/问题 marker found): %s",
-                response_preview
+                "Failed to parse multi-hop response - missing required fields. "
+                "Question: %s, Answer: %s",
+                bool(question),
+                bool(answer)
             )
             return {}
         
-        question = question.strip('"').strip()
-        answer = answer.strip('"').strip()
-        reasoning_path = reasoning_path.strip()
-        
-        if not question or not answer:
-            logger.warning("Incomplete multi-hop response: Q=%s, A=%s", question, answer)
-            return {}
-        
-        logger.debug("Multi-hop QA: Q=%s, A=%s, Path=%s", question[:50], answer[:50], reasoning_path[:50] if reasoning_path else "N/A")
+        logger.debug(
+            "Multi-hop QA: Q=%s, A=%s, Path=%s",
+            question[:100] if question else "None",
+            answer[:100] if answer else "None",
+            reasoning_path[:100] if reasoning_path else "N/A"
+        )
         
         return {
             compute_content_hash(question): {

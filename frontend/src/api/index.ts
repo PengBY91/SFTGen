@@ -79,8 +79,10 @@ export const api = {
   },
 
   // 获取任务原始文件内容
-  getTaskSource(taskId: string) {
-    return request.get<TaskResponse>(`/tasks/${taskId}/source`)
+  getTaskSource(taskId: string, fileIndex: number = 0) {
+    return request.get<TaskResponse>(`/tasks/${taskId}/source`, {
+      params: { file_index: fileIndex }
+    })
   },
 
   // 下载任务输出

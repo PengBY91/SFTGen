@@ -40,10 +40,17 @@ class TaskConfig(BaseModel):
     dynamic_chunk_size: bool = False  # 动态chunk大小调整（默认关闭）
     use_multi_template: bool = True  # 多模板采样（默认开启）
     template_seed: Optional[int] = None  # 模板随机种子（可选）
-    # 批量请求配置
+    # 批量请求配置（知识抽取阶段）
     enable_batch_requests: bool = True  # 启用批量请求（默认开启）
     batch_size: int = 10  # 批量大小
     max_wait_time: float = 0.5  # 最大等待时间（秒）
+    # 批量生成配置（问题生成阶段）
+    use_adaptive_batching: bool = False  # 启用自适应批量大小（默认关闭）
+    min_batch_size: int = 5  # 最小批量大小（用于自适应批量）
+    max_batch_size: int = 50  # 最大批量大小（用于自适应批量）
+    enable_prompt_cache: bool = True  # 启用提示缓存（默认开启）
+    cache_max_size: int = 10000  # 缓存最大大小
+    cache_ttl: Optional[int] = None  # 缓存TTL（秒，None表示不过期）
     # 生成数量与比例配置
     qa_pair_limit: Optional[int] = None  # 目标生成QA数量（None表示不限制）
     qa_ratio_atomic: float = 25.0  # Atomic 类型占比（百分比）

@@ -18,7 +18,7 @@ load_dotenv()
 app = FastAPI(
     title="GraphGen API",
     version="2.0.0",
-    description="GraphGen 数据生成平台 API",
+    description="KGE-Gen SFT 数据生成平台 API",
     docs_url="/docs",
     redoc_url="/redoc"
 )

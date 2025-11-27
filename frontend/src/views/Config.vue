@@ -309,6 +309,87 @@
               <el-switch v-model="config.persistent_deduplication" />
               <span class="form-item-tip">与历史任务共享已生成的问题，避免重复调用 LLM（推荐开启）</span>
             </el-form-item>
+
+            <el-divider content-position="left">批量生成配置</el-divider>
+
+            <el-form-item label="启用批量生成">
+              <el-switch v-model="config.enable_batch_requests" />
+              <span class="form-item-tip">在问题生成阶段将多个请求合并发送，降低网络开销，提升生成速度（推荐开启）</span>
+            </el-form-item>
+
+            <template v-if="config.enable_batch_requests">
+              <el-form-item label="批量大小">
+                <el-input-number
+                  v-model="config.batch_size"
+                  :min="1"
+                  :max="50"
+                />
+                <span class="form-item-tip">单次批量包含的请求数，建议 5-20</span>
+              </el-form-item>
+
+              <el-form-item label="最大等待时间（秒）">
+                <el-slider
+                  v-model="config.max_wait_time"
+                  :min="0.1"
+                  :max="2.0"
+                  :step="0.1"
+                  show-input
+                />
+                <span class="form-item-tip">超过该时间即使未达到批量大小也会发送生成请求</span>
+              </el-form-item>
+
+              <el-form-item label="启用自适应批量">
+                <el-switch v-model="config.use_adaptive_batching" />
+                <span class="form-item-tip">根据请求性能自动调整批量大小，进一步提升吞吐量</span>
+              </el-form-item>
+
+              <template v-if="config.use_adaptive_batching">
+                <el-form-item label="最小批量大小">
+                  <el-input-number
+                    v-model="config.min_batch_size"
+                    :min="1"
+                    :max="20"
+                  />
+                  <span class="form-item-tip">自适应批量模式下的最小批量大小</span>
+                </el-form-item>
+
+                <el-form-item label="最大批量大小">
+                  <el-input-number
+                    v-model="config.max_batch_size"
+                    :min="10"
+                    :max="100"
+                  />
+                  <span class="form-item-tip">自适应批量模式下的最大批量大小</span>
+                </el-form-item>
+              </template>
+
+              <el-form-item label="启用提示缓存">
+                <el-switch v-model="config.enable_prompt_cache" />
+                <span class="form-item-tip">缓存相同提示的响应，避免重复请求，节省 API 调用（推荐开启）</span>
+              </el-form-item>
+
+              <template v-if="config.enable_prompt_cache">
+                <el-form-item label="缓存最大大小">
+                  <el-input-number
+                    v-model="config.cache_max_size"
+                    :min="1000"
+                    :max="100000"
+                    :step="1000"
+                  />
+                  <span class="form-item-tip">提示缓存的最大条目数</span>
+                </el-form-item>
+
+                <el-form-item label="缓存TTL（秒）">
+                  <el-input-number
+                    v-model="config.cache_ttl"
+                    :min="0"
+                    :max="86400"
+                    :step="60"
+                  />
+                  <span class="form-item-tip">缓存过期时间，0 或留空表示不过期</span>
+                </el-form-item>
+              </template>
+            </template>
           </el-collapse-item>
 
           <!-- 限流配置 -->

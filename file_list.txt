@@ -1,4 +1,0 @@
-# 这是注释行
-data/file1.txt
-data/file2.txt
-data/file3.txt

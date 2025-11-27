@@ -346,7 +346,13 @@ class TaskService:
                 "error": str(e)
             }
     
-    def get_task_source(self, task_id: str) -> Dict[str, Any]:
+    def get_task_source(self, task_id: str, file_index: int = 0) -> Dict[str, Any]:
+        """获取任务的原始输入文件内容
+        
+        Args:
+            task_id: 任务ID
+            file_index: 文件索引，默认为0（第一个文件）
+        """
         try:
             task = task_manager.get_task(task_id)
             if not task:
@@ -355,27 +361,44 @@ class TaskService:
                     "error": "任务不存在"
                 }
             
-            # 检查文件是否存在
-            if not os.path.exists(task.file_path):
+            # 检查文件索引是否有效
+            if not task.filepaths or len(task.filepaths) == 0:
                 return {
                     "success": False,
-                    "error": "原始文件不存在"
+                    "error": "任务没有关联的文件"
+                }
+            
+            if file_index < 0 or file_index >= len(task.filepaths):
+                return {
+                    "success": False,
+                    "error": f"文件索引 {file_index} 超出范围，任务共有 {len(task.filepaths)} 个文件"
+                }
+            
+            # 获取指定索引的文件路径和文件名
+            file_path = task.filepaths[file_index]
+            filename = task.filenames[file_index] if file_index < len(task.filenames) else os.path.basename(file_path)
+            
+            # 检查文件是否存在
+            if not os.path.exists(file_path):
+                return {
+                    "success": False,
+                    "error": f"文件不存在: {file_path}"
                 }
             
             # 读取文件内容
             try:
-                with open(task.file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                 
                 # 获取文件大小和行数
-                file_size = os.path.getsize(task.file_path)
+                file_size = os.path.getsize(file_path)
                 line_count = content.count('\n') + 1 if content else 0
                 
                 return {
                     "success": True,
                     "data": {
-                        "filename": task.filename,
-                        "file_path": task.file_path,
+                        "filename": filename,
+                        "file_path": file_path,
                         "content": content,
                         "file_size": file_size,
                         "line_count": line_count,
@@ -385,15 +408,15 @@ class TaskService:
             except UnicodeDecodeError:
                 # 如果 UTF-8 解码失败，尝试其他编码
                 try:
-                    with open(task.file_path, 'r', encoding='gbk') as f:
+                    with open(file_path, 'r', encoding='gbk') as f:
                         content = f.read()
                     return {
                         "success": True,
                         "data": {
-                            "filename": task.filename,
-                            "file_path": task.file_path,
+                            "filename": filename,
+                            "file_path": file_path,
                             "content": content,
-                            "file_size": os.path.getsize(task.file_path),
+                            "file_size": os.path.getsize(file_path),
                             "line_count": content.count('\n') + 1 if content else 0,
                             "encoding": "gbk"
                         }

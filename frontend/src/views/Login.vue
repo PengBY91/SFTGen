@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <h1>GraphGen</h1>
+        <h1>KGE-Gen</h1>
         <p>数据生成与管理平台</p>
       </div>
       

@@ -2,7 +2,7 @@
   <el-container class="layout-container">
     <el-header class="layout-header">
       <div class="logo">
-        <h1>GraphGen 数据生成平台</h1>
+        <h1>KGE-Gen SFT数据生成平台</h1>
       </div>
       <div class="header-right">
         <el-menu
@@ -69,7 +69,7 @@
 
     <el-footer class="layout-footer">
       <div class="footer-content">
-        <span>GraphGen v2.0.0 © 2025</span>
+        <span>KGE-Gen v2.0.0 © 2025</span>
         <div class="footer-links">
           <a href="https://github.com/open-sciencelab/GraphGen" target="_blank">GitHub</a>
           <a href="https://arxiv.org/abs/2505.20416" target="_blank">arXiv</a>

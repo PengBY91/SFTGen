@@ -528,20 +528,16 @@ const confirmAddFiles = async () => {
 const handleViewFile = async (index: number) => {
   if (!task.value) return
   
-  const filepath = task.value.filepaths?.[index] || task.value.file_path
-  const filename = task.value.filenames?.[index] || task.value.filename
-  
   sourceLoading.value = true
   sourceDialogVisible.value = true
 
   try {
-    // 这里需要一个新的API来获取指定文件的内容
-    // 暂时使用现有的API，但需要扩展
-    const response = await api.getTaskSource(task.value.task_id)
+    // 使用文件索引获取指定文件的内容
+    const response = await api.getTaskSource(task.value.task_id, index)
     if (response.success && response.data) {
       sourceData.value = {
-        filename: filename,
-        file_path: filepath,
+        filename: response.data.filename || task.value.filenames?.[index] || task.value.filename || '',
+        file_path: response.data.file_path || task.value.filepaths?.[index] || task.value.file_path || '',
         content: response.data.content || '',
         file_size: response.data.file_size || 0,
         line_count: response.data.line_count || 0,

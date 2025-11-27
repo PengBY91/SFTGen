@@ -29,10 +29,17 @@ export interface TaskConfig {
   dynamic_chunk_size?: boolean  // 动态chunk大小调整
   use_multi_template?: boolean  // 多模板采样
   template_seed?: number  // 模板随机种子（可选）
-  // 批量请求配置
+  // 批量请求配置（知识抽取阶段）
   enable_batch_requests?: boolean  // 启用批量请求
   batch_size?: number  // 批量大小
   max_wait_time?: number  // 最大等待时间（秒）
+  // 批量生成配置（问题生成阶段）
+  use_adaptive_batching?: boolean  // 启用自适应批量大小
+  min_batch_size?: number  // 最小批量大小（用于自适应批量）
+  max_batch_size?: number  // 最大批量大小（用于自适应批量）
+  enable_prompt_cache?: boolean  // 启用提示缓存
+  cache_max_size?: number  // 缓存最大大小
+  cache_ttl?: number  // 缓存TTL（秒，undefined表示不过期）
   // 生成数量与比例配置
   qa_pair_limit?: number  // 目标QA数量
   qa_ratio_atomic?: number  // Atomic占比（百分比）
