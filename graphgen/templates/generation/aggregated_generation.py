@@ -316,12 +316,18 @@ AGGREGATED_COMBINED_EN = """You are an NLP expert responsible for generating a l
    - Is clear and specific
    - Can be answered using the rephrased text
 
----Output Format---
+---Strict Output Format---
+You MUST output in the following format (do NOT add any extra explanations, preambles, or meta-descriptions):
+
 Rephrased Text:
 [Your rephrased text here]
 
 Question:
 [Your question here]
+
+Important:
+- Start directly with "Rephrased Text:"
+- Do NOT add phrases like "Here is", "Based on", or "Below is" at the beginning
 
 ---Input---
 ################
@@ -381,12 +387,18 @@ AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的�
    - 清晰具体
    - 可以用重述文本回答
 
----输出格式---
+---严格输出格式---
+必须严格按照以下格式输出（不要添加任何额外的说明、前言或元描述）：
+
 重述文本:
 [你的重述文本]
 
 问题:
 [你的问题]
+
+注意：
+- 直接从"重述文本:"开始输出
+- 不要添加"以下是"、"根据"等说明性文字
 
 ---输入---
 ################

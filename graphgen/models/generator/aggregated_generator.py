@@ -113,32 +113,55 @@ class AggregatedGenerator(BaseGenerator):
         """
         解析合并模式的响应（包含重述文本和问题）
         """
+        import re
+        
+        # Pre-processing: Remove common meta-descriptions and preambles
+        response_clean = response.strip()
+        meta_prefixes = [
+            r"^(?:Here is|This is|Below is).*?(?:rephrased text|question).*?[：:]\s*",
+            r"^(?:以下是|这是).*?(?:重述|问题).*?[：:]\s*",
+            r"^根据.*?(?:以下是|如下)[：:]\s*",
+            r"^Based on.*?(?:here is|as follows)[：:]\s*",
+            r"^(?:好的|好|OK)[，,。.]\s*",
+        ]
+        for pattern in meta_prefixes:
+            response_clean = re.sub(pattern, "", response_clean, flags=re.IGNORECASE)
+        response_clean = response_clean.strip()
+        
         result = {}
         
         # 尝试解析重述文本
-        if "Rephrased Text:" in response:
-            rephrased_part = response.split("Rephrased Text:")[1]
+        if "Rephrased Text:" in response_clean:
+            rephrased_part = response_clean.split("Rephrased Text:")[1]
             if "Question:" in rephrased_part:
                 rephrased_text = rephrased_part.split("Question:")[0].strip()
             else:
                 rephrased_text = rephrased_part.strip()
-        elif "重述文本:" in response:
-            rephrased_part = response.split("重述文本:")[1]
-            if "问题：" in rephrased_part:
-                rephrased_text = rephrased_part.split("问题：")[0].strip()
+        elif "重述文本:" in response_clean:
+            rephrased_part = response_clean.split("重述文本:")[1]
+            if "问题：" in rephrased_part or "问题:" in rephrased_part:
+                # 处理中文冒号和英文冒号的情况
+                if "问题：" in rephrased_part:
+                    rephrased_text = rephrased_part.split("问题：")[0].strip()
+                else:
+                    rephrased_text = rephrased_part.split("问题:")[0].strip()
             else:
                 rephrased_text = rephrased_part.strip()
         else:
-            logger.warning("Failed to parse rephrased text from combined response")
+            logger.warning("Failed to parse rephrased text from combined response (length: %d): %s", 
+                         len(response_clean), response_clean[:300])
             return {}
         
         # 尝试解析问题
-        if "Question:" in response:
-            question = response.split("Question:")[1].strip()
-        elif "问题：" in response:
-            question = response.split("问题：")[1].strip()
+        if "Question:" in response_clean:
+            question = response_clean.split("Question:")[1].strip()
+        elif "问题：" in response_clean:
+            question = response_clean.split("问题：")[1].strip()
+        elif "问题:" in response_clean:
+            question = response_clean.split("问题:")[1].strip()
         else:
-            logger.warning("Failed to parse question from combined response")
+            logger.warning("Failed to parse question from combined response (length: %d): %s",
+                         len(response_clean), response_clean[:300])
             return {}
         
         rephrased_text = rephrased_text.strip('"')

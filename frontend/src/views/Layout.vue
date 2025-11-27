@@ -202,10 +202,27 @@ const handleChangePassword = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 0 20px;
-  height: 60px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  padding: 0 32px;
+  height: 64px !important;
+  position: relative;
+  z-index: 1000;
+}
+
+.layout-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.3) 20%, 
+    rgba(255, 255, 255, 0.3) 80%, 
+    transparent 100%
+  );
 }
 
 .logo {
@@ -215,21 +232,27 @@ const handleChangePassword = async () => {
 }
 
 .logo h1 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #409eff;
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin: 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .logo img {
   height: 40px;
   width: auto;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
 }
 
 .header-menu {
@@ -237,39 +260,94 @@ const handleChangePassword = async () => {
   background: transparent;
 }
 
+:deep(.header-menu .el-menu-item) {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s;
+  padding: 0 20px;
+}
+
+:deep(.header-menu .el-menu-item:hover) {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-bottom-color: rgba(255, 255, 255, 0.5);
+}
+
+:deep(.header-menu .el-menu-item.is-active) {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-bottom-color: white;
+  font-weight: 600;
+}
+
 .user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 12px;
+  padding: 10px 18px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s;
 }
 
 .user-info:hover {
-  background-color: #f5f7fa;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.user-info .el-avatar) {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .username {
   font-size: 14px;
-  color: #606266;
+  color: white;
+  font-weight: 500;
+}
+
+:deep(.user-info .el-tag) {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-weight: 500;
 }
 
 .layout-main {
   flex: 1;
-  padding: 20px;
+  padding: 32px;
   overflow: auto;
-  background: #f5f7fa;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  position: relative;
+}
+
+.layout-main::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(180deg, 
+    rgba(102, 126, 234, 0.05) 0%, 
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .layout-footer {
-  height: 60px !important;
-  background: #fff;
-  border-top: 1px solid #e4e7ed;
+  height: 56px !important;
+  background: white;
+  border-top: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 32px;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .footer-content {
@@ -277,32 +355,64 @@ const handleChangePassword = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #909399;
-  font-size: 14px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .footer-links {
   display: flex;
-  gap: 20px;
+  gap: 24px;
 }
 
 .footer-links a {
-  color: #409eff;
+  color: #667eea;
   text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .footer-links a:hover {
-  text-decoration: underline;
+  color: #764ba2;
+  transform: translateY(-1px);
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
-.fade-enter-from,
+.fade-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
 .fade-leave-to {
   opacity: 0;
+  transform: translateX(-20px);
+}
+
+:deep(.el-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+:deep(.el-dialog__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  margin: 0;
+}
+
+:deep(.el-dialog__title) {
+  color: white;
+  font-weight: 600;
+}
+
+:deep(.el-dialog__close) {
+  color: white;
+}
+
+:deep(.el-dialog__body) {
+  padding: 24px;
 }
 </style>
 

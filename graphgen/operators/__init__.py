@@ -1,4 +1,4 @@
-from .build_kg import build_mm_kg, build_text_kg
+from .build_kg import build_mm_kg, build_text_kg, build_text_kg_with_prompt_merging
 from .generate import generate_qas
 from .judge import judge_statement
 from .partition import partition_kg

@@ -233,7 +233,9 @@ Chain-of-Thought (CoT) means that when answering a complex question, the interme
 3. Avoid using stop words and overly common words in the reasoning path.
 4. Do not include specific numerical values or conclusions in the reasoning path, and DO NOT describe meaningless operations like "Identify the entity" or "Identify the relationship".
 
---- Output Format ---
+--- Strict Output Format ---
+You MUST output in the following format (do NOT add any extra explanations, preambles, or meta-descriptions):
+
 Question:
 [Your question here]
 
@@ -242,6 +244,10 @@ Reasoning-Path Design:
 
 Answer:
 [Your complete CoT answer following the reasoning path]
+
+Important:
+- Start directly with "Question:"
+- Do NOT add phrases like "Here is", "Based on", or "Below is" at the beginning
 
 --- Real Data ---
 Input:
@@ -294,7 +300,9 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 3. 推理路径中避免使用停用词和过于常见的词汇。
 4. 推理路径中不要出现具体数值或结论，不要出现"识别实体"、"识别关系"这类无意义的操作描述。
 
----输出格式---
+---严格输出格式---
+必须严格按照以下格式输出（不要添加任何额外的说明、前言或元描述）：
+
 问题：
 [你的问题]
 
@@ -303,6 +311,10 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 
 答案：
 [遵循推理路径的完整CoT答案]
+
+注意：
+- 直接从"问题："开始输出
+- 不要添加"以下是"、"根据"等说明性文字
 
 ---真实数据---
 输入:

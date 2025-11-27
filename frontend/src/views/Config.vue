@@ -568,65 +568,244 @@ onMounted(async () => {
 
 <style scoped>
 .config-container {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:deep(.el-card) {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+:deep(.el-card:hover) {
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.12);
+}
+
+:deep(.el-card__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: none;
+  padding: 20px 24px;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
+  color: white;
 }
 
 .header-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+}
+
+:deep(.el-card__header .el-button) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+:deep(.el-card__header .el-button:hover) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+}
+
+:deep(.el-card__body) {
+  padding: 32px;
 }
 
 .form-item-tip {
-  margin-left: 10px;
+  display: block;
+  margin-top: 8px;
   font-size: 12px;
   color: #909399;
+  line-height: 1.5;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-left: 3px solid #409eff;
+  border-radius: 4px;
 }
 
 .qa-ratio-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
 }
 
 .qa-ratio-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 220px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+}
+
+.qa-ratio-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 .qa-ratio-label {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   color: #606266;
   min-width: 90px;
+}
+
+:deep(.el-collapse) {
+  border: none;
+}
+
+:deep(.el-collapse-item) {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e4e7ed;
+  background: white;
 }
 
 :deep(.el-collapse-item__header) {
   font-size: 16px;
   font-weight: 600;
+  background: #fafbfc;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e7ed;
+  color: #303133;
+  transition: all 0.3s;
+}
+
+:deep(.el-collapse-item__header:hover) {
+  background: #f0f2f5;
+  color: #409eff;
+}
+
+:deep(.el-collapse-item__wrap) {
+  border: none;
+  background: white;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 24px 20px;
 }
 
 :deep(.el-form-item) {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
-:deep(.el-radio) {
-  display: block;
-  margin: 10px 0;
+:deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #475569;
 }
 
+:deep(.el-input__wrapper) {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+  transition: all 0.3s;
+}
+
+:deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #c0c4cc inset;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #409eff inset;
+}
+
+:deep(.el-slider__runway) {
+  border-radius: 6px;
+}
+
+:deep(.el-slider__bar) {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+:deep(.el-slider__button) {
+  border: 2px solid #667eea;
+}
+
+:deep(.el-radio),
 :deep(.el-checkbox) {
   display: block;
-  margin: 10px 0;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+:deep(.el-radio:hover),
+:deep(.el-checkbox:hover) {
+  background: #f0f9ff;
+}
+
+:deep(.el-radio__label),
+:deep(.el-checkbox__label) {
+  font-weight: 500;
+}
+
+:deep(.el-divider) {
+  margin: 32px 0;
+}
+
+:deep(.el-divider__text) {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  background: white;
+  padding: 0 16px;
+}
+
+:deep(.el-input-number) {
+  border-radius: 6px;
+}
+
+:deep(.el-select) {
+  width: 100%;
+}
+
+:deep(.el-select .el-input__wrapper) {
+  border-radius: 6px;
+}
+
+:deep(.el-switch.is-checked .el-switch__core) {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+:deep(.el-alert) {
+  border-radius: 8px;
+  border: none;
+  padding: 16px;
+}
+
+:deep(.el-alert--info) {
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
 }
 </style>
 

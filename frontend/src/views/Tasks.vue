@@ -67,10 +67,12 @@
           <template #default="{ row }">
             <div class="model-info">
               <div v-if="row.synthesizer_model" class="model-item">
-                <el-tag size="small" type="primary">合成器: {{ row.synthesizer_model }}</el-tag>
+                <span class="model-label">合成器:</span>
+                <span class="model-name">{{ row.synthesizer_model }}</span>
               </div>
               <div v-if="row.trainee_model" class="model-item">
-                <el-tag size="small" type="success">训练: {{ row.trainee_model }}</el-tag>
+                <span class="model-label">训练:</span>
+                <span class="model-name">{{ row.trainee_model }}</span>
               </div>
               <span v-if="!row.synthesizer_model && !row.trainee_model">-</span>
             </div>
@@ -78,9 +80,7 @@
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
-              {{ getStatusText(row.status) }}
-            </el-tag>
+            <span class="status-text">{{ getStatusText(row.status) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="问答对数" width="100">
@@ -470,90 +470,240 @@ onUnmounted(() => {
 .tasks-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   width: 100%;
   max-width: 100%;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .stats-card {
   width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.stats-card:hover {
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
 .stats-content {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 24px;
+  padding: 8px 0;
 }
 
 .stat-item {
   text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  transition: all 0.3s;
+  cursor: default;
+}
+
+.stat-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .stat-value {
-  font-size: 32px;
-  font-weight: 600;
+  font-size: 36px;
+  font-weight: 700;
   color: #303133;
   margin-bottom: 8px;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #909399;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 .table-card {
   width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+:deep(.el-card__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: none;
+  padding: 18px 20px;
+}
+
+:deep(.el-card__header .card-header) {
+  color: white;
+}
+
+:deep(.el-card__header .el-button) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+:deep(.el-card__header .el-button:hover) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+:deep(.el-card__header .el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+:deep(.el-card__header .el-input__inner) {
+  color: white;
+}
+
+:deep(.el-card__header .el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:deep(.el-table) {
+  border-radius: 8px;
 }
 
 :deep(.el-table__row) {
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  background-color: #f0f9ff !important;
+  transform: scale(1.001);
+}
+
+:deep(.el-table th) {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
 }
 
 .token-usage-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .token-total {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .token-detail {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   font-size: 12px;
   color: #909399;
 }
 
 .token-input {
   color: #409eff;
+  font-weight: 500;
 }
 
 .token-output {
   color: #67c23a;
+  font-weight: 500;
 }
 
 .model-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .model-item {
   display: flex;
   align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.model-label {
+  color: #909399;
+  font-weight: 500;
+}
+
+.model-name {
+  color: #303133;
+  font-weight: 400;
+}
+
+.status-text {
+  color: #606266;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:deep(.el-button) {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+:deep(.el-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.el-tag) {
+  border-radius: 4px;
+  font-weight: 500;
+  padding: 4px 10px;
+}
+
+/* 添加成功/警告/错误颜色的渐变效果 */
+:deep(.el-tag--success) {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+  border: none;
+}
+
+:deep(.el-tag--warning) {
+  background: linear-gradient(135deg, #e6a23c 0%, #f5a742 100%);
+  border: none;
+}
+
+:deep(.el-tag--danger) {
+  background: linear-gradient(135deg, #f56c6c 0%, #f78989 100%);
+  border: none;
+}
+
+:deep(.el-tag--primary) {
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  border: none;
 }
 </style>
 

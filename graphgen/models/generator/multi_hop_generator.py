@@ -75,16 +75,18 @@ class MultiHopGenerator(BaseGenerator):
         # Try to clean up the response first
         response_clean = response.strip()
         
-        # Remove common prefixes that might interfere
-        prefixes_to_remove = [
-            "Here is the multi-hop question:",
-            "以下是多跳问题：",
-            "Multi-hop question:",
-            "多跳问题：",
+        # Remove common meta-descriptions and preambles
+        import re
+        meta_prefixes = [
+            r"^(?:Here is|This is|Below is).*?multi-hop.*?[：:]\s*",
+            r"^(?:以下是|这是).*?多跳.*?[：:]\s*",
+            r"^根据.*?(?:以下是|如下)[：:]\s*",
+            r"^Based on.*?(?:here is|as follows)[：:]\s*",
+            r"^(?:好的|好|OK)[，,。.]\s*",
         ]
-        for prefix in prefixes_to_remove:
-            if response_clean.startswith(prefix):
-                response_clean = response_clean[len(prefix):].strip()
+        for pattern in meta_prefixes:
+            response_clean = re.sub(pattern, "", response_clean, flags=re.IGNORECASE)
+        response_clean = response_clean.strip()
         
         # 定义匹配模式（支持多种变体）
         patterns = {

@@ -16,6 +16,7 @@ from graphgen.models import (
 from graphgen.operators import (
     build_mm_kg,
     build_text_kg,
+    build_text_kg_with_prompt_merging,
     chunk_documents,
     generate_qas,
     judge_statement,
@@ -142,20 +143,43 @@ class GraphGen:
 
             # Step 2.2: Extract entities and relations from text chunks
             logger.info("[Text Entity and Relation Extraction] processing ...")
-            _add_entities_and_relations = await build_text_kg(
-                llm_client=self.synthesizer_llm_client,
-                kg_instance=self.graph_storage,
-                chunks=[
-                    Chunk(id=k, content=v["content"], type="text")
-                    for k, v in inserting_chunks.items()
-                ],
-                progress_bar=self.progress_bar,
-                cache_storage=self.extraction_cache_storage,
-                enable_cache=split_config.get("enable_extraction_cache", True),
-                enable_batch_requests=split_config.get("enable_batch_requests", True),
-                batch_size=split_config.get("batch_size", 10),
-                max_wait_time=split_config.get("max_wait_time", 0.5),
-            )
+            
+            # 使用优化版本的KG构建（支持Prompt合并）
+            enable_prompt_merging = split_config.get("enable_prompt_merging", True)
+            
+            if enable_prompt_merging:
+                _add_entities_and_relations = await build_text_kg_with_prompt_merging(
+                    llm_client=self.synthesizer_llm_client,
+                    kg_instance=self.graph_storage,
+                    chunks=[
+                        Chunk(id=k, content=v["content"], type="text")
+                        for k, v in inserting_chunks.items()
+                    ],
+                    progress_bar=self.progress_bar,
+                    cache_storage=self.extraction_cache_storage,
+                    enable_cache=split_config.get("enable_extraction_cache", True),
+                    enable_batch_requests=split_config.get("enable_batch_requests", True),
+                    batch_size=split_config.get("batch_size", 30),
+                    max_wait_time=split_config.get("max_wait_time", 1.0),
+                    enable_prompt_merging=True,
+                    prompt_merge_size=split_config.get("prompt_merge_size", 5),
+                )
+            else:
+                # 使用原始版本
+                _add_entities_and_relations = await build_text_kg(
+                    llm_client=self.synthesizer_llm_client,
+                    kg_instance=self.graph_storage,
+                    chunks=[
+                        Chunk(id=k, content=v["content"], type="text")
+                        for k, v in inserting_chunks.items()
+                    ],
+                    progress_bar=self.progress_bar,
+                    cache_storage=self.extraction_cache_storage,
+                    enable_cache=split_config.get("enable_extraction_cache", True),
+                    enable_batch_requests=split_config.get("enable_batch_requests", True),
+                    batch_size=split_config.get("batch_size", 10),
+                    max_wait_time=split_config.get("max_wait_time", 0.5),
+                )
             if not _add_entities_and_relations:
                 logger.warning("No entities or relations extracted from text chunks")
                 return

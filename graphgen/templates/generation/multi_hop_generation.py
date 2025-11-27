@@ -38,7 +38,9 @@ TEMPLATE_ZH: str = """你是一位"多跳推理问题生成专家"。
 4. 问题必须需要至少2步推理（至少经过2个关系）。
 5. 不要出现"识别实体"、"识别关系"这类无意义的操作描述。
 
----输出格式---
+---严格输出格式---
+必须严格按照以下格式输出（不要添加任何额外的说明、前言或元描述）：
+
 问题：
 [你的多跳推理问题]
 
@@ -47,6 +49,10 @@ TEMPLATE_ZH: str = """你是一位"多跳推理问题生成专家"。
 
 推理路径：
 [清晰的推理路径，例如：实体A → 关系描述1 → 实体B → 关系描述2 → 答案]
+
+注意：
+- 直接从"问题："开始输出
+- 不要添加"以下是"、"根据"等说明性文字
 
 ---真实数据---
 输入:
@@ -98,7 +104,9 @@ Multi-hop reasoning means that the question requires traversing multiple relatio
 4. The question must require at least 2 steps of reasoning (traversing at least 2 relationships).
 5. Do not include meaningless operation descriptions like "Identify the entity" or "Identify the relationship".
 
---- Output Format ---
+--- Strict Output Format ---
+You MUST output in the following format (do NOT add any extra explanations, preambles, or meta-descriptions):
+
 Question:
 [Your multi-hop reasoning question]
 
@@ -107,6 +115,10 @@ Answer:
 
 Reasoning Path:
 [Clear reasoning path, e.g., Entity A → Relation Description 1 → Entity B → Relation Description 2 → Answer]
+
+Important:
+- Start directly with "Question:"
+- Do NOT add phrases like "Here is" or "Based on" at the beginning
 
 --- Real Data ---
 Input:

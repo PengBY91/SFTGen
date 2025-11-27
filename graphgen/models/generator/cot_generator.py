@@ -75,56 +75,94 @@ class CoTGenerator(BaseGenerator):
         """
         解析合并模式的响应（包含问题、推理路径和答案）
         """
+        import re
+        
+        # Pre-processing: Remove common meta-descriptions and preambles
+        response_clean = response.strip()
+        meta_prefixes = [
+            r"^(?:Here is|This is|Below is).*?(?:question|reasoning|answer).*?[：:]\s*",
+            r"^(?:以下是|这是).*?(?:问题|推理|答案).*?[：:]\s*",
+            r"^根据.*?(?:以下是|如下)[：:]\s*",
+            r"^Based on.*?(?:here is|as follows)[：:]\s*",
+            r"^(?:好的|好|OK)[，,。.]\s*",
+        ]
+        for pattern in meta_prefixes:
+            response_clean = re.sub(pattern, "", response_clean, flags=re.IGNORECASE)
+        response_clean = response_clean.strip()
+        
         result = {}
         
         # 尝试解析问题
-        if "Question:" in response:
-            question_part = response.split("Question:")[1]
+        if "Question:" in response_clean:
+            question_part = response_clean.split("Question:")[1]
             if "Reasoning-Path Design:" in question_part:
                 question = question_part.split("Reasoning-Path Design:")[0].strip()
             elif "Answer:" in question_part:
                 question = question_part.split("Answer:")[0].strip()
             else:
                 question = question_part.split("\n")[0].strip()
-        elif "问题：" in response:
-            question_part = response.split("问题：")[1]
+        elif "问题：" in response_clean:
+            question_part = response_clean.split("问题：")[1]
             if "推理路径设计：" in question_part:
                 question = question_part.split("推理路径设计：")[0].strip()
             elif "答案：" in question_part:
                 question = question_part.split("答案：")[0].strip()
             else:
                 question = question_part.split("\n")[0].strip()
+        elif "问题:" in response_clean:  # 处理英文冒号的情况
+            question_part = response_clean.split("问题:")[1]
+            if "推理路径设计：" in question_part or "推理路径设计:" in question_part:
+                sep = "推理路径设计：" if "推理路径设计：" in question_part else "推理路径设计:"
+                question = question_part.split(sep)[0].strip()
+            elif "答案：" in question_part or "答案:" in question_part:
+                sep = "答案：" if "答案：" in question_part else "答案:"
+                question = question_part.split(sep)[0].strip()
+            else:
+                question = question_part.split("\n")[0].strip()
         else:
-            logger.warning("Failed to parse question from combined CoT response")
+            logger.warning("Failed to parse question from combined CoT response (length: %d): %s",
+                         len(response_clean), response_clean[:300])
             return {}
         
         # 尝试解析推理路径
-        if "Reasoning-Path Design:" in response:
-            reasoning_part = response.split("Reasoning-Path Design:")[1]
+        if "Reasoning-Path Design:" in response_clean:
+            reasoning_part = response_clean.split("Reasoning-Path Design:")[1]
             if "Answer:" in reasoning_part:
                 reasoning_path = reasoning_part.split("Answer:")[0].strip()
             else:
                 reasoning_path = reasoning_part.strip()
-        elif "推理路径设计：" in response:
-            reasoning_part = response.split("推理路径设计：")[1]
+        elif "推理路径设计：" in response_clean:
+            reasoning_part = response_clean.split("推理路径设计：")[1]
             if "答案：" in reasoning_part:
                 reasoning_path = reasoning_part.split("答案：")[0].strip()
+            elif "答案:" in reasoning_part:
+                reasoning_path = reasoning_part.split("答案:")[0].strip()
+            else:
+                reasoning_path = reasoning_part.strip()
+        elif "推理路径设计:" in response_clean:  # 处理英文冒号
+            reasoning_part = response_clean.split("推理路径设计:")[1]
+            if "答案：" in reasoning_part:
+                reasoning_path = reasoning_part.split("答案：")[0].strip()
+            elif "答案:" in reasoning_part:
+                reasoning_path = reasoning_part.split("答案:")[0].strip()
             else:
                 reasoning_path = reasoning_part.strip()
         else:
             reasoning_path = ""
         
         # 尝试解析答案
-        if "Answer:" in response:
-            answer = response.split("Answer:")[1].strip()
-        elif "答案：" in response:
-            answer = response.split("答案：")[1].strip()
+        if "Answer:" in response_clean:
+            answer = response_clean.split("Answer:")[1].strip()
+        elif "答案：" in response_clean:
+            answer = response_clean.split("答案：")[1].strip()
+        elif "答案:" in response_clean:  # 处理英文冒号
+            answer = response_clean.split("答案:")[1].strip()
         else:
             # 如果没有找到答案标记，使用推理路径后的内容
             if reasoning_path:
-                answer = response.split(reasoning_path)[-1].strip()
+                answer = response_clean.split(reasoning_path)[-1].strip()
             else:
-                answer = response.split(question)[-1].strip() if question else response.strip()
+                answer = response_clean.split(question)[-1].strip() if question else response_clean.strip()
         
         question = question.strip('"')
         reasoning_path = reasoning_path.strip('"')

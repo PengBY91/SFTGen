@@ -21,6 +21,23 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
     import re
     response_clean = response.strip()
     
+    # Pre-processing: Remove common meta-descriptions and preambles that LLMs often add
+    meta_prefixes = [
+        r"^根据您提供的文本段落[，,]\s*以下是.*?[：:]\s*",
+        r"^根据.*?文本[，,]\s*以下是.*?[：:]\s*",
+        r"^以下是.*?生成.*?问答对.*?[：:]\s*",
+        r"^根据.*?以下是.*?[：:]\s*",
+        r"^Based on the (?:text|passage|content).*?here is.*?[：:]\s*",
+        r"^Here is (?:a|the) (?:QA|question-answer) pair.*?[：:]\s*",
+        r"^(?:好的|好|OK)[，,。.]\s*",
+        r"^\s*[\*\-]\s*",  # Remove leading bullets
+    ]
+    
+    for pattern in meta_prefixes:
+        response_clean = re.sub(pattern, "", response_clean, flags=re.IGNORECASE)
+    
+    response_clean = response_clean.strip()
+    
     # First, check if response only has answer marker (no question marker)
     # This happens when LLM only returns answer without question
     answer_only_markers = ["答案：", "Answer:", "A:", "答："]
@@ -218,16 +235,31 @@ class AtomicGenerator(BaseGenerator):
         """
         result = {}
         
-        # Try to split by common separators first
-        separators = ["** **", "**", "\n\n", "---"]
+        # First try to parse the whole response as a single QA pair
+        # This is more robust than splitting first, as splitting can break up valid QA pairs
+        lang, question, answer = _extract_question_and_answer(response)
+        
+        if question and answer:
+            # Successfully parsed as single QA pair, return it
+            q_hash = compute_content_hash(question)
+            result[q_hash] = {
+                "question": question,
+                "answer": answer,
+            }
+            logger.debug("Parsed single QA pair: Q=%s, A=%s", question[:50], answer[:50])
+            return result
+        
+        # If single parse failed, try splitting by common separators
+        separators = ["** **", "**", "\n\n---\n\n", "---"]
         parts = [response]
         for sep in separators:
             if sep in response:
                 parts = response.split(sep)
+                logger.debug("Split response by separator '%s' into %d parts", sep, len(parts))
                 break
         
         # Parse each part
-        for part in parts:
+        for idx, part in enumerate(parts):
             part = part.strip()
             if not part:
                 continue
@@ -237,7 +269,7 @@ class AtomicGenerator(BaseGenerator):
             if not question and answer:
                 # This is an answer-only response, which is valid in two-stage generation
                 # We'll skip it here as it should be handled by the answer generation stage
-                logger.debug("Answer-only response found (skipping, should be handled by answer stage): %s", answer[:100])
+                logger.debug("Answer-only response found in part %d (skipping, should be handled by answer stage): %s", idx, answer[:100])
                 continue
             
             if question and answer:
@@ -247,7 +279,7 @@ class AtomicGenerator(BaseGenerator):
                         "question": question,
                         "answer": answer,
                     }
-                    logger.debug("Parsed QA pair: Q=%s, A=%s", question[:50], answer[:50])
+                    logger.debug("Parsed QA pair from part %d: Q=%s, A=%s", idx, question[:50], answer[:50])
             elif question:
                 # Only question found, might be from question-only stage
                 # Check if question actually contains answer marker (parsing error)
@@ -293,10 +325,12 @@ class AtomicGenerator(BaseGenerator):
                         "answer": answer,
                     }
                     if not answer:
-                        logger.warning("Question found but no answer extracted: %s", question[:100])
+                        logger.warning("Question found but no answer extracted from part %d: %s", idx, question[:100])
+                    else:
+                        logger.debug("Parsed question with answer from part %d: Q=%s", idx, question[:50])
         
         if not result:
-            logger.warning("Failed to parse any QA pairs from response: %s", response[:200])
+            logger.warning("Failed to parse any QA pairs from response (length: %d): %s", len(response), response[:300])
         
         return result
 
