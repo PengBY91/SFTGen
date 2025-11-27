@@ -7,6 +7,7 @@ import os
 import sys
 import json
 from typing import Dict, Any
+from datetime import datetime
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -25,6 +26,7 @@ class TaskProcessor:
     
     def process_task(self, task_id: str, config: TaskConfig):
         """处理任务的具体逻辑"""
+        cache_folder = None
         try:
             # 获取任务信息
             task = task_manager.get_task(task_id)
@@ -38,8 +40,10 @@ class TaskProcessor:
             graphgen_config = self._build_config(config, task.filepaths)
             env = self._build_env(config)
             
-            # 设置工作目录
-            log_file, working_dir = setup_workspace(os.path.join("cache", task_id))
+            # 设置工作目录（文件夹名称前面加上时间戳）
+            time_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
+            cache_folder = os.path.join("cache", f"{time_prefix}-{task_id}")
+            log_file, working_dir = setup_workspace(cache_folder)
             set_logger(log_file, if_stream=True)
             os.environ.update({k: str(v) for k, v in env.items()})
             
@@ -135,26 +139,42 @@ class TaskProcessor:
             with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, ensure_ascii=False, indent=2)
             
-            # 计算 token 使用量
+            # 计算 token 使用量（区分 input 和 output）
             def sum_tokens(client):
-                return sum(u["total_tokens"] for u in client.token_usage)
+                total = sum(u["total_tokens"] for u in client.token_usage)
+                prompt = sum(u.get("prompt_tokens", 0) for u in client.token_usage)
+                completion = sum(u.get("completion_tokens", 0) for u in client.token_usage)
+                return {
+                    "total": total,
+                    "input": prompt,
+                    "output": completion
+                }
             
-            synthesizer_tokens = sum_tokens(graph_gen.synthesizer_llm_client)
-            trainee_tokens = (
+            synthesizer_usage = sum_tokens(graph_gen.synthesizer_llm_client)
+            trainee_usage = (
                 sum_tokens(graph_gen.trainee_llm_client)
                 if graphgen_config["if_trainee_model"]
-                else 0
+                else {"total": 0, "input": 0, "output": 0}
             )
-            total_tokens = synthesizer_tokens + trainee_tokens
+            
+            total_tokens = synthesizer_usage["total"] + trainee_usage["total"]
+            total_input_tokens = synthesizer_usage["input"] + trainee_usage["input"]
+            total_output_tokens = synthesizer_usage["output"] + trainee_usage["output"]
             
             # 验证 token 使用量
             if total_tokens == 0:
                 raise Exception("数据生成失败：未使用任何 token。请检查 API key 是否正确，以及 LLM 服务是否可用。")
             
             token_usage = {
-                "synthesizer_tokens": synthesizer_tokens,
-                "trainee_tokens": trainee_tokens,
-                "total_tokens": total_tokens
+                "synthesizer_tokens": synthesizer_usage["total"],
+                "synthesizer_input_tokens": synthesizer_usage["input"],
+                "synthesizer_output_tokens": synthesizer_usage["output"],
+                "trainee_tokens": trainee_usage["total"],
+                "trainee_input_tokens": trainee_usage["input"],
+                "trainee_output_tokens": trainee_usage["output"],
+                "total_tokens": total_tokens,
+                "total_input_tokens": total_input_tokens,
+                "total_output_tokens": total_output_tokens
             }
             
             # 计算问答对数量
@@ -169,8 +189,9 @@ class TaskProcessor:
                 qa_count=qa_count
             )
             
-            # 清理工作目录
-            cleanup_workspace(working_dir)
+            # 清理工作目录（使用 cache_folder，它包含整个任务的工作目录）
+            if cache_folder:
+                cleanup_workspace(cache_folder)
             
         except Exception as e:
             # 更新任务状态为失败

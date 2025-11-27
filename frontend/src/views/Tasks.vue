@@ -54,13 +54,26 @@
       <el-table
         :data="filteredTasks"
         v-loading="loading"
-        style="width: 100%"
+        style="width: 100%; table-layout: auto"
         @row-click="handleRowClick"
       >
-        <el-table-column prop="task_name" label="任务名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="task_name" label="任务名称" width="120" show-overflow-tooltip />
         <el-table-column label="文件数" width="80">
           <template #default="{ row }">
             {{ row.filenames?.length || 1 }}
+          </template>
+        </el-table-column>
+        <el-table-column label="模型" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="model-info">
+              <div v-if="row.synthesizer_model" class="model-item">
+                <el-tag size="small" type="primary">合成器: {{ row.synthesizer_model }}</el-tag>
+              </div>
+              <div v-if="row.trainee_model" class="model-item">
+                <el-tag size="small" type="success">训练: {{ row.trainee_model }}</el-tag>
+              </div>
+              <span v-if="!row.synthesizer_model && !row.trainee_model">-</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -85,9 +98,18 @@
             {{ row.processing_time ? `${row.processing_time.toFixed(2)}s` : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="Token使用" width="100">
+        <el-table-column label="Token使用" width="180">
           <template #default="{ row }">
-            {{ row.token_usage ? row.token_usage.total_tokens.toLocaleString() : '-' }}
+            <div v-if="row.token_usage" class="token-usage-cell">
+              <div class="token-total">
+                <strong>{{ row.token_usage.total_tokens.toLocaleString() }}</strong>
+              </div>
+              <div v-if="row.token_usage.total_input_tokens !== undefined" class="token-detail">
+                <span class="token-input">输入: {{ row.token_usage.total_input_tokens.toLocaleString() }}</span>
+                <span class="token-output">输出: {{ row.token_usage.total_output_tokens.toLocaleString() }}</span>
+              </div>
+            </div>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" :width="authStore.isAdmin ? '400' : '200'" fixed="right">
@@ -449,6 +471,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .stats-card {
@@ -493,6 +517,43 @@ onUnmounted(() => {
 
 :deep(.el-table__row:hover) {
   background-color: #f5f7fa;
+}
+
+.token-usage-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.token-total {
+  font-size: 14px;
+}
+
+.token-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.token-input {
+  color: #409eff;
+}
+
+.token-output {
+  color: #67c23a;
+}
+
+.model-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
 }
 </style>
 

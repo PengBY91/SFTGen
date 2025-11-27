@@ -88,10 +88,17 @@ async def run_concurrent(
     unit: str = "item",
     progress_bar: Optional[Any] = None,
 ) -> List[R]:
+    import time
+    
     tasks = [asyncio.create_task(coro_fn(it)) for it in items]
 
     completed_count = 0
     results = []
+    
+    # 用于计算当前批次速度的时间窗口
+    batch_start_time = time.time()
+    batch_completion_times = []  # 记录最近完成的批次的时间戳
+    window_size = 10  # 使用最近10个完成项计算速度
 
     pbar = tqdm_async(total=len(items), desc=desc, unit=unit)
 
@@ -108,6 +115,22 @@ async def run_concurrent(
             results.append(e)
 
         completed_count += 1
+        
+        # 记录完成时间用于计算当前批次速度
+        current_time = time.time()
+        batch_completion_times.append(current_time)
+        
+        # 只保留最近 window_size 个时间戳
+        if len(batch_completion_times) > window_size:
+            batch_completion_times.pop(0)
+        
+        # 计算当前批次速度（基于最近完成的项）
+        if len(batch_completion_times) >= 2:
+            time_span = batch_completion_times[-1] - batch_completion_times[0]
+            if time_span > 0:
+                current_rate = len(batch_completion_times) / time_span
+                pbar.set_postfix({"rate": f"{current_rate:.2f} {unit}/s"})
+        
         pbar.update(1)
 
         if progress_bar is not None:

@@ -73,6 +73,12 @@
           <el-descriptions-item label="处理时长">
             {{ task.processing_time ? `${task.processing_time.toFixed(2)} 秒` : '-' }}
           </el-descriptions-item>
+          <el-descriptions-item label="合成器模型">
+            {{ task.synthesizer_model || task.config?.synthesizer_model || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="训练模型">
+            {{ task.trainee_model || task.config?.trainee_model || '-' }}
+          </el-descriptions-item>
         </el-descriptions>
 
         <!-- 文件管理 -->
@@ -133,14 +139,26 @@
         >
           <el-descriptions-item label="Synthesizer Tokens">
             {{ task.token_usage.synthesizer_tokens.toLocaleString() }}
+            <span v-if="task.token_usage.synthesizer_input_tokens !== undefined" class="token-detail">
+              (输入: {{ task.token_usage.synthesizer_input_tokens.toLocaleString() }}, 
+              输出: {{ task.token_usage.synthesizer_output_tokens.toLocaleString() }})
+            </span>
           </el-descriptions-item>
-          <el-descriptions-item label="Trainee Tokens">
+          <el-descriptions-item label="Trainee Tokens" v-if="task.token_usage.trainee_tokens > 0">
             {{ task.token_usage.trainee_tokens.toLocaleString() }}
+            <span v-if="task.token_usage.trainee_input_tokens !== undefined" class="token-detail">
+              (输入: {{ task.token_usage.trainee_input_tokens.toLocaleString() }}, 
+              输出: {{ task.token_usage.trainee_output_tokens.toLocaleString() }})
+            </span>
           </el-descriptions-item>
           <el-descriptions-item label="Total Tokens">
             <el-tag type="success" size="large">
               {{ task.token_usage.total_tokens.toLocaleString() }}
             </el-tag>
+            <span v-if="task.token_usage.total_input_tokens !== undefined" class="token-detail" style="margin-left: 10px">
+              (输入: {{ task.token_usage.total_input_tokens.toLocaleString() }}, 
+              输出: {{ task.token_usage.total_output_tokens.toLocaleString() }})
+            </span>
           </el-descriptions-item>
         </el-descriptions>
 
@@ -652,6 +670,12 @@ onUnmounted(() => {
   color: #606266;
   margin-bottom: 10px;
   word-break: break-all;
+}
+
+.token-detail {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
 }
 
 :deep(.el-descriptions__title) {

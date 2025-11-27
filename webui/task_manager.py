@@ -41,6 +41,8 @@ class TaskInfo:
     processing_time: Optional[float] = None
     qa_count: Optional[int] = None  # 问答对数量
     config: Optional[Dict[str, Any]] = None  # 任务配置
+    synthesizer_model: Optional[str] = None  # 合成器模型
+    trainee_model: Optional[str] = None  # 训练模型
     
     # 向后兼容的属性
     @property
@@ -62,6 +64,13 @@ class TaskInfo:
             data['started_at'] = self.started_at.isoformat()
         if self.completed_at:
             data['completed_at'] = self.completed_at.isoformat()
+        
+        # 从 config 中提取模型信息（如果存在）
+        if self.config and not self.synthesizer_model:
+            self.synthesizer_model = self.config.get('synthesizer_model')
+        if self.config and not self.trainee_model:
+            self.trainee_model = self.config.get('trainee_model')
+        
         return data
 
 

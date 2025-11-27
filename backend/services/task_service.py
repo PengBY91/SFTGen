@@ -100,6 +100,10 @@ class TaskService:
             
             # 保存配置到任务
             task.config = config.dict()
+            # 提取并保存模型信息
+            task.synthesizer_model = config.synthesizer_model
+            task.trainee_model = config.trainee_model if config.if_trainee_model else None
+            task_manager._save_tasks()
             
             # 在后台线程中启动任务，避免 Broken pipe 错误
             thread = threading.Thread(

@@ -19,6 +19,10 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 2. 使用中文。
 3. 不要使用有序列表或编号。
 4. 请直接给出答案，不要生成无关信息。
+5. 答案应当全面且详细，提供足够的深度和细节。
+6. 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富答案，使解释更加透彻。
+7. 在适当的时候包含相关细节、例子、影响或更广泛的联系，使答案更具信息量和价值。
+8. 确保每一步推理都充分展开，提供足够的解释和说明，而不仅仅是简单的结论。
 
 -真实数据-
 输入:
@@ -63,6 +67,10 @@ only the final answer.
 2. Use English.
 3. Do not use ordered lists or numbering.
 4. Do not generate extraneous information, just provide the answer.
+5. The answer should be comprehensive and detailed, providing sufficient depth and detail.
+6. While following the reasoning path, you may enrich the answer with relevant background knowledge, context, or related concepts to provide a more thorough explanation.
+7. Include relevant details, examples, implications, or broader connections when appropriate to make the answer more informative and valuable.
+8. Ensure each reasoning step is fully developed with sufficient explanation and elaboration, not just simple conclusions.
 
 -Real Data-
 Input:
@@ -214,6 +222,10 @@ Chain-of-Thought (CoT) means that when answering a complex question, the interme
    - Generate a complete CoT answer following the reasoning path.
    - Each step completes a single, indivisible sub-task and is naturally connected, avoiding abrupt transition words.
    - Do not use ordered lists or numbering.
+   - The answer should be comprehensive and detailed, providing sufficient depth and detail.
+   - While following the reasoning path, enrich the answer with relevant background knowledge, context, or related concepts when appropriate.
+   - Include relevant details, examples, implications, or broader connections to make the answer more informative and valuable.
+   - Ensure each reasoning step is fully developed with sufficient explanation and elaboration, not just simple conclusions.
 
 --- Constraints ---
 1. Use English as the output language.
@@ -271,6 +283,10 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
    - 生成一个完整的CoT答案，遵循推理路径。
    - 每一步只完成一个不可分割的子任务，并用自然语言衔接，但是要避免生硬的连接词。
    - 不要使用有序列表或编号。
+   - 答案应当全面且详细，提供足够的深度和细节。
+   - 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富答案，使解释更加透彻。
+   - 在适当的时候包含相关细节、例子、影响或更广泛的联系，使答案更具信息量和价值。
+   - 确保每一步推理都充分展开，提供足够的解释和说明，而不仅仅是简单的结论。
 
 ---约束条件---
 1. 使用中文作为输出语言。

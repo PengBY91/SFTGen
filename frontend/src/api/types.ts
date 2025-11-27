@@ -65,12 +65,20 @@ export interface TaskInfo {
   output_file?: string
   token_usage?: {
     synthesizer_tokens: number
+    synthesizer_input_tokens?: number
+    synthesizer_output_tokens?: number
     trainee_tokens: number
+    trainee_input_tokens?: number
+    trainee_output_tokens?: number
     total_tokens: number
+    total_input_tokens?: number
+    total_output_tokens?: number
   }
   processing_time?: number
   qa_count?: number  // 问答对数量
   config?: TaskConfig  // 任务配置
+  synthesizer_model?: string  // 合成器模型
+  trainee_model?: string  // 训练模型
   // 向后兼容
   filename?: string
   file_path?: string

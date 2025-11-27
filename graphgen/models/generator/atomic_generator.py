@@ -18,7 +18,36 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
         logger.warning("Empty response received")
         return None, None, None
     
-    # Try various marker combinations
+    import re
+    response_clean = response.strip()
+    
+    # First, check if response only has answer marker (no question marker)
+    # This happens when LLM only returns answer without question
+    answer_only_markers = ["答案：", "Answer:", "A:", "答："]
+    question_markers = ["问题：", "Question:", "Q:", "问："]
+    
+    has_answer_marker = any(marker in response_clean for marker in answer_only_markers)
+    has_question_marker = any(marker in response_clean for marker in question_markers)
+    
+    # If only answer marker exists, extract answer only
+    if has_answer_marker and not has_question_marker:
+        for answer_marker in answer_only_markers:
+            if answer_marker in response_clean:
+                try:
+                    answer = response_clean.split(answer_marker, 1)[1].strip()
+                    # Clean up answer
+                    answer = answer.strip('"').strip("'").strip()
+                    # Remove trailing markers if any
+                    for q_marker in question_markers:
+                        if q_marker in answer:
+                            answer = answer.split(q_marker, 1)[0].strip()
+                    if answer:
+                        logger.debug("Extracted answer-only response: %s", answer[:100])
+                        return "zh" if "答案" in answer_marker or "答" in answer_marker else "en", None, answer
+                except (IndexError, ValueError):
+                    continue
+    
+    # Try various marker combinations for full QA pairs
     markers = [
         ("Question:", "Answer:", "en"),
         ("问题：", "答案：", "zh"),
@@ -27,35 +56,105 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
     ]
     
     for question_marker, answer_marker, lang in markers:
-        if question_marker in response:
+        if question_marker in response_clean:
             try:
-                if answer_marker in response:
-                    question = response.split(question_marker, 1)[1].split(answer_marker, 1)[0].strip()
-                    answer = response.split(answer_marker, 1)[1].strip()
-                    # Remove any trailing markers or extra content
-                    answer = answer.split("\n")[0].strip() if "\n" in answer else answer
-                else:
-                    question = response.split(question_marker, 1)[1].strip()
-                    answer = None
+                # Find positions of markers
+                q_pos = response_clean.find(question_marker)
+                a_pos = response_clean.find(answer_marker, q_pos + len(question_marker))
                 
-                # Clean up question and answer
-                question = question.strip('"').strip("'").strip()
-                if answer:
+                if a_pos > q_pos:  # Answer marker comes after question marker
+                    # Extract question (between question marker and answer marker)
+                    question = response_clean[q_pos + len(question_marker):a_pos].strip()
+                    # Extract answer (after answer marker)
+                    answer = response_clean[a_pos + len(answer_marker):].strip()
+                    
+                    # Clean up question - remove any answer markers that might be inside
+                    for am in answer_only_markers:
+                        if am in question:
+                            question = question.split(am, 1)[0].strip()
+                    
+                    # Clean up answer - remove any question markers that might be inside
+                    for qm in question_markers:
+                        if qm in answer:
+                            answer = answer.split(qm, 1)[0].strip()
+                    
+                    # Remove trailing markers or extra content
+                    question = question.strip('"').strip("'").strip()
                     answer = answer.strip('"').strip("'").strip()
-                
-                if question:  # At least question should be present
-                    return lang, question, answer
+                    
+                    # Remove newlines and extra whitespace, but keep meaningful content
+                    if "\n" in answer:
+                        # Take first paragraph or until next major marker
+                        answer_lines = answer.split("\n")
+                        answer = answer_lines[0].strip()
+                        # If first line is very short, try to get more
+                        if len(answer) < 20 and len(answer_lines) > 1:
+                            answer = " ".join(answer_lines[:2]).strip()
+                    
+                    if question and not question.startswith("答案") and not question.startswith("Answer"):
+                        if answer:
+                            return lang, question, answer
+                        else:
+                            # Question found but no answer
+                            return lang, question, None
+                else:
+                    # Question marker found but answer marker comes before it or not found
+                    question = response_clean[q_pos + len(question_marker):].strip()
+                    # Remove any answer markers from question
+                    for am in answer_only_markers:
+                        if am in question:
+                            question = question.split(am, 1)[0].strip()
+                    question = question.strip('"').strip("'").strip()
+                    if question and not question.startswith("答案") and not question.startswith("Answer"):
+                        return lang, question, None
             except (IndexError, ValueError) as e:
                 logger.debug("Error parsing with markers %s/%s: %s", question_marker, answer_marker, e)
                 continue
     
     # If no standard markers found, try to extract as plain text (fallback)
+    # Try to extract question and answer from plain text format
     response_clean = response.strip()
-    if len(response_clean) > 10:  # Only log if response has meaningful content
+    
+    # Try to find question and answer in plain text format (e.g., "Q: ... A: ..." or just "Question: ... Answer: ...")
+    # Look for common patterns
+    import re
+    
+    # Pattern 1: Question and Answer on separate lines
+    qa_patterns = [
+        (r"(?:Question|问题)[：:]\s*(.+?)(?:\n\s*(?:Answer|答案)[：:]\s*(.+?))?$", re.DOTALL),
+        (r"Q[：:]\s*(.+?)(?:\n\s*A[：:]\s*(.+?))?$", re.DOTALL),
+        (r"问[：:]\s*(.+?)(?:\n\s*答[：:]\s*(.+?))?$", re.DOTALL),
+    ]
+    
+    for pattern, flags in qa_patterns:
+        match = re.search(pattern, response_clean, flags)
+        if match:
+            question = match.group(1).strip().strip('"').strip("'")
+            answer = match.group(2).strip().strip('"').strip("'") if match.lastindex >= 2 and match.group(2) else None
+            if question:
+                return "en", question, answer
+    
+    # If still no match, try to extract as single question-answer pair
+    # Assume the entire response might be an answer if it's reasonably long
+    if len(response_clean) > 10:
+        # Try to split by common separators
+        parts = re.split(r"[。\n]+", response_clean)
+        if len(parts) >= 2:
+            # First part might be question, rest is answer
+            potential_q = parts[0].strip()
+            potential_a = "。".join(parts[1:]).strip()
+            if len(potential_q) > 5 and len(potential_a) > 5:
+                return "zh", potential_q, potential_a
+        
+        # Last resort: treat entire response as answer if no question marker found
+        # This handles cases where LLM only returns answer
         logger.warning(
-            "Failed to parse response (no standard markers found): %s",
+            "No question marker found, treating entire response as answer: %s",
             response_clean[:200] if len(response_clean) > 200 else response_clean
         )
+        # Return None for question to indicate parsing failure
+        return None, None, None
+    
     return None, None, None
 
 
@@ -133,6 +232,14 @@ class AtomicGenerator(BaseGenerator):
             if not part:
                 continue
             lang, question, answer = _extract_question_and_answer(part)
+            
+            # Handle answer-only responses (from two-stage generation where question is already known)
+            if not question and answer:
+                # This is an answer-only response, which is valid in two-stage generation
+                # We'll skip it here as it should be handled by the answer generation stage
+                logger.debug("Answer-only response found (skipping, should be handled by answer stage): %s", answer[:100])
+                continue
+            
             if question and answer:
                 q_hash = compute_content_hash(question)
                 if q_hash not in result:
@@ -143,12 +250,50 @@ class AtomicGenerator(BaseGenerator):
                     logger.debug("Parsed QA pair: Q=%s, A=%s", question[:50], answer[:50])
             elif question:
                 # Only question found, might be from question-only stage
+                # Check if question actually contains answer marker (parsing error)
+                answer_markers_in_q = ["答案：", "Answer:", "A:", "答："]
+                for am in answer_markers_in_q:
+                    if am in question:
+                        # This is actually an answer, not a question
+                        # Try to extract properly
+                        try:
+                            actual_answer = question.split(am, 1)[1].strip()
+                            actual_answer = actual_answer.strip('"').strip("'").strip()
+                            if actual_answer:
+                                logger.debug("Corrected: extracted answer from misparsed question: %s", actual_answer[:100])
+                                # This is answer-only, skip it as we don't have a question
+                                continue
+                        except:
+                            pass
+                
+                # Try to extract answer from the remaining text
+                remaining_text = part.replace(question, "").strip()
+                # Remove question markers and clean up
+                for marker in ["Question:", "问题：", "Q:", "问："]:
+                    remaining_text = remaining_text.replace(marker, "").strip()
+                
+                # Remove answer markers that might be in remaining text
+                for marker in ["答案：", "Answer:", "A:", "答："]:
+                    if marker in remaining_text:
+                        remaining_text = remaining_text.split(marker, 1)[1].strip()
+                        break
+                
+                # If there's substantial remaining text, treat it as answer
+                answer = remaining_text if len(remaining_text) > 10 else ""
+                
+                # Final validation: question should not start with answer markers
+                if question.startswith("答案") or question.startswith("Answer") or question.startswith("A:") or question.startswith("答："):
+                    logger.warning("Question appears to be misparsed (starts with answer marker): %s", question[:100])
+                    continue
+                
                 q_hash = compute_content_hash(question)
                 if q_hash not in result:
                     result[q_hash] = {
                         "question": question,
-                        "answer": "",
+                        "answer": answer,
                     }
+                    if not answer:
+                        logger.warning("Question found but no answer extracted: %s", question[:100])
         
         if not result:
             logger.warning("Failed to parse any QA pairs from response: %s", response[:200])

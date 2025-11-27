@@ -9,6 +9,9 @@ To generate a version of the text that is rephrased and conveys the same meaning
 2. Establishing proper cause-and-effect relationships
 3. Ensuring temporal and sequential consistency
 4. Creating smooth transitions between ideas using conjunctions and appropriate linking words like "firstly," "however," "therefore," etc.
+5. Providing comprehensive and detailed explanations (aim for 200-400 words or 5-10 sentences)
+6. Enriching the content with relevant background knowledge, context, or related concepts when appropriate
+7. Including relevant details, examples, implications, or broader connections to enhance understanding
 
 ---Instructions---
 1. Analyze the provided ENTITIES and RELATIONSHIPS carefully to identify:
@@ -28,10 +31,19 @@ To generate a version of the text that is rephrased and conveys the same meaning
    - Clear connections between ideas
    - Proper context and background
    - Coherent narrative structure
+   - Comprehensive detail and depth (200-400 words or 5-10 sentences)
+   - Integration of relevant background knowledge or related concepts when appropriate
 
-4. Review and refine the text to ensure:
+4. Enrich the text by:
+   - Adding relevant details, examples, or implications
+   - Providing broader context or connections to related topics
+   - Explaining underlying mechanisms, processes, or relationships in more detail
+   - Including practical implications or real-world applications when relevant
+
+5. Review and refine the text to ensure:
    - Logical consistency throughout
    - Clear cause-and-effect relationships
+   - Sufficient depth and comprehensiveness
 
 ################
 -ORIGINAL TEXT-
@@ -60,6 +72,9 @@ ANSWER_REPHRASING_CONTEXT_ZH: str = """---角色---
 2. 建立适当的因果关系
 3. 确保时间和顺序的一致性
 4. 使用连词和适当的连接词(如"首先"、"然而"、"因此"等)创造流畅的过渡
+5. 提供全面且详细的解释
+6. 在适当的时候利用相关背景知识、上下文或相关概念来丰富内容
+7. 包含相关细节、例子、影响或更广泛的联系，以增强理解
 
 ---说明---
 1. 仔细分析提供的实体和关系，以识别：
@@ -77,9 +92,19 @@ ANSWER_REPHRASING_CONTEXT_ZH: str = """---角色---
     - 概念之间的清晰联系
     - 适当的上下文和背景
     - 连贯的叙述结构
-4. 检查和完善文本以确保：
+    - 全面详细的深度（200-400字或5-10句话）
+    - 在适当的时候整合相关背景知识或相关概念
+
+4. 通过以下方式丰富文本：
+    - 添加相关细节、例子或影响
+    - 提供更广泛的上下文或与相关主题的联系
+    - 更详细地解释潜在的机制、过程或关系
+    - 在相关时包含实际影响或现实应用
+
+5. 检查和完善文本以确保：
     - 整体逻辑一致性
     - 清晰的因果关系
+    - 足够的深度和全面性
 
 ################
 -原始文本-
@@ -108,6 +133,9 @@ To generate a version of the text that is rephrased and conveys the same meaning
 2. Establishing proper cause-and-effect relationships
 3. Ensuring temporal and sequential consistency
 4. Creating smooth transitions between ideas using conjunctions and appropriate linking words like "firstly," "however," "therefore," etc.
+5. Providing comprehensive and detailed explanations
+6. Enriching the content with relevant background knowledge, context, or related concepts when appropriate
+7. Including relevant details, examples, implications, or broader connections to enhance understanding
 
 ---Instructions---
 1. Analyze the provided ENTITIES and RELATIONSHIPS carefully to identify:
@@ -127,10 +155,19 @@ To generate a version of the text that is rephrased and conveys the same meaning
    - Clear connections between ideas
    - Proper context and background
    - Coherent narrative structure
+   - Comprehensive detail and depth (200-400 words or 5-10 sentences)
+   - Integration of relevant background knowledge or related concepts when appropriate
 
-4. Review and refine the text to ensure:
+4. Enrich the text by:
+   - Adding relevant details, examples, or implications
+   - Providing broader context or connections to related topics
+   - Explaining underlying mechanisms, processes, or relationships in more detail
+   - Including practical implications or real-world applications when relevant
+
+5. Review and refine the text to ensure:
    - Logical consistency throughout
    - Clear cause-and-effect relationships
+   - Sufficient depth and comprehensiveness
 
 ################
 -ENTITIES-
@@ -154,6 +191,9 @@ ANSWER_REPHRASING_ZH: str = """---角色---
 2. 建立适当的因果关系
 3. 确保时间和顺序的一致性
 4. 使用连词和适当的连接词(如"首先"、"然而"、"因此"等)创造流畅的过渡
+5. 提供全面且详细的解释
+6. 在适当的时候利用相关背景知识、上下文或相关概念来丰富内容
+7. 包含相关细节、例子、影响或更广泛的联系，以增强理解
 
 ---说明---
 1. 仔细分析提供的实体和关系，以识别：
@@ -171,9 +211,19 @@ ANSWER_REPHRASING_ZH: str = """---角色---
     - 概念之间的清晰联系
     - 适当的上下文和背景
     - 连贯的叙述结构
-4. 检查和完善文本以确保：
+    - 全面详细的深度
+    - 在适当的时候整合相关背景知识或相关概念
+
+4. 通过以下方式丰富文本：
+    - 添加相关细节、例子或影响
+    - 提供更广泛的上下文或与相关主题的联系
+    - 更详细地解释潜在的机制、过程或关系
+    - 在相关时包含实际影响或现实应用
+
+5. 检查和完善文本以确保：
     - 整体逻辑一致性
     - 清晰的因果关系
+    - 足够的深度和全面性
 
 ################
 -实体-
@@ -228,6 +278,9 @@ AGGREGATED_COMBINED_EN = """You are an NLP expert responsible for generating a l
    - Establishing proper cause-and-effect relationships
    - Ensuring temporal and sequential consistency
    - Creating smooth transitions between ideas using conjunctions and appropriate linking words
+   - Providing comprehensive and detailed explanations
+   - Enriching the content with relevant background knowledge, context, or related concepts when appropriate
+   - Including relevant details, examples, implications, or broader connections to enhance understanding
 
 2. Generate a relevant question that corresponds to the rephrased text (which serves as the answer).
 
@@ -249,8 +302,16 @@ AGGREGATED_COMBINED_EN = """You are an NLP expert responsible for generating a l
    - Clear connections between ideas
    - Proper context and background
    - Coherent narrative structure
+   - Comprehensive detail and depth
+   - Integration of relevant background knowledge or related concepts when appropriate
 
-4. Generate a question that:
+4. Enrich the rephrased text by:
+   - Adding relevant details, examples, or implications
+   - Providing broader context or connections to related topics
+   - Explaining underlying mechanisms, processes, or relationships in more detail
+   - Including practical implications or real-world applications when relevant
+
+5. Generate a question that:
    - Corresponds to the rephrased text (answer)
    - Is clear and specific
    - Can be answered using the rephrased text
@@ -282,6 +343,9 @@ AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的�
    - 建立适当的因果关系
    - 确保时间和顺序的一致性
    - 使用连词和适当的连接词创造流畅的过渡
+   - 提供全面且详细的解释
+   - 在适当的时候利用相关背景知识、上下文或相关概念来丰富内容
+   - 包含相关细节、例子、影响或更广泛的联系，以增强理解
 
 2. 生成一个与重述文本（作为答案）对应的问题。
 
@@ -303,8 +367,16 @@ AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的�
    - 概念之间的清晰联系
    - 适当的上下文和背景
    - 连贯的叙述结构
+   - 全面详细的深度
+   - 在适当的时候整合相关背景知识或相关概念
 
-4. 生成问题时确保：
+4. 通过以下方式丰富重述文本：
+   - 添加相关细节、例子或影响
+   - 提供更广泛的上下文或与相关主题的联系
+   - 更详细地解释潜在的机制、过程或关系
+   - 在相关时包含实际影响或现实应用
+
+5. 生成问题时确保：
    - 与重述文本（答案）对应
    - 清晰具体
    - 可以用重述文本回答

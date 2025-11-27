@@ -72,6 +72,20 @@ class MultiHopGenerator(BaseGenerator):
             logger.warning("Empty multi-hop response received")
             return {}
         
+        # Try to clean up the response first
+        response_clean = response.strip()
+        
+        # Remove common prefixes that might interfere
+        prefixes_to_remove = [
+            "Here is the multi-hop question:",
+            "以下是多跳问题：",
+            "Multi-hop question:",
+            "多跳问题：",
+        ]
+        for prefix in prefixes_to_remove:
+            if response_clean.startswith(prefix):
+                response_clean = response_clean[len(prefix):].strip()
+        
         # 定义匹配模式（支持多种变体）
         patterns = {
             "question_en": [
@@ -134,13 +148,37 @@ class MultiHopGenerator(BaseGenerator):
         
         # 验证必需字段
         if not question or not answer:
-            logger.warning(
-                "Failed to parse multi-hop response - missing required fields. "
-                "Question: %s, Answer: %s",
-                bool(question),
-                bool(answer)
-            )
-            return {}
+            # 尝试更宽松的解析：如果只有答案，尝试从答案中提取问题
+            if answer and not question:
+                # 尝试从答案的第一句话提取问题
+                answer_lines = answer.split("\n")
+                if answer_lines:
+                    first_line = answer_lines[0].strip()
+                    # 如果第一行看起来像问题（以问号结尾或包含疑问词）
+                    if "?" in first_line or "？" in first_line or any(word in first_line.lower() for word in ["what", "who", "how", "why", "when", "where", "什么", "谁", "如何", "为什么", "何时", "哪里"]):
+                        question = first_line
+                        answer = "\n".join(answer_lines[1:]).strip() if len(answer_lines) > 1 else answer
+            
+            # 如果仍然缺少必需字段，尝试将整个响应作为答案
+            if not question and response_clean:
+                # 尝试提取第一个句子作为问题
+                sentences = re.split(r"[。！？\n]", response_clean)
+                if sentences:
+                    potential_q = sentences[0].strip()
+                    if len(potential_q) > 5:
+                        question = potential_q
+                        answer = response_clean[len(potential_q):].strip()
+            
+            # 最终验证
+            if not question or not answer:
+                logger.warning(
+                    "Failed to parse multi-hop response - missing required fields. "
+                    "Question: %s, Answer: %s. Response: %s",
+                    bool(question),
+                    bool(answer),
+                    response_clean[:300] if len(response_clean) > 300 else response_clean
+                )
+                return {}
         
         logger.debug(
             "Multi-hop QA: Q=%s, A=%s, Path=%s",
