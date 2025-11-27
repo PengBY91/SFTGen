@@ -123,19 +123,23 @@ ATOMIC_GENERATION_PROMPT_VARIANTS = {
 # Question-only prompts for two-stage generation
 ATOMIC_QUESTION_PROMPT = {
     "en": """You are given a text passage. Create ONE concise question that captures the most important fact from the text.
-Guidelines:
-- Only output a single line starting with `Question:`
+Important Guidelines:
+- MUST only output a single line starting with `Question:`
 - Do NOT provide the answer
+- Do NOT output `Answer:` or `A:` markers
 - Avoid repeating previously generated questions
+- Only output the question, nothing else
 
 Text:
 {context}
 """,
     "zh": """给定一段文本。请提出一个能够体现关键信息的简洁问题。
-要求：
-- 仅输出以“问题：”开头的一行
-- 不要提供答案
+重要要求：
+- 必须仅输出以"问题："开头的一行
+- 绝对不要提供答案
+- 不要输出"答案："或"Answer:"标记
 - 尽量避免与已生成的问题重复
+- 只输出问题，不要输出其他内容
 
 文本：
 {context}

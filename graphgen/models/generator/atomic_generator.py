@@ -320,14 +320,38 @@ class AtomicQuestionGenerator(AtomicGenerator):
 
     @staticmethod
     def parse_response(response: str) -> dict:
-        _, question, _ = _extract_question_and_answer(response)
-        if not question:
-            return {}
-        logger.debug("Question (question-only stage): %s", question)
-        return {
-            compute_content_hash(question): {
-                "question": question,
-                "answer": "",
+        """
+        Parse response from question generation stage.
+        Expected: Only question (starting with "问题：" or "Question:")
+        But LLM might return: Full QA pair or answer-only response
+        """
+        lang, question, answer = _extract_question_and_answer(response)
+        
+        # Case 1: Question found (expected case)
+        if question:
+            logger.debug("Question (question-only stage): %s", question)
+            return {
+                compute_content_hash(question): {
+                    "question": question,
+                    "answer": "",
+                }
             }
-        }
+        
+        # Case 2: Only answer found (LLM misunderstood the prompt)
+        # We should try to generate a question from the answer, or skip it
+        if answer and not question:
+            logger.warning(
+                "LLM returned answer instead of question in question generation stage. "
+                "Answer: %s. This will be skipped as we cannot infer the question.",
+                answer[:100]
+            )
+            # Skip this response - we cannot generate a question from an answer reliably
+            return {}
+        
+        # Case 3: Neither question nor answer found (parsing failure)
+        logger.warning(
+            "Failed to parse question from response in question generation stage: %s",
+            response[:200] if len(response) > 200 else response
+        )
+        return {}
 

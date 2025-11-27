@@ -107,57 +107,136 @@ def _build_context_text(context_block: dict[str, Any]) -> str:
 
 
 def _parse_answer_from_response(response: str) -> str:
-    """Parse answer text from model response."""
+    """
+    Parse answer text from model response.
+    
+    Returns empty string if parsing fails, allowing caller to handle the failure.
+    """
     if not response or not response.strip():
+        logger.debug("Empty response provided to _parse_answer_from_response")
         return ""
     
-    # Try various answer markers
+    response_clean = response.strip()
+    
+    # Strategy 1: Try various answer markers (most common case)
     answer_markers = [
-        ("Answer:", "en"),
-        ("答案：", "zh"),
+        ("答案：", "zh"),  # 中文全角冒号
+        ("答案:", "zh"),   # 中文半角冒号
+        ("Answer:", "en"), # 英文
         ("A:", "en"),
         ("答：", "zh"),
-        ("Answer", "en"),
-        ("答案", "zh"),
+        ("答:", "zh"),
+        ("Answer", "en"),  # 无冒号
+        ("答案", "zh"),    # 无冒号
     ]
     
     for marker, lang in answer_markers:
-        if marker in response:
+        if marker in response_clean:
             try:
-                answer = response.split(marker, 1)[1].strip()
-                # Remove quotes if present
-                answer = answer.strip('"').strip("'").strip()
-                # Remove any trailing markers or extra content
-                # Stop at next major marker or end of line if it's a single line answer
-                if "\n" in answer:
-                    # Take first paragraph or until next major marker
-                    lines = answer.split("\n")
-                    answer = lines[0].strip()
-                    # If first line is very short, try to get more
-                    if len(answer) < 20 and len(lines) > 1:
-                        answer = "\n".join(lines[:2]).strip()
-                
-                if answer:
-                    return answer
-            except (IndexError, ValueError):
+                # 找到标记后的内容
+                parts = response_clean.split(marker, 1)
+                if len(parts) > 1:
+                    answer = parts[1].strip()
+                    
+                    # 移除引号
+                    answer = answer.strip('"').strip("'").strip()
+                    
+                    # 移除后续的问题标记或其他标记
+                    for q_marker in ["问题：", "Question:", "Q:", "问："]:
+                        if q_marker in answer:
+                            answer = answer.split(q_marker, 1)[0].strip()
+                    
+                    # 处理多行答案：取第一段或前两段（如果第一段太短）
+                    if "\n" in answer:
+                        lines = [line.strip() for line in answer.split("\n") if line.strip()]
+                        if lines:
+                            # 如果第一行足够长，只用第一行
+                            if len(lines[0]) >= 20:
+                                answer = lines[0]
+                            # 否则取前两行
+                            elif len(lines) > 1:
+                                answer = "\n".join(lines[:2])
+                            else:
+                                answer = lines[0]
+                    
+                    if answer and len(answer.strip()) > 0:
+                        logger.debug(
+                            "Successfully parsed answer using marker '%s': %s",
+                            marker, answer[:100]
+                        )
+                        return answer
+            except (IndexError, ValueError) as e:
+                logger.debug("Error parsing with marker '%s': %s", marker, str(e))
                 continue
     
-    # If no marker found, try to extract answer from plain text
-    # Remove common prefixes and clean up
-    cleaned = response.strip()
-    # Remove question if present
-    for q_marker in ["Question:", "问题：", "Q:", "问："]:
-        if q_marker in cleaned:
-            cleaned = cleaned.split(q_marker, 1)[1].strip()
-            if "Answer:" in cleaned or "答案：" in cleaned:
-                continue  # Let the marker-based parsing handle it
+    # Strategy 2: Check if response contains question marker (response might be Q&A format)
+    # If so, extract the answer part
+    for q_marker in ["问题：", "Question:", "Q:", "问："]:
+        if q_marker in response_clean:
+            # 找到问题标记后的内容
+            parts = response_clean.split(q_marker, 1)
+            if len(parts) > 1:
+                after_question = parts[1].strip()
+                # 检查是否有答案标记
+                for a_marker in ["答案：", "Answer:", "A:", "答："]:
+                    if a_marker in after_question:
+                        answer = after_question.split(a_marker, 1)[1].strip()
+                        answer = answer.strip('"').strip("'").strip()
+                        if answer:
+                            logger.debug(
+                                "Successfully parsed answer after question marker: %s",
+                                answer[:100]
+                            )
+                            return answer
+                # 如果没有答案标记，但问题后的内容足够长，可能是答案
+                if len(after_question) > 20:
+                    logger.debug(
+                        "Using content after question marker as answer: %s",
+                        after_question[:100]
+                    )
+                    return after_question
     
-    # If cleaned text is substantial, use it as answer
-    if len(cleaned) > 10:
-        logger.debug("Using cleaned response as answer (no marker found): %s", cleaned[:100])
+    # Strategy 3: If no markers found, check if entire response looks like an answer
+    # (not a question, not too short)
+    cleaned = response_clean
+    
+    # 移除常见的提示词前缀
+    prefixes_to_remove = [
+        "根据以上文本，",
+        "Based on the text above,",
+        "根据文本，",
+        "Based on the text,",
+        "根据提供的信息，",
+        "Based on the provided information,",
+    ]
+    for prefix in prefixes_to_remove:
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix):].strip()
+    
+    # 检查是否包含问题（如果包含，可能不是纯答案）
+    has_question_markers = any(marker in cleaned for marker in ["问题：", "Question:", "Q:", "问：", "？", "?"])
+    
+    # 如果文本足够长且不包含问题标记，可能是答案
+    if len(cleaned) > 10 and not has_question_markers:
+        logger.debug(
+            "Using entire cleaned response as answer (no markers found): %s",
+            cleaned[:100]
+        )
         return cleaned.strip('"').strip("'").strip()
     
-    logger.warning("Failed to parse answer from response: %s", response[:200] if len(response) > 200 else response)
+    # Strategy 4: Last resort - if response is substantial, use it anyway
+    if len(response_clean) > 20:
+        logger.warning(
+            "No answer markers found, but response is substantial. Using as answer: %s",
+            response_clean[:100]
+        )
+        return response_clean.strip('"').strip("'").strip()
+    
+    # All strategies failed
+    logger.warning(
+        "Failed to parse answer from response. Length: %d, Content: %s",
+        len(response_clean), response_clean[:200]
+    )
     return ""
 
 
@@ -576,41 +655,232 @@ async def generate_qas(
                 return []
 
             async def answer_question(entry: dict[str, Any]) -> dict[str, Any]:
-                context_text = _build_context_text(entry.get("context", {}))
-                if not context_text:
-                    context_text = entry["question"]
-                language = detect_main_language(context_text or entry["question"])
-                template = ATOMIC_ANSWER_PROMPT.get(
-                    language, ATOMIC_ANSWER_PROMPT["en"]
-                )
-                prompt = template.format(
-                    context=context_text,
-                    question=entry["question"],
-                )
-                response = await actual_llm_client.generate_answer(prompt)
-                answer = _parse_answer_from_response(response)
-                if not answer:
-                    # 如果解析失败，尝试使用原始响应作为答案
-                    if response and response.strip():
-                        answer = response.strip()
-                        logger.warning("Failed to parse answer, using raw response: %s", answer[:100])
+                try:
+                    # 1. 构建上下文 - 分析为什么可能为空
+                    context_text = _build_context_text(entry.get("context", {}))
+                    if not context_text:
+                        # 如果上下文为空，尝试从 graph 中重建
+                        graph = entry.get("graph", {})
+                        if graph:
+                            nodes = graph.get("entities", [])
+                            edges = graph.get("relationships", [])
+                            context_parts = []
+                            # 从 graph 的 nodes 和 edges 重建上下文
+                            for node in nodes[:3]:
+                                if isinstance(node, str):
+                                    context_parts.append(f"- {node}")
+                                elif isinstance(node, dict):
+                                    name = node.get("name", "")
+                                    desc = node.get("description", "")
+                                    if name or desc:
+                                        context_parts.append(f"- {name}: {desc}")
+                            for edge in edges[:3]:
+                                if isinstance(edge, list) and len(edge) >= 2:
+                                    context_parts.append(f"- {edge[0]} -> {edge[1]}")
+                            context_text = "\n".join(context_parts) if context_parts else entry["question"]
+                        else:
+                            context_text = entry["question"]
+                            logger.warning(
+                                "No context available for question, using question as context: %s",
+                                entry["question"][:100]
+                            )
+                    
+                    # 2. 检测语言并选择模板
+                    language = detect_main_language(context_text or entry["question"])
+                    template = ATOMIC_ANSWER_PROMPT.get(
+                        language, ATOMIC_ANSWER_PROMPT["en"]
+                    )
+                    
+                    # 3. 构建 prompt
+                    prompt = template.format(
+                        context=context_text,
+                        question=entry["question"],
+                    )
+                    
+                    # 4. 调用 LLM 生成答案
+                    response = await actual_llm_client.generate_answer(prompt)
+                    
+                    # 5. 分析响应 - 为什么可能为空或解析失败
+                    if not response:
+                        logger.error(
+                            "LLM returned None for question: %s, context length: %d",
+                            entry["question"][:100], len(context_text)
+                        )
+                        # 返回空字典会导致问题丢失，改为返回带错误标记的 QA 对
+                        return {
+                            entry["hash"]: {
+                                "question": entry["question"],
+                                "answer": "",
+                                "context": entry.get("context", {}),
+                                "graph": entry.get("graph", {}),
+                                "source_chunks": entry.get("source_chunks", []),
+                                "source_documents": entry.get("source_documents", []),
+                                "metadata": {
+                                    "generation_mode": "atomic",
+                                    "answer_generation_failed": True,
+                                    "failure_reason": "LLM returned None"
+                                },
+                                "mode": "atomic",
+                                "reasoning_path": entry.get("reasoning_path", ""),
+                            }
+                        }
+                    
+                    response_clean = response.strip()
+                    if not response_clean:
+                        logger.error(
+                            "LLM returned empty string for question: %s, raw response length: %d",
+                            entry["question"][:100], len(response)
+                        )
+                        return {
+                            entry["hash"]: {
+                                "question": entry["question"],
+                                "answer": "",
+                                "context": entry.get("context", {}),
+                                "graph": entry.get("graph", {}),
+                                "source_chunks": entry.get("source_chunks", []),
+                                "source_documents": entry.get("source_documents", []),
+                                "metadata": {
+                                    "generation_mode": "atomic",
+                                    "answer_generation_failed": True,
+                                    "failure_reason": "LLM returned empty string"
+                                },
+                                "mode": "atomic",
+                                "reasoning_path": entry.get("reasoning_path", ""),
+                            }
+                        }
+                    
+                    # 6. 解析答案 - 分析为什么可能失败
+                    answer = _parse_answer_from_response(response_clean)
+                    
+                    if not answer:
+                        # 分析解析失败的原因
+                        logger.warning(
+                            "Failed to parse answer from response. Question: %s, Response length: %d, Response preview: %s",
+                            entry["question"][:100], len(response_clean), response_clean[:200]
+                        )
+                        
+                        # 尝试更宽松的解析策略
+                        # 策略1: 检查是否响应本身就是答案（没有标记）
+                        if len(response_clean) > 10:
+                            # 移除可能的提示词残留
+                            cleaned = response_clean
+                            # 移除开头的常见提示词
+                            prefixes_to_remove = [
+                                "根据以上文本，",
+                                "Based on the text above,",
+                                "根据文本，",
+                                "Based on the text,",
+                            ]
+                            for prefix in prefixes_to_remove:
+                                if cleaned.startswith(prefix):
+                                    cleaned = cleaned[len(prefix):].strip()
+                            
+                            # 如果清理后的文本足够长，使用它作为答案
+                            if len(cleaned) > 10:
+                                answer = cleaned
+                                logger.info(
+                                    "Using cleaned response as answer (no marker found): %s",
+                                    answer[:100]
+                                )
+                        
+                        # 策略2: 如果还是没有答案，尝试提取第一段
+                        if not answer:
+                            # 按段落分割
+                            paragraphs = [p.strip() for p in response_clean.split("\n\n") if p.strip()]
+                            if paragraphs:
+                                # 使用第一段，但排除明显是问题或提示的部分
+                                first_para = paragraphs[0]
+                                # 检查是否包含问题标记
+                                if not any(marker in first_para for marker in ["问题：", "Question:", "Q:", "问："]):
+                                    if len(first_para) > 10:
+                                        answer = first_para
+                                        logger.info(
+                                            "Using first paragraph as answer: %s",
+                                            answer[:100]
+                                        )
+                        
+                        # 策略3: 如果仍然失败，记录详细信息用于分析
+                        if not answer:
+                            logger.error(
+                                "All parsing strategies failed. Response details:\n"
+                                "  Question: %s\n"
+                                "  Response length: %d\n"
+                                "  Response content: %s\n"
+                                "  Context length: %d\n"
+                                "  Has answer markers: %s",
+                                entry["question"][:100],
+                                len(response_clean),
+                                response_clean[:500],
+                                len(context_text),
+                                any(marker in response_clean for marker in ["答案：", "Answer:", "A:", "答："])
+                            )
+                            # 即使解析失败，也返回响应内容，避免丢失问题
+                            answer = response_clean[:500]  # 限制长度
+                    
+                    # 7. 验证并返回结果
+                    if answer and len(answer.strip()) > 0:
+                        metadata = dict(entry.get("metadata") or {})
+                        metadata["generation_mode"] = "atomic"
+                        qa_payload = {
+                            "question": entry["question"],
+                            "answer": answer.strip(),
+                            "context": entry.get("context", {}),
+                            "graph": entry.get("graph", {}),
+                            "source_chunks": entry.get("source_chunks", []),
+                            "source_documents": entry.get("source_documents", []),
+                            "metadata": metadata,
+                            "mode": "atomic",
+                            "reasoning_path": entry.get("reasoning_path", ""),
+                        }
+                        return {entry["hash"]: qa_payload}
                     else:
-                        logger.warning("Empty answer response for question: %s", entry["question"][:100])
-                        return {}
-                metadata = dict(entry.get("metadata") or {})
-                metadata["generation_mode"] = "atomic"
-                qa_payload = {
-                    "question": entry["question"],
-                    "answer": answer,
-                    "context": entry.get("context", {}),
-                    "graph": entry.get("graph", {}),
-                    "source_chunks": entry.get("source_chunks", []),
-                    "source_documents": entry.get("source_documents", []),
-                    "metadata": metadata,
-                    "mode": "atomic",
-                    "reasoning_path": entry.get("reasoning_path", ""),
-                }
-                return {entry["hash"]: qa_payload}
+                        logger.error(
+                            "Answer is empty after all parsing attempts. Question: %s",
+                            entry["question"][:100]
+                        )
+                        # 返回空答案但保留问题，避免丢失
+                        return {
+                            entry["hash"]: {
+                                "question": entry["question"],
+                                "answer": "",
+                                "context": entry.get("context", {}),
+                                "graph": entry.get("graph", {}),
+                                "source_chunks": entry.get("source_chunks", []),
+                                "source_documents": entry.get("source_documents", []),
+                                "metadata": {
+                                    "generation_mode": "atomic",
+                                    "answer_generation_failed": True,
+                                    "failure_reason": "Answer parsing failed",
+                                    "raw_response": response_clean[:500]
+                                },
+                                "mode": "atomic",
+                                "reasoning_path": entry.get("reasoning_path", ""),
+                            }
+                        }
+                
+                except Exception as e:
+                    logger.exception(
+                        "Exception in answer_question for question: %s - %s",
+                        entry["question"][:100], str(e)
+                    )
+                    # 返回带错误信息的 QA 对，避免丢失问题
+                    return {
+                        entry["hash"]: {
+                            "question": entry["question"],
+                            "answer": "",
+                            "context": entry.get("context", {}),
+                            "graph": entry.get("graph", {}),
+                            "source_chunks": entry.get("source_chunks", []),
+                            "source_documents": entry.get("source_documents", []),
+                            "metadata": {
+                                "generation_mode": "atomic",
+                                "answer_generation_failed": True,
+                                "failure_reason": f"Exception: {str(e)}"
+                            },
+                            "mode": "atomic",
+                            "reasoning_path": entry.get("reasoning_path", ""),
+                        }
+                    }
 
             answer_results = await run_concurrent(
                 answer_question,

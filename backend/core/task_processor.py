@@ -6,6 +6,7 @@
 import os
 import sys
 import json
+import shutil
 from typing import Dict, Any
 from datetime import datetime
 
@@ -17,7 +18,7 @@ from graphgen.models import OpenAIClient, Tokenizer
 from graphgen.models.llm.limitter import RPM, TPM
 from graphgen.utils import set_logger, logger
 from webui.task_manager import task_manager, TaskStatus
-from webui.utils import setup_workspace, cleanup_workspace
+from webui.utils import setup_workspace
 from backend.schemas import TaskConfig
 
 
@@ -27,6 +28,8 @@ class TaskProcessor:
     def process_task(self, task_id: str, config: TaskConfig):
         """处理任务的具体逻辑"""
         cache_folder = None
+        working_dir = None
+        log_file = None
         try:
             # 获取任务信息
             task = task_manager.get_task(task_id)
@@ -44,7 +47,18 @@ class TaskProcessor:
             time_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
             cache_folder = os.path.join("cache", f"{time_prefix}-{task_id}")
             log_file, working_dir = setup_workspace(cache_folder)
-            set_logger(log_file, if_stream=True)
+            
+            # 确保日志文件目录存在
+            log_dir = os.path.dirname(log_file)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+            
+            # 强制重新配置 logger，确保使用新的日志文件
+            set_logger(log_file, if_stream=True, force=True)
+            logger.info(f"[TaskProcessor] 任务 {task_id} 开始处理，日志文件: {log_file}")
+            
+            # 保存日志文件路径，用于后续保留日志
+            self._current_log_file = log_file
             os.environ.update({k: str(v) for k, v in env.items()})
             
             # 初始化 GraphGen
@@ -189,9 +203,18 @@ class TaskProcessor:
                 qa_count=qa_count
             )
             
-            # 清理工作目录（使用 cache_folder，它包含整个任务的工作目录）
-            if cache_folder:
-                cleanup_workspace(cache_folder)
+            # 清理临时工作目录（但保留日志文件）
+            # 只删除 working_dir，保留 logs 目录和日志文件
+            if working_dir and os.path.exists(working_dir):
+                try:
+                    shutil.rmtree(working_dir)
+                    logger.info(f"[TaskProcessor] 已清理临时工作目录: {working_dir}")
+                except Exception as e:
+                    logger.warning(f"[TaskProcessor] 清理工作目录失败: {e}")
+            
+            # 记录日志文件路径，确保日志被保留
+            if log_file:
+                logger.info(f"[TaskProcessor] 任务完成，日志文件已保存: {log_file}")
             
         except Exception as e:
             # 更新任务状态为失败
@@ -200,6 +223,24 @@ class TaskProcessor:
                 TaskStatus.FAILED,
                 error_message=str(e)
             )
+            # 记录错误日志
+            if log_file:
+                logger.error(f"[TaskProcessor] 任务失败，日志文件: {log_file}")
+        
+        finally:
+            # 清理临时工作目录（但保留日志文件）
+            # 只删除 working_dir，保留 logs 目录和日志文件
+            # 注意：不要删除整个 cache_folder，因为 logs 目录在其中
+            if working_dir and os.path.exists(working_dir):
+                try:
+                    shutil.rmtree(working_dir)
+                    logger.info(f"[TaskProcessor] 已清理临时工作目录: {working_dir}")
+                except Exception as e:
+                    logger.warning(f"[TaskProcessor] 清理工作目录失败: {e}")
+            
+            # 确保日志文件被保留
+            if log_file:
+                logger.info(f"[TaskProcessor] 日志文件已保存: {log_file}")
     
     def _build_config(self, config: TaskConfig, filepaths: list) -> Dict[str, Any]:
         """构建配置字典"""
