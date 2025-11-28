@@ -139,3 +139,55 @@ python test_tokenizer_local.py
 tokenizer = Tokenizer(model_name="cl100k_base", local_cache_dir="/your/custom/path")
 ```
 
+### 问题: 离线环境下报网络连接错误
+
+**错误信息**:
+```
+HTTPSConnectionPool(host='openaipublic.blob.core.windows.net', ...): 
+Failed to resolve 'openaipublic.blob.core.windows.net' 
+([Errno -3] Temporary failure in name resolution)
+```
+
+**原因**:
+在离线环境下，tiktoken 库尝试从网络下载模型文件，但无法访问网络。
+
+**解决方案**:
+
+1. **确保模型文件已下载**:
+   ```bash
+   # 在有网络的环境中运行
+   python scripts/download_tokenizer_model.py
+   ```
+
+2. **验证文件存在**:
+   检查文件是否存在：
+   ```bash
+   ls models/tokenizer/9b5ad71b2ce5302211f9c61530b329a4922fc6a4
+   ```
+   
+   文件名是 URL 的 SHA-1 哈希值：`9b5ad71b2ce5302211f9c61530b329a4922fc6a4`
+
+3. **手动下载（如果脚本不可用）**:
+   ```bash
+   # 在有网络的环境中
+   wget https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken
+   # 计算文件名（URL的SHA-1）
+   echo -n "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken" | sha1sum
+   # 重命名并移动到正确位置
+   mv cl100k_base.tiktoken models/tokenizer/9b5ad71b2ce5302211f9c61530b329a4922fc6a4
+   ```
+
+4. **检查环境变量**:
+   确保 `TIKTOKEN_CACHE_DIR` 环境变量指向正确的目录：
+   ```bash
+   export TIKTOKEN_CACHE_DIR=/path/to/GraphGen/models/tokenizer
+   ```
+
+5. **代码已自动检查**:
+   现在代码会在初始化时自动检查文件是否存在。如果文件不存在，会抛出明确的错误信息，提示如何解决。
+
+**注意**: 
+- 文件名必须是 URL 的 SHA-1 哈希值，不能使用原始文件名
+- 文件必须放在 `TIKTOKEN_CACHE_DIR` 指定的目录中
+- 确保文件完整且未损坏（文件大小应该 > 0）
+

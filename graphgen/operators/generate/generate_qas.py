@@ -400,8 +400,24 @@ async def generate_qas(
             # 考虑去重和失败率，使用1.5倍缓冲
             required_batches = int(target_qa_pairs / avg_qa_per_batch * 1.5)
         
-        # 限制不超过实际batches数量
-        if required_batches < len(batches):
+        # 如果需要的batches数量超过实际batches，考虑重复使用或拆分
+        if required_batches > len(batches):
+            original_batch_count = len(batches)
+            # 如果batches数量不足，重复使用batches直到达到目标
+            # 使用循环方式重复batches，确保覆盖所有原始batches
+            repeat_times = (required_batches + len(batches) - 1) // len(batches)  # 向上取整
+            extended_batches = []
+            for i in range(repeat_times):
+                extended_batches.extend(batches)
+            batches = extended_batches[:required_batches]
+            logger.warning(
+                "[Generation] Batches数量不足: 实际 %d 个, 需要 %d 个. "
+                "已重复使用batches %d 次, 扩展到 %d 个 (target: %d QA pairs, estimated %.1f QA per batch). "
+                "建议减小分区参数 max_units_per_community 以生成更多batches.",
+                original_batch_count, required_batches, repeat_times, len(batches), 
+                target_qa_pairs, avg_qa_per_batch
+            )
+        elif required_batches < len(batches):
             original_batch_count = len(batches)
             batches = batches[:required_batches]
             logger.info(
