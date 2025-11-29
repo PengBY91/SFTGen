@@ -1,6 +1,6 @@
 """
 任务处理器
-负责执行具体的GraphGen任务
+负责执行具体的KGE-Gen任务
 """
 
 import os
@@ -61,7 +61,7 @@ class TaskProcessor:
             self._current_log_file = log_file
             os.environ.update({k: str(v) for k, v in env.items()})
             
-            # 初始化 GraphGen
+            # 初始化 KGE-Gen
             tokenizer_instance = Tokenizer(config.tokenizer)
             synthesizer_llm_client = OpenAIClient(
                 model_name=config.synthesizer_model,
@@ -283,7 +283,7 @@ class TaskProcessor:
                 if selected_modes == all_modes:
                     mode = "all"  # 如果选择了所有模式，使用 "all"
                 else:
-                    # 如果选择了部分模式，也使用 "all"（因为 GraphGen 目前只支持单个模式或 "all"）
+                    # 如果选择了部分模式，也使用 "all"（因为 KGE-Gen 目前只支持单个模式或 "all"）
                     # 或者可以提示用户，这里选择使用 "all" 以生成所有模式的数据
                     mode = "all"
         

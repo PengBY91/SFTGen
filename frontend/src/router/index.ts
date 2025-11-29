@@ -71,7 +71,7 @@ router.beforeEach(async (to, from, next) => {
   try {
     const title = to.meta.title as string
     if (title) {
-      document.title = `${title} - GraphGen`
+      document.title = `${title} - KGE-Gen`
     }
     
     const authStore = useAuthStore()

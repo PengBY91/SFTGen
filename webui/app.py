@@ -147,7 +147,7 @@ def run_graphgen(params: WebuiParams, progress=gr.Progress()):
     #         env["TRAINEE_BASE_URL"], env["TRAINEE_API_KEY"], env["TRAINEE_MODEL"]
     #     )
 
-    # Initialize GraphGen
+    # Initialize KGE-Gen
     graph_gen = init_graph_gen(config, env)
     graph_gen.clear()
 
@@ -326,11 +326,11 @@ def get_task_details(task_id: str) -> str:
     return "任务不存在"
 
 
-with gr.Blocks(title="GraphGen Demo", theme=gr.themes.Glass(), css=css) as demo:
+with gr.Blocks(title="KGE-Gen Demo", theme=gr.themes.Glass(), css=css) as demo:
     # Header
     gr.Image(
         value=os.path.join(root_dir, "resources", "images", "logo.png"),
-        label="GraphGen Banner",
+        label="KGE-Gen Banner",
         elem_id="banner",
         interactive=False,
         container=False,
@@ -684,7 +684,7 @@ with gr.Blocks(title="GraphGen Demo", theme=gr.themes.Glass(), css=css) as demo:
                     interactive=False,
                 )
 
-        submit_btn = gr.Button(_("Run GraphGen"))
+        submit_btn = gr.Button(_("Run KGE-Gen"))
         
         # 任务管理界面
         with gr.Tab("任务管理"):

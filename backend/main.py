@@ -1,5 +1,5 @@
 """
-GraphGen Backend API
+KGE-Gen Backend API
 FastAPI 服务入口
 """
 

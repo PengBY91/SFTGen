@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-GraphGen 命令行工具
-将 GraphGen Demo web app 转换为命令行脚本版本
+KGE-Gen 命令行工具
+将 KGE-Gen Demo web app 转换为命令行脚本版本
 """
 
 import argparse
@@ -25,7 +25,7 @@ from webui.utils import cleanup_workspace, setup_workspace
 
 
 class GraphGenCLI:
-    """GraphGen 命令行接口类"""
+    """KGE-Gen 命令行接口类"""
     
     def __init__(self):
         self.root_dir = files("webui").parent
@@ -61,7 +61,7 @@ class GraphGenCLI:
             return False
     
     def init_graph_gen(self, config: dict, env: dict) -> GraphGen:
-        """初始化 GraphGen 实例"""
+        """初始化 KGE-Gen 实例"""
         # 设置工作目录
         log_file, working_dir = setup_workspace(os.path.join(self.root_dir, "cache"))
         set_logger(log_file, if_stream=True)
@@ -89,7 +89,7 @@ class GraphGenCLI:
             tokenizer=tokenizer_instance,
         )
 
-        # 创建 GraphGen 实例（不传递 config 参数）
+        # 创建 KGE-Gen 实例（不传递 config 参数）
         graph_gen = GraphGen(
             working_dir=working_dir,
             tokenizer_instance=tokenizer_instance,
@@ -163,7 +163,7 @@ class GraphGenCLI:
         
         # 记录开始信息
         self.batch_logger.info("=" * 80)
-        self.batch_logger.info("GraphGen 批量处理开始")
+        self.batch_logger.info("KGE-Gen 批量处理开始")
         self.batch_logger.info(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self.batch_logger.info("=" * 80)
     
@@ -328,7 +328,7 @@ class GraphGenCLI:
                 "TPM": args.tpm,
             }
 
-            # 初始化 GraphGen
+            # 初始化 KGE-Gen
             graph_gen = self.init_graph_gen(config, env)
             graph_gen.clear()
 
@@ -500,8 +500,8 @@ class GraphGenCLI:
         return self.batch_stats["failed_files"] == 0
     
     def run_graphgen(self, args):
-        """运行 GraphGen 主流程"""
-        print("🚀 开始运行 GraphGen...")
+        """运行 KGE-Gen 主流程"""
+        print("🚀 开始运行 KGE-Gen...")
         
         # 构建配置
         config = {
@@ -560,8 +560,8 @@ class GraphGenCLI:
         print(f"📝 源文本 token 数量: {token_count}")
         print(f"📈 预计 token 使用量: {estimated_usage}")
 
-        # 初始化 GraphGen
-        print("🔧 初始化 GraphGen...")
+        # 初始化 KGE-Gen
+        print("🔧 初始化 KGE-Gen...")
        
         graph_gen.clear()
 
@@ -636,7 +636,7 @@ class GraphGenCLI:
             trainee_tokens = sum(u["total_tokens"] for u in graph_gen.trainee_llm_client.token_usage) if config["if_trainee_model"] else 0
             total_tokens = synthesizer_tokens + trainee_tokens
 
-            print("✅ GraphGen 运行完成!")
+            print("✅ KGE-Gen 运行完成!")
             print(f"📁 输出文件: {output_file}")
             print(f"🔢 实际使用 token: {total_tokens}")
             print(f"📊 Synthesizer tokens: {synthesizer_tokens}")
@@ -657,7 +657,7 @@ class GraphGenCLI:
 def create_parser():
     """创建命令行参数解析器"""
     parser = argparse.ArgumentParser(
-        description="GraphGen 命令行工具 - 从文本生成知识图谱训练数据",
+        description="KGE-Gen 命令行工具 - 从文本生成知识图谱训练数据",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例用法:

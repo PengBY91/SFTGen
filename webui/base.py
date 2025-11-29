@@ -5,7 +5,7 @@ from typing import Any
 @dataclass
 class WebuiParams:
     """
-    GraphGen parameters
+    KGE-Gen parameters
     """
 
     if_trainee_model: bool

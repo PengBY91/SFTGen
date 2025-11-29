@@ -230,10 +230,18 @@ class CoTGenerator(BaseGenerator):
             # 如果只有最终答案
             answer = final_answer
         
-        logger.debug("CoT Combined - Question: %s", question)
-        logger.debug("CoT Combined - Reasoning Path: %s", reasoning_path[:100] + "..." if len(reasoning_path) > 100 else reasoning_path)
-        logger.debug("CoT Combined - Thinking Process: %s", thinking_process[:100] + "..." if len(thinking_process) > 100 else thinking_process)
-        logger.debug("CoT Combined - Final Answer: %s", final_answer[:100] + "..." if len(final_answer) > 100 else final_answer)
+        logger.info("CoT Combined Parsing Result:")
+        logger.info("  - Question: %s", question[:80] + "..." if len(question) > 80 else question)
+        logger.info("  - Reasoning Path length: %d", len(reasoning_path))
+        logger.info("  - Thinking Process length: %d%s", len(thinking_process), 
+                   "" if thinking_process else " (EMPTY - will not display in frontend)")
+        logger.info("  - Final Answer length: %d%s", len(final_answer),
+                   "" if final_answer else " (EMPTY - will not display in frontend)")
+        logger.info("  - Answer field length (compatibility): %d", len(answer))
+        
+        if not thinking_process or not final_answer:
+            logger.warning("CoT response missing new format markers. Response preview: %s",
+                         response_clean[:300])
         
         return {
             "question": question,
@@ -299,6 +307,109 @@ class CoTGenerator(BaseGenerator):
             "reasoning_path": reasoning_path,
         }
 
+    @staticmethod
+    def parse_cot_answer_response(response: str) -> dict:
+        """
+        解析两步模式中答案生成阶段的响应，提取思考过程和最终答案。
+        
+        预期格式：
+        - 思考过程：...
+        - 最终答案：...
+        或
+        - Thinking Process: ...
+        - Final Answer: ...
+        
+        :param response: LLM 响应
+        :return: 包含 thinking_process 和 final_answer 的字典
+        """
+        if not response or not response.strip():
+            logger.warning("Empty response in parse_cot_answer_response")
+            return {"thinking_process": "", "final_answer": "", "answer": ""}
+        
+        response_clean = response.strip()
+        thinking_process = ""
+        final_answer = ""
+        
+        # 策略1: 尝试解析中文格式（中文冒号）
+        if "思考过程：" in response_clean and "最终答案：" in response_clean:
+            thinking_part = response_clean.split("思考过程：")[1]
+            thinking_process = thinking_part.split("最终答案：")[0].strip()
+            final_answer = response_clean.split("最终答案：")[1].strip()
+            logger.info("CoT Answer Parsing (CN full-width): thinking=%d chars, final=%d chars", 
+                       len(thinking_process), len(final_answer))
+        # 策略2: 尝试解析中文格式（英文冒号）
+        elif "思考过程:" in response_clean and "最终答案:" in response_clean:
+            thinking_part = response_clean.split("思考过程:")[1]
+            thinking_process = thinking_part.split("最终答案:")[0].strip()
+            final_answer = response_clean.split("最终答案:")[1].strip()
+            logger.info("CoT Answer Parsing (CN half-width): thinking=%d chars, final=%d chars", 
+                       len(thinking_process), len(final_answer))
+        # 策略3: 尝试解析英文格式
+        elif "Thinking Process:" in response_clean and "Final Answer:" in response_clean:
+            thinking_part = response_clean.split("Thinking Process:")[1]
+            thinking_process = thinking_part.split("Final Answer:")[0].strip()
+            final_answer = response_clean.split("Final Answer:")[1].strip()
+            logger.info("CoT Answer Parsing (EN): thinking=%d chars, final=%d chars", 
+                       len(thinking_process), len(final_answer))
+        # 策略4: 如果没有找到标记，尝试按段落分割（最后一段作为最终答案，其余作为思考过程）
+        else:
+            logger.warning("CoT answer response missing format markers. Response length: %d, preview: %s",
+                         len(response_clean), response_clean[:200])
+            
+            # 按段落分割
+            paragraphs = [p.strip() for p in response_clean.split('\n\n') if p.strip()]
+            if len(paragraphs) > 1:
+                # 最后一段作为最终答案，其余作为思考过程
+                thinking_process = '\n\n'.join(paragraphs[:-1])
+                final_answer = paragraphs[-1]
+                logger.info("CoT Answer Parsing (fallback by paragraphs): thinking=%d chars, final=%d chars", 
+                           len(thinking_process), len(final_answer))
+            elif len(paragraphs) == 1:
+                # 只有一段，尝试按句子分割
+                sentences = [s.strip() for s in response_clean.split('。') if s.strip()]
+                if len(sentences) > 1:
+                    # 最后一句作为最终答案，其余作为思考过程
+                    thinking_process = '。'.join(sentences[:-1]) + '。'
+                    final_answer = sentences[-1]
+                    if not final_answer.endswith('。'):
+                        final_answer += '。'
+                    logger.info("CoT Answer Parsing (fallback by sentences): thinking=%d chars, final=%d chars", 
+                               len(thinking_process), len(final_answer))
+                else:
+                    # 只有一句话，全部作为最终答案
+                    final_answer = response_clean
+                    logger.warning("CoT answer is single sentence, using as final_answer only")
+            else:
+                # 完全无法解析，使用完整响应作为最终答案
+                final_answer = response_clean
+                logger.warning("CoT answer parsing failed, using entire response as final_answer")
+        
+        # 清理引号
+        thinking_process = thinking_process.strip('"').strip("'").strip()
+        final_answer = final_answer.strip('"').strip("'").strip()
+        
+        # 为了向后兼容，构建 answer 字段
+        # 如果两者都存在，answer 只包含 final_answer
+        if thinking_process and final_answer:
+            answer = final_answer
+        elif thinking_process:
+            answer = thinking_process
+        else:
+            answer = final_answer
+        
+        logger.info("CoT Answer Parsed Result:")
+        logger.info("  - Thinking Process length: %d%s", len(thinking_process),
+                   "" if thinking_process else " (EMPTY - will not display in frontend)")
+        logger.info("  - Final Answer length: %d%s", len(final_answer),
+                   "" if final_answer else " (EMPTY - will not display in frontend)")
+        logger.info("  - Answer field (compatibility): %d chars", len(answer))
+        
+        return {
+            "thinking_process": thinking_process,
+            "final_answer": final_answer,
+            "answer": answer,
+        }
+
     async def generate(
         self,
         batch: tuple[
@@ -331,30 +442,49 @@ class CoTGenerator(BaseGenerator):
                 response = await self.llm_client.generate_answer(prompt)
                 response = self.parse_response(response)
                 question, reasoning_path = response["question"], response["reasoning_path"]
+                
+                # 生成答案（包含思考过程和最终答案）
                 prompt = self.build_prompt_for_cot_generation(batch, question, reasoning_path)
-                cot_answer = await self.llm_client.generate_answer(prompt)
-                question = question
-                cot_answer = cot_answer
-                reasoning_path = reasoning_path
+                cot_answer_response = await self.llm_client.generate_answer(prompt)
+                
+                # 解析答案响应
+                parsed_answer = self.parse_cot_answer_response(cot_answer_response)
+                thinking_process = parsed_answer.get("thinking_process", "")
+                final_answer = parsed_answer.get("final_answer", "")
+                cot_answer = parsed_answer.get("answer", cot_answer_response)
             else:
                 question = parsed["question"]
                 cot_answer = parsed["answer"]
                 reasoning_path = parsed.get("reasoning_path", "")
+                thinking_process = parsed.get("thinking_process", "")
+                final_answer = parsed.get("final_answer", "")
         else:
-            # 原始两步模式
+            # 原始两步模式：分别生成问题和答案
+            # 第一步：生成问题和推理路径
             prompt = self.build_prompt(batch)
             response = await self.llm_client.generate_answer(prompt)
             response = self.parse_response(response)
             question, reasoning_path = response["question"], response["reasoning_path"]
+            
+            # 第二步：根据问题和推理路径生成答案（包含思考过程和最终答案）
             prompt = self.build_prompt_for_cot_generation(batch, question, reasoning_path)
-            cot_answer = await self.llm_client.generate_answer(prompt)
+            cot_answer_response = await self.llm_client.generate_answer(prompt)
+            
+            # 解析答案响应，提取思考过程和最终答案
+            parsed_answer = self.parse_cot_answer_response(cot_answer_response)
+            thinking_process = parsed_answer.get("thinking_process", "")
+            final_answer = parsed_answer.get("final_answer", "")
+            cot_answer = parsed_answer.get("answer", cot_answer_response)  # 向后兼容
         
-        logger.debug("CoT Answer: %s", cot_answer)
+        logger.debug("CoT Answer: %s", cot_answer[:200] + "..." if len(cot_answer) > 200 else cot_answer)
+        
         qa_pairs = {
             compute_content_hash(question): {
                 "question": question,
                 "answer": cot_answer,
                 "reasoning_path": reasoning_path,
+                "thinking_process": thinking_process if 'thinking_process' in locals() else "",
+                "final_answer": final_answer if 'final_answer' in locals() else "",
             }
         }
         

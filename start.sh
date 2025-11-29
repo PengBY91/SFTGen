@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# GraphGen 项目启动脚本
+# KGE-Gen 项目启动脚本
 # 简化版本，用于快速启动服务
 
 # 不使用 set -e，允许某些服务启动失败时继续
@@ -28,7 +28,7 @@ print_error() {
 
 print_header() {
     echo -e "${BLUE}================================${NC}"
-    echo -e "${BLUE}  GraphGen 项目启动${NC}"
+    echo -e "${BLUE}  KGE-Gen 项目启动${NC}"
     echo -e "${BLUE}================================${NC}"
 }
 
@@ -333,7 +333,7 @@ start_all() {
 
 # 显示帮助信息
 show_help() {
-    echo "GraphGen 项目启动脚本"
+    echo "KGE-Gen 项目启动脚本"
     echo ""
     echo "用法: $0 [命令]"
     echo ""

@@ -59,7 +59,7 @@ class TaskProcessor:
             config = self._build_config(params)
             env = self._build_env(params)
             
-            # 初始化 GraphGen
+            # 初始化 KGE-Gen
             graph_gen = GraphGen(working_dir=working_dir, config=config)
             graph_gen.clear()
             

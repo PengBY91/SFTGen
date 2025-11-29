@@ -1,6 +1,6 @@
 """
 FastAPI Application
-GraphGen 后端 API 服务
+KGE-Gen 后端 API 服务
 """
 
 import os
@@ -16,7 +16,7 @@ load_dotenv()
 
 # 创建 FastAPI 应用
 app = FastAPI(
-    title="GraphGen API",
+    title="KGE-Gen API",
     version="2.0.0",
     description="KGE-Gen SFT 数据生成平台 API",
     docs_url="/docs",
@@ -40,7 +40,7 @@ app.include_router(router, prefix="/api")
 async def root():
     """根路径"""
     return {
-        "name": "GraphGen API",
+        "name": "KGE-Gen API",
         "version": "2.0.0",
         "status": "running"
     }

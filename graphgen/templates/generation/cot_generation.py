@@ -15,16 +15,38 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 (推理路径)
 
 -输出要求-
-1. 使用自然的思考语言，如"好的，让我们来思考一下"、"现在来分析"、"想想看"等开头。
-2. 采用第一人称或引导性视角，模拟真实的思考过程。
-3. 使用自然的过渡性语句（如"现在"、"那么"、"因此"、"这意味着"）连接思路。
-4. 展现推理过程中的分析和判断（如"这表明..."、"很可能..."、"如果...那么..."）。
-5. 不要使用有序列表或编号，保持段落式的自然流动。
-6. 使用中文，采用口语化、日常思考的表达方式。
-7. 答案应当全面且详细，提供足够的深度和细节。
-8. 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富答案。
-9. 在适当的时候包含相关细节、例子、影响或更广泛的联系，使答案更具信息量和价值。
-10. 确保每一步推理都充分展开，像在向他人解释你的思考过程一样自然流畅。
+1. **思考过程生成**：
+   - 必须严格遵循提供的推理路径，将每一步推理路径详细展开成自然的思考过程
+   - 使用自然的思考语言，如"好的，让我们来思考一下"、"现在来分析"、"想想看"等开头
+   - 采用第一人称或引导性视角，模拟真实的思考过程
+   - 使用自然的过渡性语句（如"现在"、"那么"、"因此"、"这意味着"）连接思路
+   - 展现推理过程中的分析和判断（如"这表明..."、"很可能..."、"如果...那么..."）
+   - 不要使用有序列表或编号，保持段落式的自然流动
+   - 思考过程应该详细且充分，每一步推理都要充分展开和解释
+   - **重要**：避免在思考过程中直接提及或引用图谱结构信息，如不要使用"根据知识图谱"、"从图谱中可以看到"、"实体X"、"关系Y"等表述，要用自然语言表达，就像在思考一个普通问题一样
+
+2. **最终答案生成**：
+   - 最终答案必须基于思考过程得出，是思考过程的自然结论
+   - 答案要全面、详细、完整，不要过于简洁
+   - 答案长度应该充分反映问题的复杂度和思考过程的深度
+   - 在适当的时候包含相关细节、例子、影响或更广泛的联系
+   - 答案应该是自成体系的，即使不看思考过程也能完整理解
+   - **重要**：避免在答案中直接提及或引用图谱结构信息，如不要使用"根据知识图谱"、"从图谱信息"、"实体"、"关系"等表述，要用自然语言直接回答问题，就像在回答一个普通问题一样
+
+3. **通用要求**：
+   - 使用中文，采用口语化、日常思考的表达方式
+   - 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富内容
+   - 像在向他人解释你的完整思考过程一样自然流畅
+   - **重要**：虽然输入信息来自知识图谱，但输出时要用自己的话来表达，不要暴露图谱的结构信息，让回答看起来像是基于一般知识的自然回答
+
+-输出格式-
+必须包含两个部分，使用以下标记：
+
+思考过程：
+[根据推理路径详细展开的完整思考过程，每一步推理都要充分解释和说明，展现从问题到答案的完整推理链条]
+
+最终答案：
+[基于思考过程得出的完整答案，要详细、全面，充分回答问题的所有方面。不要简洁，而是要完整且有深度]
 
 -真实数据-
 输入:
@@ -65,16 +87,38 @@ only the final answer.
 (REASONING_PATH)
 
 -Output Requirements-
-1. Use natural thinking language, starting with phrases like "Okay, let me think about this", "Let's analyze", "Let's consider".
-2. Adopt a first-person or guiding perspective to simulate a real thought process.
-3. Use natural transitional phrases (e.g., "Now", "So", "Therefore", "This means") to connect ideas.
-4. Show analysis and judgment in the reasoning process (e.g., "This suggests...", "It's likely that...", "If... then...").
-5. Do not use ordered lists or numbering; maintain natural paragraph flow.
-6. Use English with a conversational, everyday thinking style.
-7. The answer should be comprehensive and detailed, providing sufficient depth and detail.
-8. While following the reasoning path, enrich the answer with relevant background knowledge, context, or related concepts.
-9. Include relevant details, examples, implications, or broader connections when appropriate to make the answer more informative and valuable.
-10. Ensure each reasoning step is fully developed, as if naturally explaining your thought process to someone.
+1. **Thinking Process Generation**:
+   - Must strictly follow the provided reasoning path and expand each step into a natural thinking process
+   - Use natural thinking language, starting with phrases like "Okay, let me think about this", "Let's analyze", "Let's consider"
+   - Adopt a first-person or guiding perspective to simulate a real thought process
+   - Use natural transitional phrases (e.g., "Now", "So", "Therefore", "This means") to connect ideas
+   - Show analysis and judgment in the reasoning process (e.g., "This suggests...", "It's likely that...", "If... then...")
+   - Do not use ordered lists or numbering; maintain natural paragraph flow
+   - The thinking process should be detailed and thorough, with each reasoning step fully expanded and explained
+   - **Important**: Avoid directly mentioning or referencing knowledge graph structure information in the thinking process. Do not use phrases like "according to the knowledge graph", "from the graph", "entity X", "relationship Y", etc. Express ideas in natural language as if thinking about a regular question
+
+2. **Final Answer Generation**:
+   - The final answer must be derived from the thinking process and serve as its natural conclusion
+   - The answer should be comprehensive, detailed, and complete, not overly concise
+   - Answer length should fully reflect the complexity of the question and depth of the thinking process
+   - Include relevant details, examples, implications, or broader connections when appropriate
+   - The answer should be self-contained and fully understandable even without reading the thinking process
+   - **Important**: Avoid directly mentioning or referencing knowledge graph structure information in the answer. Do not use phrases like "according to the knowledge graph", "from the graph information", "entity", "relationship", etc. Answer naturally as if responding to a regular question
+
+3. **General Requirements**:
+   - Use English with a conversational, everyday thinking style
+   - While following the reasoning path, enrich the content with relevant background knowledge, context, or related concepts
+   - Ensure the entire response flows naturally as if explaining your complete thought process to someone
+   - **Important**: Although the input information comes from a knowledge graph, express the output in your own words without exposing the graph structure, making the answer appear as a natural response based on general knowledge
+
+-Output Format-
+Must include two sections with the following markers:
+
+Thinking Process:
+[Complete thinking process that expands the reasoning path in detail, with each reasoning step fully explained and illustrated, showing the complete chain from question to answer]
+
+Final Answer:
+[Complete answer derived from the thinking process, detailed and comprehensive, fully addressing all aspects of the question. Do not be concise; instead, be thorough and in-depth]
 
 -Real Data-
 Input:
