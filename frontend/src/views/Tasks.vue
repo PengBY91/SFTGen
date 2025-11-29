@@ -14,6 +14,18 @@
             </div>
           </div>
           <div class="header-actions">
+            <el-select
+              v-model="selectedStatus"
+              placeholder="筛选状态"
+              style="width: 140px; margin-right: 10px"
+              clearable
+            >
+              <el-option label="全部" value="" />
+              <el-option label="待处理" value="pending" />
+              <el-option label="处理中" value="processing" />
+              <el-option label="已完成" value="completed" />
+              <el-option label="失败" value="failed" />
+            </el-select>
             <el-input
               v-model="searchText"
               placeholder="搜索任务"
@@ -258,6 +270,7 @@ const authStore = useAuthStore()
 
 const loading = ref(false)
 const searchText = ref('')
+const selectedStatus = ref<string>('')
 const startDialogVisible = ref(false)
 const selectedTask = ref<TaskInfo | null>(null)
 const startLoading = ref(false)
@@ -275,7 +288,12 @@ let refreshTimer: number | null = null
 const filteredTasks = computed(() => {
   let result = taskStore.tasks
   
-  // 过滤
+  // 状态筛选
+  if (selectedStatus.value) {
+    result = result.filter((task) => task.status === selectedStatus.value)
+  }
+  
+  // 文本搜索过滤
   if (searchText.value) {
     result = result.filter((task) =>
       (task.task_name || task.filename || '').toLowerCase().includes(searchText.value.toLowerCase())
@@ -580,6 +598,28 @@ onUnmounted(() => {
 }
 
 :deep(.el-card__header .el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:deep(.el-card__header .el-select) {
+  --el-select-input-color: white;
+}
+
+:deep(.el-card__header .el-select .el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+:deep(.el-card__header .el-select .el-input__inner) {
+  color: white;
+}
+
+:deep(.el-card__header .el-select .el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:deep(.el-card__header .el-select .el-select__caret) {
   color: rgba(255, 255, 255, 0.7);
 }
 
