@@ -13,13 +13,14 @@
 
 ### 1. 本地存储目录
 
-模型文件存储在项目根目录下的 `models/tokenizer/` 目录中。
+模型文件优先存储在绝对路径 `/models/tokenizer/` 下。如果该目录不可用，会回退到项目根目录中的 `models/tokenizer/` 目录。你也可以通过环境变量 `TOKENIZER_LOCAL_PATH` 指定自定义目录。
 
 ### 2. 自动配置
 
 代码已自动配置为使用本地目录：
-- `TiktokenTokenizer` 类会自动设置 `TIKTOKEN_CACHE_DIR` 环境变量
-- 首次使用时，如果模型文件不存在，tiktoken 会自动下载并缓存到本地目录
+- `TiktokenTokenizer` 会优先选择 `/models/tokenizer/`，否则回退到项目目录
+- 自动设置 `TIKTOKEN_CACHE_DIR` 环境变量，并强制所有 tiktoken 调用走本地路径
+- 如需覆盖默认路径，可以设置 `TOKENIZER_LOCAL_PATH=/your/custom/path`
 
 ### 3. 代码修改
 
@@ -70,6 +71,7 @@ tokenizer = Tokenizer(model_name="cl100k_base", local_cache_dir=custom_dir)
 ```python
 import os
 os.environ["TIKTOKEN_CACHE_DIR"] = "/path/to/your/cache"
+os.environ["TOKENIZER_LOCAL_PATH"] = "/path/to/your/cache"
 ```
 
 ## 目录结构

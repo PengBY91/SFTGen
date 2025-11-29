@@ -141,8 +141,8 @@ class AggregatedGenerator(BaseGenerator):
             rephrased_part = response_clean.split("重述文本:")[1]
             if "问题：" in rephrased_part or "问题:" in rephrased_part:
                 # 处理中文冒号和英文冒号的情况
-                if "问题：" in rephrased_part:
-                    rephrased_text = rephrased_part.split("问题：")[0].strip()
+            if "问题：" in rephrased_part:
+                rephrased_text = rephrased_part.split("问题：")[0].strip()
                 else:
                     rephrased_text = rephrased_part.split("问题:")[0].strip()
             else:

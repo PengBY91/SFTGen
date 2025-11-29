@@ -1,6 +1,6 @@
 # Tokenizer 模型本地存储
 
-本目录用于存储 tokenizer 模型文件，实现离线使用。
+本目录用于存储 tokenizer 模型文件，实现离线使用。运行时系统会优先尝试使用绝对路径 `/models/tokenizer/`（可通过 `TOKENIZER_LOCAL_PATH` 覆盖），如果不可用则回退到本目录。
 
 ## 目录结构
 
@@ -41,6 +41,7 @@ python scripts/download_tokenizer_model.py
 
 ```bash
 export TIKTOKEN_CACHE_DIR=/path/to/your/cache
+export TOKENIZER_LOCAL_PATH=/path/to/your/cache
 ```
 
 或者在代码中：
@@ -48,6 +49,7 @@ export TIKTOKEN_CACHE_DIR=/path/to/your/cache
 ```python
 import os
 os.environ["TIKTOKEN_CACHE_DIR"] = "/path/to/your/cache"
+os.environ["TOKENIZER_LOCAL_PATH"] = "/path/to/your/cache"
 ```
 
 ## 支持的模型

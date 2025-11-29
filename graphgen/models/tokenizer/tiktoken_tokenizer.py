@@ -6,19 +6,28 @@ from graphgen.bases import BaseTokenizer
 
 
 def get_local_tokenizer_cache_dir():
-    """获取本地 tokenizer 模型缓存目录"""
-    # 获取项目根目录
-    # 从 graphgen/models/tokenizer/tiktoken_tokenizer.py 向上3级到项目根目录
+    """获取本地 tokenizer 模型缓存目录，优先使用 /models/tokenizer/"""
     current_file = os.path.abspath(__file__)
-    # graphgen/models/tokenizer/tiktoken_tokenizer.py 
-    # -> graphgen/models/tokenizer (..)
-    # -> graphgen/models (..)
-    # -> graphgen (..)
-    # -> 项目根目录 (..)
     project_root = os.path.abspath(os.path.join(current_file, "..", "..", "..", ".."))
-    local_cache_dir = os.path.join(project_root, "models", "tokenizer")
-    os.makedirs(local_cache_dir, exist_ok=True)
-    return local_cache_dir
+
+    candidate_dirs = [
+        os.environ.get("TOKENIZER_LOCAL_PATH"),
+        os.environ.get("TIKTOKEN_CACHE_DIR"),
+        "/models/tokenizer",
+        os.path.join(project_root, "models", "tokenizer"),
+    ]
+
+    for path in candidate_dirs:
+        if not path:
+            continue
+        resolved = os.path.abspath(path)
+        try:
+            os.makedirs(resolved, exist_ok=True)
+        except OSError:
+            continue
+        return resolved
+
+    raise RuntimeError("无法确定 tokenizer 本地缓存目录，请检查 /models/tokenizer/ 是否可用。")
 
 
 def get_tiktoken_file_hash(url: str) -> str:
@@ -63,8 +72,8 @@ class TiktokenTokenizer(BaseTokenizer):
             local_cache_dir = get_local_tokenizer_cache_dir()
         
         # 设置环境变量，让 tiktoken 使用本地目录
-        # 必须在导入 tiktoken 之前设置
-        if "TIKTOKEN_CACHE_DIR" not in os.environ:
+        # 必须在导入 tiktoken 之前设置，始终强制使用本地目录
+        if os.environ.get("TIKTOKEN_CACHE_DIR") != local_cache_dir:
             os.environ["TIKTOKEN_CACHE_DIR"] = local_cache_dir
         
         # 检查本地文件是否存在（离线模式检查）

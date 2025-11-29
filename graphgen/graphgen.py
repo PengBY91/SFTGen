@@ -166,20 +166,20 @@ class GraphGen:
                 )
             else:
                 # 使用原始版本
-                _add_entities_and_relations = await build_text_kg(
-                    llm_client=self.synthesizer_llm_client,
-                    kg_instance=self.graph_storage,
-                    chunks=[
-                        Chunk(id=k, content=v["content"], type="text")
-                        for k, v in inserting_chunks.items()
-                    ],
-                    progress_bar=self.progress_bar,
-                    cache_storage=self.extraction_cache_storage,
-                    enable_cache=split_config.get("enable_extraction_cache", True),
-                    enable_batch_requests=split_config.get("enable_batch_requests", True),
-                    batch_size=split_config.get("batch_size", 10),
-                    max_wait_time=split_config.get("max_wait_time", 0.5),
-                )
+            _add_entities_and_relations = await build_text_kg(
+                llm_client=self.synthesizer_llm_client,
+                kg_instance=self.graph_storage,
+                chunks=[
+                    Chunk(id=k, content=v["content"], type="text")
+                    for k, v in inserting_chunks.items()
+                ],
+                progress_bar=self.progress_bar,
+                cache_storage=self.extraction_cache_storage,
+                enable_cache=split_config.get("enable_extraction_cache", True),
+                enable_batch_requests=split_config.get("enable_batch_requests", True),
+                batch_size=split_config.get("batch_size", 10),
+                max_wait_time=split_config.get("max_wait_time", 0.5),
+            )
             if not _add_entities_and_relations:
                 logger.warning("No entities or relations extracted from text chunks")
                 return
