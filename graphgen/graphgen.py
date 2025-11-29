@@ -166,12 +166,12 @@ class GraphGen:
                 )
             else:
                 # 使用原始版本
-            _add_entities_and_relations = await build_text_kg(
-                llm_client=self.synthesizer_llm_client,
-                kg_instance=self.graph_storage,
-                chunks=[
-                    Chunk(id=k, content=v["content"], type="text")
-                    for k, v in inserting_chunks.items()
+                _add_entities_and_relations = await build_text_kg(
+                    llm_client=self.synthesizer_llm_client,
+                    kg_instance=self.graph_storage,
+                    chunks=[
+                        Chunk(id=k, content=v["content"], type="text")
+                        for k, v in inserting_chunks.items()
                 ],
                 progress_bar=self.progress_bar,
                 cache_storage=self.extraction_cache_storage,
