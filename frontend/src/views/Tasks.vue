@@ -1,53 +1,34 @@
 <template>
   <div class="tasks-container">
-    <el-card class="stats-card">
-      <template #header>
-        <div class="card-header">
-          <span>任务统计</span>
-          <el-button size="small" @click="refreshTasks" :loading="loading">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
-        </div>
-      </template>
-      <div class="stats-content">
-        <div class="stat-item">
-          <div class="stat-value">{{ taskStats.total }}</div>
-          <div class="stat-label">总任务数</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #e6a23c">{{ taskStats.pending }}</div>
-          <div class="stat-label">待处理</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #409eff">{{ taskStats.processing }}</div>
-          <div class="stat-label">处理中</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #67c23a">{{ taskStats.completed }}</div>
-          <div class="stat-label">已完成</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #f56c6c">{{ taskStats.failed }}</div>
-          <div class="stat-label">失败</div>
-        </div>
-      </div>
-    </el-card>
-
     <el-card class="table-card">
       <template #header>
         <div class="card-header">
-          <span>任务列表</span>
-          <el-input
-            v-model="searchText"
-            placeholder="搜索任务"
-            style="width: 200px"
-            clearable
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
+          <div class="header-left">
+            <span class="header-title">任务列表</span>
+            <div class="stats-inline">
+              <span class="stat-inline-item">总数: <strong>{{ taskStats.total }}</strong></span>
+              <span class="stat-inline-item pending">待处理: <strong>{{ taskStats.pending }}</strong></span>
+              <span class="stat-inline-item processing">处理中: <strong>{{ taskStats.processing }}</strong></span>
+              <span class="stat-inline-item completed">已完成: <strong>{{ taskStats.completed }}</strong></span>
+              <span class="stat-inline-item failed">失败: <strong>{{ taskStats.failed }}</strong></span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <el-input
+              v-model="searchText"
+              placeholder="搜索任务"
+              style="width: 200px; margin-right: 10px"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-button size="small" @click="refreshTasks" :loading="loading">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -290,14 +271,23 @@ const taskStats = ref({
 
 let refreshTimer: number | null = null
 
-// 过滤后的任务列表
+// 过滤后的任务列表（按时间倒序排序，最新的在前）
 const filteredTasks = computed(() => {
-  if (!searchText.value) {
-    return taskStore.tasks
+  let result = taskStore.tasks
+  
+  // 过滤
+  if (searchText.value) {
+    result = result.filter((task) =>
+      (task.task_name || task.filename || '').toLowerCase().includes(searchText.value.toLowerCase())
+    )
   }
-  return taskStore.tasks.filter((task) =>
-    (task.task_name || task.filename || '').toLowerCase().includes(searchText.value.toLowerCase())
-  )
+  
+  // 按创建时间倒序排序（最新的在前）
+  return result.slice().sort((a, b) => {
+    const dateA = new Date(a.created_at || 0).getTime()
+    const dateB = new Date(b.created_at || 0).getTime()
+    return dateB - dateA
+  })
 })
 
 // 刷新任务列表
@@ -487,56 +477,6 @@ onUnmounted(() => {
   }
 }
 
-.stats-card {
-  width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
-  transition: all 0.3s;
-}
-
-.stats-card:hover {
-  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
-}
-
-.stats-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 24px;
-  padding: 8px 0;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 16px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  transition: all 0.3s;
-  cursor: default;
-}
-
-.stat-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.stat-value {
-  font-size: 36px;
-  font-weight: 700;
-  color: #303133;
-  margin-bottom: 8px;
-  font-family: 'Segoe UI', 'Arial', sans-serif;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #909399;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
 .table-card {
   width: 100%;
   border-radius: 12px;
@@ -550,7 +490,61 @@ onUnmounted(() => {
   align-items: center;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: white;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 1;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stats-inline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.stat-inline-item {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+.stat-inline-item strong {
+  font-size: 16px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.stat-inline-item.pending strong {
+  color: #ffd666;
+}
+
+.stat-inline-item.processing strong {
+  color: #91d5ff;
+}
+
+.stat-inline-item.completed strong {
+  color: #95de64;
+}
+
+.stat-inline-item.failed strong {
+  color: #ffa39e;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 :deep(.el-card__header) {

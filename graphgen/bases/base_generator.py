@@ -200,6 +200,8 @@ class BaseGenerator(ABC):
                     "output": v["answer"],
                     "mode": v.get("mode") if v.get("mode") is not None else (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
                     "reasoning_path": v.get("reasoning_path", ""),  # 保留 COT 推理路径
+                    "thinking_process": v.get("thinking_process", ""),  # 保留 COT 思考过程
+                    "final_answer": v.get("final_answer", ""),  # 保留 COT 最终答案
                     "context": v.get("context", {}),
                     "graph": v.get("graph", {}),
                     "source_chunks": v.get("source_chunks", []),
@@ -218,6 +220,8 @@ class BaseGenerator(ABC):
                     ],
                     "mode": v.get("mode") if v.get("mode") is not None else (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
                     "reasoning_path": v.get("reasoning_path", ""),  # 保留 COT 推理路径
+                    "thinking_process": v.get("thinking_process", ""),  # 保留 COT 思考过程
+                    "final_answer": v.get("final_answer", ""),  # 保留 COT 最终答案
                     "context": v.get("context", {}),
                     "graph": v.get("graph", {}),
                     "source_chunks": v.get("source_chunks", []),
@@ -236,6 +240,8 @@ class BaseGenerator(ABC):
                     ],
                     "mode": v.get("mode") if v.get("mode") is not None else (v.get("metadata", {}).get("generation_mode") if isinstance(v.get("metadata"), dict) else None),
                     "reasoning_path": v.get("reasoning_path", ""),  # 保留 COT 推理路径
+                    "thinking_process": v.get("thinking_process", ""),  # 保留 COT 思考过程
+                    "final_answer": v.get("final_answer", ""),  # 保留 COT 最终答案
                     "context": v.get("context", {}),
                     "graph": v.get("graph", {}),
                     "source_chunks": v.get("source_chunks", []),

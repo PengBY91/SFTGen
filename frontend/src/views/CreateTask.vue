@@ -8,15 +8,16 @@
       </template>
 
       <el-steps :active="currentStep" align-center>
-        <el-step title="任务信息" />
-        <el-step title="上传文件" />
+<el-step title="任务信息与文件" />
         <el-step title="配置参数" />
         <el-step title="确认创建" />
       </el-steps>
 
-      <!-- 步骤 1: 任务信息 -->
+      <!-- 步骤 1: 任务信息与上传文件（合并） -->
       <div v-show="currentStep === 0" class="step-content">
         <el-form :model="taskInfo" label-width="120px">
+          <el-divider content-position="left">任务信息</el-divider>
+          
           <el-form-item label="任务名称" required>
             <el-input
               v-model="taskInfo.task_name"
@@ -36,46 +37,47 @@
               show-word-limit
             />
           </el-form-item>
+
+          <el-divider content-position="left">上传文件</el-divider>
+
+          <el-form-item label="">
+            <el-upload
+              ref="uploadRef"
+              class="upload-demo"
+              drag
+              :auto-upload="false"
+              :limit="10"
+              :file-list="fileList"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :on-exceed="handleExceed"
+              accept=".txt,.json,.jsonl,.csv,.pdf"
+              multiple
+            >
+              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+              <div class="el-upload__text">
+                拖拽文件到此处或 <em>点击上传</em>
+              </div>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持 .txt, .json, .jsonl, .csv, .pdf 格式文件，最多10个文件
+                </div>
+              </template>
+            </el-upload>
+
+            <div v-if="fileList.length > 0" class="file-info">
+              <el-alert
+                :title="`已选择 ${fileList.length} 个文件`"
+                type="success"
+                :closable="false"
+              />
+            </div>
+          </el-form-item>
         </el-form>
       </div>
 
-      <!-- 步骤 2: 上传文件 -->
+      <!-- 步骤 2: 配置参数 -->
       <div v-show="currentStep === 1" class="step-content">
-        <el-upload
-          ref="uploadRef"
-          class="upload-demo"
-          drag
-          :auto-upload="false"
-          :limit="10"
-          :file-list="fileList"
-          :on-change="handleFileChange"
-          :on-remove="handleFileRemove"
-          :on-exceed="handleExceed"
-          accept=".txt,.json,.jsonl,.csv,.pdf"
-          multiple
-        >
-          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-          <div class="el-upload__text">
-            拖拽文件到此处或 <em>点击上传</em>
-          </div>
-          <template #tip>
-            <div class="el-upload__tip">
-              支持 .txt, .json, .jsonl, .csv, .pdf 格式文件，最多10个文件
-            </div>
-          </template>
-        </el-upload>
-
-        <div v-if="fileList.length > 0" class="file-info">
-          <el-alert
-            :title="`已选择 ${fileList.length} 个文件`"
-            type="success"
-            :closable="false"
-          />
-        </div>
-      </div>
-
-      <!-- 步骤 3: 配置参数 -->
-      <div v-show="currentStep === 2" class="step-content">
         <el-form :model="taskConfig" label-width="180px" label-position="left">
           <el-divider content-position="left">模型配置</el-divider>
 
@@ -309,8 +311,8 @@
         </el-form>
       </div>
 
-      <!-- 步骤 4: 确认创建 -->
-      <div v-show="currentStep === 3" class="step-content">
+      <!-- 步骤 3: 确认创建 -->
+      <div v-show="currentStep === 2" class="step-content">
         <el-result icon="success" title="准备就绪" sub-title="请确认任务信息">
           <template #extra>
             <div class="confirm-info">
@@ -332,11 +334,11 @@
       <!-- 操作按钮 -->
       <div class="step-actions">
         <el-button v-if="currentStep > 0" @click="prevStep">上一步</el-button>
-        <el-button v-if="currentStep < 3" type="primary" @click="nextStep" :disabled="!canNext">
+        <el-button v-if="currentStep < 2" type="primary" @click="nextStep" :disabled="!canNext">
           下一步
         </el-button>
         <el-button
-          v-if="currentStep === 3"
+          v-if="currentStep === 2"
           type="success"
           @click="submitTask"
           :loading="submitting"
@@ -428,13 +430,11 @@ const handleExceed: UploadProps['onExceed'] = (files) => {
 // 判断是否可以进入下一步
 const canNext = computed(() => {
   if (currentStep.value === 0) {
-    return taskInfo.value.task_name.trim() !== ''
+    // 第1步：任务信息和文件都需要填写
+    return taskInfo.value.task_name.trim() !== '' && fileList.value.length > 0
   }
   if (currentStep.value === 1) {
-    return fileList.value.length > 0
-  }
-  if (currentStep.value === 2) {
-    // 验证必填项
+    // 第2步：配置参数验证
     if (!taskConfig.value.api_key) {
       return false
     }
@@ -457,8 +457,8 @@ const prevStep = () => {
 
 // 下一步
 const nextStep = async () => {
-  if (currentStep.value === 1 && fileList.value.length > 0) {
-    // 上传所有文件
+  if (currentStep.value === 0 && fileList.value.length > 0) {
+    // 第1步完成后上传所有文件
     try {
       ElMessage.info('正在上传文件...')
       uploadedFilePaths.value = []
@@ -480,7 +480,7 @@ const nextStep = async () => {
       const message = typeof error === 'string' ? error : (error?.message || '文件上传失败')
       ElMessage.error(message)
     }
-  } else if (currentStep.value < 3) {
+  } else if (currentStep.value < 2) {
     currentStep.value++
   }
 }

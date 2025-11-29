@@ -115,6 +115,8 @@ export interface AlpacaContent {
   output: string
   mode?: string
   reasoning_path?: string  // 推理路径（COT 和 Multi-hop）
+  thinking_process?: string  // 思考过程（COT 特有）
+  final_answer?: string  // 最终答案（COT 特有）
   context?: {
     nodes?: Array<{ name: string; description?: string }>
     edges?: Array<{ source: string; target: string; description?: string }>
@@ -139,6 +141,8 @@ export interface SharegptContent {
   }>
   mode?: string
   reasoning_path?: string  // 推理路径（COT 和 Multi-hop）
+  thinking_process?: string  // 思考过程（COT 特有）
+  final_answer?: string  // 最终答案（COT 特有）
   context?: {
     nodes?: Array<{ name: string; description?: string }>
     edges?: Array<{ source: string; target: string; description?: string }>
@@ -163,6 +167,8 @@ export interface ChatMLContent {
   }>
   mode?: string
   reasoning_path?: string  // 推理路径（COT 和 Multi-hop）
+  thinking_process?: string  // 思考过程（COT 特有）
+  final_answer?: string  // 最终答案（COT 特有）
   context?: {
     nodes?: Array<{ name: string; description?: string }>
     edges?: Array<{ source: string; target: string; description?: string }>

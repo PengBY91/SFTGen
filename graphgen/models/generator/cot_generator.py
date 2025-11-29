@@ -150,32 +150,97 @@ class CoTGenerator(BaseGenerator):
         else:
             reasoning_path = ""
         
-        # 尝试解析答案
-        if "Answer:" in response_clean:
-            answer = response_clean.split("Answer:")[1].strip()
-        elif "答案：" in response_clean:
-            answer = response_clean.split("答案：")[1].strip()
-        elif "答案:" in response_clean:  # 处理英文冒号
-            answer = response_clean.split("答案:")[1].strip()
-        else:
-            # 如果没有找到答案标记，使用推理路径后的内容
-            if reasoning_path:
-                answer = response_clean.split(reasoning_path)[-1].strip()
+        # 尝试解析答案（现在分为思考过程和最终答案）
+        thinking_process = ""
+        final_answer = ""
+        
+        # 英文格式
+        if "Thinking Process:" in response_clean and "Final Answer:" in response_clean:
+            thinking_part = response_clean.split("Thinking Process:")[1]
+            thinking_process = thinking_part.split("Final Answer:")[0].strip()
+            final_answer = response_clean.split("Final Answer:")[1].strip()
+        # 中文格式（中文冒号）
+        elif "思考过程：" in response_clean and "最终答案：" in response_clean:
+            thinking_part = response_clean.split("思考过程：")[1]
+            thinking_process = thinking_part.split("最终答案：")[0].strip()
+            final_answer = response_clean.split("最终答案：")[1].strip()
+        # 中文格式（英文冒号）
+        elif "思考过程:" in response_clean and "最终答案:" in response_clean:
+            thinking_part = response_clean.split("思考过程:")[1]
+            thinking_process = thinking_part.split("最终答案:")[0].strip()
+            final_answer = response_clean.split("最终答案:")[1].strip()
+        # 向后兼容：如果只有Answer/答案标记
+        elif "Answer:" in response_clean:
+            answer_text = response_clean.split("Answer:")[1].strip()
+            # 尝试将答案拆分为思考过程和最终答案（简单启发式：最后一段作为最终答案）
+            paragraphs = [p.strip() for p in answer_text.split('\n\n') if p.strip()]
+            if len(paragraphs) > 1:
+                thinking_process = '\n\n'.join(paragraphs[:-1])
+                final_answer = paragraphs[-1]
             else:
-                answer = response_clean.split(question)[-1].strip() if question else response_clean.strip()
+                thinking_process = answer_text
+                final_answer = answer_text
+        elif "答案：" in response_clean:
+            answer_text = response_clean.split("答案：")[1].strip()
+            paragraphs = [p.strip() for p in answer_text.split('\n\n') if p.strip()]
+            if len(paragraphs) > 1:
+                thinking_process = '\n\n'.join(paragraphs[:-1])
+                final_answer = paragraphs[-1]
+            else:
+                thinking_process = answer_text
+                final_answer = answer_text
+        elif "答案:" in response_clean:
+            answer_text = response_clean.split("答案:")[1].strip()
+            paragraphs = [p.strip() for p in answer_text.split('\n\n') if p.strip()]
+            if len(paragraphs) > 1:
+                thinking_process = '\n\n'.join(paragraphs[:-1])
+                final_answer = paragraphs[-1]
+            else:
+                thinking_process = answer_text
+                final_answer = answer_text
+        else:
+            # 如果没有找到任何答案标记，使用推理路径后的内容
+            if reasoning_path:
+                remaining = response_clean.split(reasoning_path)[-1].strip()
+            else:
+                remaining = response_clean.split(question)[-1].strip() if question else response_clean.strip()
+            
+            paragraphs = [p.strip() for p in remaining.split('\n\n') if p.strip()]
+            if len(paragraphs) > 1:
+                thinking_process = '\n\n'.join(paragraphs[:-1])
+                final_answer = paragraphs[-1]
+            else:
+                thinking_process = remaining
+                final_answer = remaining
         
         question = question.strip('"')
         reasoning_path = reasoning_path.strip('"')
-        answer = answer.strip('"')
+        thinking_process = thinking_process.strip('"')
+        final_answer = final_answer.strip('"')
+        
+        # 不再合并到answer字段，保持分离
+        # answer 字段仅用于向后兼容，在有思考过程和最终答案时保持为空或仅包含最终答案
+        if thinking_process and final_answer:
+            # 如果两者都存在，answer 使用最终答案（不包含思考过程）
+            answer = final_answer
+        elif thinking_process:
+            # 如果只有思考过程（向后兼容场景）
+            answer = thinking_process
+        else:
+            # 如果只有最终答案
+            answer = final_answer
         
         logger.debug("CoT Combined - Question: %s", question)
-        logger.debug("CoT Combined - Reasoning Path: %s", reasoning_path)
-        logger.debug("CoT Combined - Answer: %s", answer)
+        logger.debug("CoT Combined - Reasoning Path: %s", reasoning_path[:100] + "..." if len(reasoning_path) > 100 else reasoning_path)
+        logger.debug("CoT Combined - Thinking Process: %s", thinking_process[:100] + "..." if len(thinking_process) > 100 else thinking_process)
+        logger.debug("CoT Combined - Final Answer: %s", final_answer[:100] + "..." if len(final_answer) > 100 else final_answer)
         
         return {
             "question": question,
             "reasoning_path": reasoning_path,
             "answer": answer,
+            "thinking_process": thinking_process,
+            "final_answer": final_answer,
         }
     
     @staticmethod

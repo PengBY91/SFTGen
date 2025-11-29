@@ -1,6 +1,6 @@
 <template>
   <el-container class="layout-container">
-    <el-header class="layout-header">
+    <el-header class="layout-header" :class="{ 'header-hidden': isHeaderHidden }">
       <div class="logo">
         <h1>KGE-Gen SFT数据生成平台</h1>
       </div>
@@ -67,7 +67,7 @@
       </router-view>
     </el-main>
 
-    <el-footer class="layout-footer">
+    <!-- <el-footer class="layout-footer">
       <div class="footer-content">
         <span>KGE-Gen v2.0.0 © 2025</span>
         <div class="footer-links">
@@ -75,7 +75,7 @@
           <a href="https://arxiv.org/abs/2505.20416" target="_blank">arXiv</a>
         </div>
       </div>
-    </el-footer>
+    </el-footer> -->
     
     <!-- 修改密码对话框 -->
     <el-dialog
@@ -115,9 +115,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { List, Plus, Setting, User, Lock, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -189,6 +189,47 @@ const handleChangePassword = async () => {
     ElMessage.error(error.message || '密码修改失败')
   }
 }
+
+// Header 自动收起功能
+const isHeaderHidden = ref(false)
+let lastScrollTop = 0
+const scrollThreshold = 50  // 滚动阈值
+let mainElement: Element | null = null
+
+const handleMainScroll = (e: Event) => {
+  const mainEl = e.target as Element
+  if (!mainEl) return
+  
+  const scrollTop = mainEl.scrollTop
+  
+  // 向下滚动且超过阈值时隐藏，向上滚动时显示
+  if (scrollTop > lastScrollTop && scrollTop > scrollThreshold) {
+    isHeaderHidden.value = true
+  } else if (scrollTop < lastScrollTop || scrollTop <= scrollThreshold) {
+    isHeaderHidden.value = false
+  }
+  
+  lastScrollTop = scrollTop
+}
+
+onMounted(async () => {
+  // 等待 DOM 完全渲染
+  await nextTick()
+  
+  // 延迟一点确保 el-main 已渲染
+  setTimeout(() => {
+    mainElement = document.querySelector('.layout-main')
+    if (mainElement) {
+      mainElement.addEventListener('scroll', handleMainScroll)
+    }
+  }, 100)
+})
+
+onUnmounted(() => {
+  if (mainElement) {
+    mainElement.removeEventListener('scroll', handleMainScroll)
+  }
+})
 </script>
 
 <style scoped>
@@ -206,8 +247,17 @@ const handleChangePassword = async () => {
   box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
   padding: 0 32px;
   height: 64px !important;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
+  transition: transform 0.3s ease-in-out;
+  transform: translateY(0);
+}
+
+.layout-header.header-hidden {
+  transform: translateY(-100%);
 }
 
 .layout-header::after {
@@ -324,6 +374,8 @@ const handleChangePassword = async () => {
   overflow: auto;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   position: relative;
+  margin-top: 64px;  /* 为固定header留出空间 */
+  height: calc(100vh - 64px);
 }
 
 .layout-main::before {

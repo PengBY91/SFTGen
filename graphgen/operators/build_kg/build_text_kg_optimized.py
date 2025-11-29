@@ -297,26 +297,36 @@ async def parse_merged_extraction_response(
     text_markers_zh = [f"[文本{i}]" for i in range(1, len(chunk_batch) + 1)]
     text_markers_en = [f"[Text {i}]" for i in range(1, len(chunk_batch) + 1)]
     
-    # 改进的分割逻辑：只在文本编号变化时分割，而不是每次看到标记就分割
+    # 改进的分割逻辑：按文本标记分组，未标记的行归入当前section
     text_sections = {}  # {chunk_idx: [lines]}
+    current_idx = None  # 当前正在处理的文本索引
     
     lines = response.split("\n")
     for line in lines:
         if not line.strip():
             continue
         
-        # 检查这一行属于哪个文本
+        # 检查这一行是否包含新的文本标记
         found_marker_idx = None
         for idx, (marker_zh, marker_en) in enumerate(zip(text_markers_zh, text_markers_en)):
             if marker_zh in line or marker_en in line:
                 found_marker_idx = idx
+                current_idx = idx  # 更新当前索引
                 break
         
-        # 如果找到标记，将这行加入对应的section
-        if found_marker_idx is not None:
-            if found_marker_idx not in text_sections:
-                text_sections[found_marker_idx] = []
-            text_sections[found_marker_idx].append(line)
+        # 如果找到新标记，或者有当前索引，将这行加入对应的section
+        if found_marker_idx is not None or current_idx is not None:
+            target_idx = found_marker_idx if found_marker_idx is not None else current_idx
+            if target_idx not in text_sections:
+                text_sections[target_idx] = []
+            # 移除行首的标记（如果有）
+            clean_line = line
+            for marker in text_markers_zh + text_markers_en:
+                if marker in clean_line:
+                    clean_line = clean_line.replace(marker, "", 1).strip()
+                    break
+            if clean_line:  # 只添加非空行
+                text_sections[target_idx].append(clean_line)
     
     # 转换为列表格式
     text_sections_list = [(idx, "\n".join(lines)) for idx, lines in sorted(text_sections.items())]

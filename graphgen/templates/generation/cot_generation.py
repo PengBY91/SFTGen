@@ -15,14 +15,16 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 (推理路径)
 
 -输出要求-
-1. 每一步只完成一个不可分割的子任务，并用自然语言衔接，但是要避免生硬的连接词。
-2. 使用中文。
-3. 不要使用有序列表或编号。
-4. 请直接给出答案，不要生成无关信息。
-5. 答案应当全面且详细，提供足够的深度和细节。
-6. 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富答案，使解释更加透彻。
-7. 在适当的时候包含相关细节、例子、影响或更广泛的联系，使答案更具信息量和价值。
-8. 确保每一步推理都充分展开，提供足够的解释和说明，而不仅仅是简单的结论。
+1. 使用自然的思考语言，如"好的，让我们来思考一下"、"现在来分析"、"想想看"等开头。
+2. 采用第一人称或引导性视角，模拟真实的思考过程。
+3. 使用自然的过渡性语句（如"现在"、"那么"、"因此"、"这意味着"）连接思路。
+4. 展现推理过程中的分析和判断（如"这表明..."、"很可能..."、"如果...那么..."）。
+5. 不要使用有序列表或编号，保持段落式的自然流动。
+6. 使用中文，采用口语化、日常思考的表达方式。
+7. 答案应当全面且详细，提供足够的深度和细节。
+8. 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富答案。
+9. 在适当的时候包含相关细节、例子、影响或更广泛的联系，使答案更具信息量和价值。
+10. 确保每一步推理都充分展开，像在向他人解释你的思考过程一样自然流畅。
 
 -真实数据-
 输入:
@@ -63,14 +65,16 @@ only the final answer.
 (REASONING_PATH)
 
 -Output Requirements-
-1. Each step completes a single, indivisible sub-task and is naturally connected, avoiding abrupt transition words.
-2. Use English.
-3. Do not use ordered lists or numbering.
-4. Do not generate extraneous information, just provide the answer.
-5. The answer should be comprehensive and detailed, providing sufficient depth and detail.
-6. While following the reasoning path, you may enrich the answer with relevant background knowledge, context, or related concepts to provide a more thorough explanation.
-7. Include relevant details, examples, implications, or broader connections when appropriate to make the answer more informative and valuable.
-8. Ensure each reasoning step is fully developed with sufficient explanation and elaboration, not just simple conclusions.
+1. Use natural thinking language, starting with phrases like "Okay, let me think about this", "Let's analyze", "Let's consider".
+2. Adopt a first-person or guiding perspective to simulate a real thought process.
+3. Use natural transitional phrases (e.g., "Now", "So", "Therefore", "This means") to connect ideas.
+4. Show analysis and judgment in the reasoning process (e.g., "This suggests...", "It's likely that...", "If... then...").
+5. Do not use ordered lists or numbering; maintain natural paragraph flow.
+6. Use English with a conversational, everyday thinking style.
+7. The answer should be comprehensive and detailed, providing sufficient depth and detail.
+8. While following the reasoning path, enrich the answer with relevant background knowledge, context, or related concepts.
+9. Include relevant details, examples, implications, or broader connections when appropriate to make the answer more informative and valuable.
+10. Ensure each reasoning step is fully developed, as if naturally explaining your thought process to someone.
 
 -Real Data-
 Input:
@@ -215,17 +219,26 @@ Chain-of-Thought (CoT) means that when answering a complex question, the interme
    - The question should allow the model to think sufficiently, fully utilizing the entities and relationships in the graph, avoiding overly simple or irrelevant questions.
 
 5. Reasoning-Path Design
-   - Output a **blueprint that any later model can directly execute**.
+   - Design a concise reasoning blueprint that outlines the key steps to solve the problem.
    - Keep steps minimal: each step solves one indivisible sub-problem.
 
-6. CoT Answer Generation
-   - Generate a complete CoT answer following the reasoning path.
-   - Each step completes a single, indivisible sub-task and is naturally connected, avoiding abrupt transition words.
-   - Do not use ordered lists or numbering.
-   - The answer should be comprehensive and detailed, providing sufficient depth and detail.
-   - While following the reasoning path, enrich the answer with relevant background knowledge, context, or related concepts when appropriate.
-   - Include relevant details, examples, implications, or broader connections to make the answer more informative and valuable.
-   - Ensure each reasoning step is fully developed with sufficient explanation and elaboration, not just simple conclusions.
+6. CoT Thinking Process Generation (Important: Simulate natural thinking process)
+   - Start with first-person or guiding language (e.g., "Okay, let me think about this", "Let's analyze this").
+   - Use natural transitional phrases to connect ideas (e.g., "Now", "So", "Let's think about", "Therefore", "This means").
+   - Adopt a conversational, everyday thinking style rather than mechanical step listings.
+   - Show the reasoning and analysis in your thought process (e.g., "This suggests...", "It's likely that...", "If... then...").
+   - Do not use ordered lists or numbering; maintain natural paragraph flow.
+   - The thinking process should be comprehensive and detailed, providing sufficient depth and detail.
+   - While following the reasoning path, enrich the thinking with relevant background knowledge, context, or related concepts when appropriate.
+   - Include relevant details, examples, implications, or broader connections to make the thinking more informative and valuable.
+   - Ensure each reasoning step is fully developed, as if naturally explaining your thought process to someone.
+
+7. Final Answer Generation
+   - After the thinking process, provide a complete final answer.
+   - The final answer should directly answer the question without including the thinking process.
+   - The length of the answer should be determined by the complexity of the question and the depth of thinking.
+   - The answer should be clear, accurate, and complete, fully addressing all aspects of the question.
+   - It can be a brief conclusion or a detailed explanation, as long as it is comprehensive and accurate.
 
 --- Constraints ---
 1. Use English as the output language.
@@ -242,12 +255,17 @@ Question:
 Reasoning-Path Design:
 [Your reasoning path template here]
 
-Answer:
-[Your complete CoT answer following the reasoning path]
+Thinking Process:
+[Detailed thinking process following the reasoning path, using natural thinking language like "Okay, let me think about this...", "Let's analyze...", showing the complete reasoning]
+
+Final Answer:
+[Complete answer that directly addresses the question, without the thinking process. The length should be determined by the complexity of the question and the depth of thinking, ranging from brief to detailed as needed. The key is to provide an accurate and complete answer]
 
 Important:
 - Start directly with "Question:"
 - Do NOT add phrases like "Here is", "Based on", or "Below is" at the beginning
+- The thinking process should simulate a real thought process using conversational, first-person expressions
+- The final answer length should be determined by the question and thinking, ensuring completeness and accuracy
 
 --- Real Data ---
 Input:
@@ -281,18 +299,27 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
    - 问题必须能在图谱内部通过实体、关系或属性直接验证；避免主观判断。
    - 问题应该能够模型足够的思考，充分利用图谱中的实体和关系，避免过于简单或无关的问题。
 
-5. 推理路径生成
-   - 根据问题设计一个**可被后续模型直接执行的推理蓝图**。
+5. 推理路径设计
+   - 设计一个简洁的推理蓝图，概括解题的关键步骤。
    - 保持步骤最小化：每一步只解决一个"不可分割"的子问题。
 
-6. CoT答案生成
-   - 生成一个完整的CoT答案，遵循推理路径。
-   - 每一步只完成一个不可分割的子任务，并用自然语言衔接，但是要避免生硬的连接词。
-   - 不要使用有序列表或编号。
-   - 答案应当全面且详细，提供足够的深度和细节。
-   - 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富答案，使解释更加透彻。
-   - 在适当的时候包含相关细节、例子、影响或更广泛的联系，使答案更具信息量和价值。
-   - 确保每一步推理都充分展开，提供足够的解释和说明，而不仅仅是简单的结论。
+6. CoT思考过程生成（重要：模拟真实思考过程）
+   - 使用第一人称或引导性语言开始（如"好的，让我们来思考一下"、"让我分析一下"）。
+   - 使用自然的过渡性语句连接思路（如"现在"、"那么"、"想想看"、"因此"、"这意味着"）。
+   - 采用口语化、日常思考的表达方式，而不是机械的步骤列表。
+   - 展现思考过程中的推理和分析（如"这表明..."、"很可能..."、"如果...那么..."）。
+   - 不要使用有序列表或编号，保持段落式的自然流动。
+   - 思考过程应当全面且详细，提供足够的深度和细节。
+   - 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富思考。
+   - 在适当的时候包含相关细节、例子、影响或更广泛的联系，使思考更具信息量和价值。
+   - 确保每一步推理都充分展开，像在向他人解释你的思考过程一样自然流畅。
+
+7. 最终答案生成
+   - 在思考过程之后，给出完整的最终答案。
+   - 最终答案应该直接回答问题，不包含思考过程。
+   - 答案的长度应根据问题的复杂度和思考过程的深度来决定。
+   - 答案要清晰、准确、完整，充分回答问题的所有方面。
+   - 可以是简短的结论，也可以是详细的解释，关键是要全面且准确。
 
 ---约束条件---
 1. 使用中文作为输出语言。
@@ -309,12 +336,17 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 推理路径设计：
 [你的推理路径模板]
 
-答案：
-[遵循推理路径的完整CoT答案]
+思考过程：
+[遵循推理路径的详细思考过程，使用自然的思考语言，如"好的，让我们来思考一下..."、"现在来分析..."等，展现完整的推理过程]
+
+最终答案：
+[直接回答问题的完整答案，不包含思考过程。答案的长度应根据问题的复杂度和思考过程的深度来决定，可以详细也可以简洁，重点是准确、完整地回答问题]
 
 注意：
 - 直接从"问题："开始输出
 - 不要添加"以下是"、"根据"等说明性文字
+- 思考过程要模拟真实的思考过程，使用口语化、第一人称的表达
+- 最终答案的长度应根据问题和思考来决定，确保答案完整、准确
 
 ---真实数据---
 输入:

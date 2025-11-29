@@ -1,64 +1,17 @@
 <template>
   <div class="review-container">
-    <!-- 统计卡片 -->
-    <el-card class="stats-card">
-      <template #header>
-        <div class="card-header">
-          <span>审核统计</span>
-          <div class="header-actions">
-            <el-button size="small" @click="refreshData" :loading="loading">
-              <el-icon><Refresh /></el-icon>
-              刷新
-            </el-button>
-            <el-button size="small" type="primary" @click="showAutoReviewDialog">
-              <el-icon><MagicStick /></el-icon>
-              自动审核
-            </el-button>
-            <el-button size="small" type="success" @click="exportData">
-              <el-icon><Download /></el-icon>
-              导出数据
-            </el-button>
-          </div>
-        </div>
-      </template>
-      <div class="stats-content">
-        <div class="stat-item">
-          <div class="stat-value">{{ stats.total }}</div>
-          <div class="stat-label">总数</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #e6a23c">{{ stats.pending }}</div>
-          <div class="stat-label">待审核</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #67c23a">{{ stats.approved }}</div>
-          <div class="stat-label">已通过</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #f56c6c">{{ stats.rejected }}</div>
-          <div class="stat-label">已拒绝</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #409eff">{{ stats.modified }}</div>
-          <div class="stat-label">已修改</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #95d475">{{ stats.auto_approved }}</div>
-          <div class="stat-label">自动通过</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color: #f78989">{{ stats.auto_rejected }}</div>
-          <div class="stat-label">自动拒绝</div>
+    <!-- 数据列表头部（直接在页面中展示） -->
+    <div class="review-header">
+      <div class="header-left">
+        <span class="header-title">数据列表</span>
+        <div class="stats-inline">
+          <span class="stat-inline-item">总数: <strong>{{ stats.total }}</strong></span>
+          <span class="stat-inline-item pending">待审核: <strong>{{ stats.pending }}</strong></span>
+          <span class="stat-inline-item approved">已通过: <strong>{{ stats.approved }}</strong></span>
+
         </div>
       </div>
-    </el-card>
-
-    <!-- 数据列表 -->
-    <el-card class="table-card">
-      <template #header>
-        <div class="card-header">
-          <span>数据列表</span>
-          <div class="header-actions">
+      <div class="header-actions">
             <el-select v-model="statusFilter" placeholder="筛选状态" clearable style="width: 150px; margin-right: 10px">
               <el-option label="待审核" value="pending" />
               <el-option label="已通过" value="approved" />
@@ -67,41 +20,83 @@
               <el-option label="自动通过" value="auto_approved" />
               <el-option label="自动拒绝" value="auto_rejected" />
             </el-select>
+            <el-button size="small" @click="refreshData" :loading="loading">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+            <el-button size="small" type="primary" @click="showAutoReviewDialog">
+              <el-icon><MagicStick /></el-icon>
+              自动审核
+            </el-button>
             <el-button size="small" type="primary" @click="batchApprove" :disabled="selectedItems.length === 0">
               批量通过
             </el-button>
             <el-button size="small" type="danger" @click="batchReject" :disabled="selectedItems.length === 0">
               批量拒绝
             </el-button>
+            <el-button size="small" type="success" @click="exportData">
+              <el-icon><Download /></el-icon>
+            </el-button>
+            <el-select v-model="pageSize" placeholder="每页数量" style="width: 120px; margin-left: 10px" @change="handlePageSizeChange">
+              <el-option label="10" :value="10" />
+              <el-option label="20" :value="20" />
+              <el-option label="50" :value="50" />
+              <el-option label="100" :value="100" />
+              <el-option label="200" :value="200" />
+            </el-select>
           </div>
-        </div>
-      </template>
+    </div>
 
+    <!-- 数据表格（直接在页面中展示） -->
+    <div class="table-wrapper">
       <el-table
-        :data="filteredData"
+        :data="paginatedData"
         @selection-change="handleSelectionChange"
         style="width: 100%"
         stripe
         v-loading="loading"
       >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="item_id" label="ID" width="200" />
-        <el-table-column label="内容预览" min-width="400">
+        <el-table-column type="selection" width="50" />
+        <el-table-column prop="item_id" label="ID" width="160" show-overflow-tooltip />
+        <el-table-column label="内容预览" min-width="600">
           <template #default="{ row }">
             <div class="content-preview">
+              <!-- 问题 -->
               <div v-if="getQuestion(row.content)" class="preview-line">
                 <strong>问题：</strong>
                 <span class="text-content">{{ getQuestion(row.content) }}</span>
               </div>
-              <!-- 显示推理路径（COT 和 Multi-hop） -->
+              
+              <!-- 推理路径（COT 和 Multi-hop） -->
               <div v-if="(getGenerationMode(row) === 'cot' || getGenerationMode(row) === 'multi_hop') && getReasoningPath(row.content)" class="preview-line">
                 <strong>推理路径：</strong>
                 <span class="text-content reasoning-path">{{ getReasoningPath(row.content) }}</span>
               </div>
-              <div v-if="getAnswer(row.content)" class="preview-line">
+              
+              <!-- COT 特有：思考过程 -->
+              <div v-if="getGenerationMode(row) === 'cot' && getThinkingProcess(row.content)" class="preview-line">
+                <strong>思考过程：</strong>
+                <span class="text-content thinking-process">{{ getThinkingProcess(row.content) }}</span>
+              </div>
+              
+              <!-- COT 特有：最终答案 -->
+              <div v-if="getGenerationMode(row) === 'cot' && getFinalAnswer(row.content)" class="preview-line">
+                <strong>最终答案：</strong>
+                <span class="text-content final-answer">{{ getFinalAnswer(row.content) }}</span>
+              </div>
+              
+              <!-- COT 向后兼容：如果没有分离的字段，显示完整答案 -->
+              <div v-if="getGenerationMode(row) === 'cot' && !getThinkingProcess(row.content) && !getFinalAnswer(row.content) && getAnswer(row.content)" class="preview-line">
                 <strong>答案：</strong>
                 <span class="text-content">{{ getAnswer(row.content) }}</span>
               </div>
+              
+              <!-- 非 COT：显示普通答案 -->
+              <div v-if="getGenerationMode(row) !== 'cot' && getAnswer(row.content)" class="preview-line">
+                <strong>答案：</strong>
+                <span class="text-content">{{ getAnswer(row.content) }}</span>
+              </div>
+              
               <!-- 显示上下文信息 -->
               <div v-if="row.content.context" class="context-info">
                 <el-tag size="small" type="info">图谱信息</el-tag>
@@ -113,26 +108,22 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="生成模式" min-width="100">
+        <el-table-column label="生成模式" width="90">
           <template #default="{ row }">
-            <el-tag 
-              v-if="getGenerationMode(row)" 
-              type="info" 
-              size="small"
-            >
+            <span v-if="getGenerationMode(row)" class="text-normal">
               {{ getGenerationMode(row) }}
-            </el-tag>
+            </span>
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="审核状态" width="120">
+        <el-table-column label="审核状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="STATUS_TYPE_MAP[row.review_status] || 'info'">
+            <span class="text-normal">
               {{ STATUS_TEXT_MAP[row.review_status] || row.review_status }}
-            </el-tag>
+            </span>
           </template>
         </el-table-column>
-        <el-table-column label="自动评分" width="100">
+        <el-table-column label="自动评分" width="85">
           <template #default="{ row }">
             <span v-if="row.auto_review_score !== null && row.auto_review_score !== undefined">
               {{ (row.auto_review_score * 100).toFixed(0) }}%
@@ -140,7 +131,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="审核人" width="120">
+        <el-table-column label="审核人" width="100" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.reviewer || '-' }}
           </template>
@@ -162,7 +153,30 @@
           </template>
         </el-table-column>
       </el-table>
-    </el-card>
+    </div>
+
+    <!-- 分页组件 -->
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100, 200]"
+        :total="filteredData.length"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handlePageSizeChange"
+        @current-change="handlePageChange"
+      />
+    </div>
+
+    <!-- "前往顶部"按钮 - 浮动在右下角 -->
+    <div 
+      class="go-to-top-float" 
+      :class="{ 'visible': showGoToTop }"
+      @click="scrollToTop"
+    >
+      <el-icon><ArrowUp /></el-icon>
+      <span>顶部</span>
+    </div>
 
     <!-- 自动审核对话框 -->
     <el-dialog
@@ -206,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 // 状态映射（提升到组件外避免重复创建）
@@ -219,14 +233,6 @@ const STATUS_TEXT_MAP: Record<string, string> = {
   auto_rejected: '自动拒绝'
 }
 
-const STATUS_TYPE_MAP: Record<string, any> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'danger',
-  modified: 'primary',
-  auto_approved: '',
-  auto_rejected: 'info'
-}
 import type { DataItem, ReviewStats, DataContent } from '@/api/types'
 import api from '@/api'
 import { ElMessage } from 'element-plus'
@@ -236,9 +242,9 @@ import {
   Download,
   View,
   Check,
-  Close
+  Close,
+  ArrowUp
 } from '@element-plus/icons-vue'
-import dayjs from 'dayjs'
 
 const route = useRoute()
 const router = useRouter()
@@ -261,6 +267,13 @@ const selectedItems = ref<DataItem[]>([])
 const autoReviewDialogVisible = ref(false)
 const autoReviewLoading = ref(false)
 
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(20)  // 默认每页20条
+
+// "前往顶部"按钮显示控制
+const showGoToTop = ref(false)
+
 const autoReviewForm = ref({
   scope: 'pending',
   threshold: 70,
@@ -270,10 +283,18 @@ const autoReviewForm = ref({
 
 // 过滤后的数据
 const filteredData = computed(() => {
-  if (!statusFilter.value) {
-    return data.value
+  let result = data.value
+  if (statusFilter.value) {
+    result = result.filter(item => item.review_status === statusFilter.value)
   }
-  return data.value.filter(item => item.review_status === statusFilter.value)
+  return result
+})
+
+// 分页后的数据
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredData.value.slice(start, end)
 })
 
 // 刷新数据
@@ -283,13 +304,14 @@ const refreshData = async () => {
     const [dataRes, statsRes] = await Promise.all([
       api.getReviewData(taskId),
       api.getReviewStats(taskId)
-    ])
+    ]) as [any, any]  // 因为拦截器已解包
 
-    if (dataRes.success && dataRes.data) {
+    // 响应拦截器已经返回 response.data，所以直接访问
+    if (dataRes?.success && dataRes.data) {
       data.value = dataRes.data
     }
 
-    if (statsRes.success && statsRes.data) {
+    if (statsRes?.success && statsRes.data) {
       stats.value = statsRes.data
     }
   } catch (error) {
@@ -370,17 +392,44 @@ const getReasoningPath = (content: DataContent): string => {
   return ''
 }
 
-// 截断文本
-const truncate = (text: string, length: number) => {
-  if (!text) return ''
-  return text.length > length ? text.substring(0, length) + '...' : text
+// 获取思考过程（COT 特有）
+const getThinkingProcess = (content: DataContent): string => {
+  if ('thinking_process' in content && content.thinking_process) {
+    return content.thinking_process
+  }
+  return ''
+}
+
+// 获取最终答案（COT 特有）
+const getFinalAnswer = (content: DataContent): string => {
+  if ('final_answer' in content && content.final_answer) {
+    return content.final_answer
+  }
+  return ''
 }
 
 
+// 分页变化处理
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  // 滚动到表格顶部
+  const tableEl = document.querySelector('.el-table__body-wrapper')
+  if (tableEl) {
+    tableEl.scrollTop = 0
+  }
+}
 
-// 格式化日期
-const formatDate = (date: string) => {
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+// 每页数量变化处理
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1  // 重置到第一页
+  // 保存到 localStorage
+  localStorage.setItem('review_page_size', String(size))
+  // 滚动到表格顶部
+  const tableEl = document.querySelector('.el-table__body-wrapper')
+  if (tableEl) {
+    tableEl.scrollTop = 0
+  }
 }
 
 // 选择变化
@@ -396,17 +445,15 @@ const viewDetail = (item: DataItem) => {
 // 通过单个
 const approveItem = async (item: DataItem) => {
   try {
-    const response = await api.reviewItem({
-      task_id: taskId,  // 添加 task_id
+    await api.reviewItem({
+      task_id: taskId,
       item_id: item.item_id,
       review_status: 'approved',
       reviewer: '手动审核'
     })
 
-    if (response.success) {
-      ElMessage.success('审核通过')
-      await refreshData()
-    }
+    ElMessage.success('审核通过')
+    await refreshData()
   } catch (error) {
     ElMessage.error('操作失败')
   }
@@ -415,17 +462,15 @@ const approveItem = async (item: DataItem) => {
 // 拒绝单个
 const rejectItem = async (item: DataItem) => {
   try {
-    const response = await api.reviewItem({
-      task_id: taskId,  // 添加 task_id
+    await api.reviewItem({
+      task_id: taskId,
       item_id: item.item_id,
       review_status: 'rejected',
       reviewer: '手动审核'
     })
 
-    if (response.success) {
-      ElMessage.success('已拒绝')
-      await refreshData()
-    }
+    ElMessage.success('已拒绝')
+    await refreshData()
   } catch (error) {
     ElMessage.error('操作失败')
   }
@@ -437,17 +482,15 @@ const batchApprove = async () => {
   if (selectedItems.value.length === 0) return
 
   try {
-    const response = await api.batchReview({
-      task_id: taskId,  // 添加 task_id
+    await api.batchReview({
+      task_id: taskId,
       item_ids: selectedItems.value.map(item => item.item_id),
       review_status: 'approved',
       reviewer: '批量审核'
     })
 
-    if (response.success) {
-      ElMessage.success(`批量通过成功，共 ${selectedItems.value.length} 条`)
-      await refreshData()
-    }
+    ElMessage.success(`批量通过成功，共 ${selectedItems.value.length} 条`)
+    await refreshData()
   } catch (error) {
     ElMessage.error('批量操作失败')
   }
@@ -458,17 +501,15 @@ const batchReject = async () => {
   if (selectedItems.value.length === 0) return
 
   try {
-    const response = await api.batchReview({
-      task_id: taskId,  // 添加 task_id
+    await api.batchReview({
+      task_id: taskId,
       item_ids: selectedItems.value.map(item => item.item_id),
       review_status: 'rejected',
       reviewer: '批量审核'
     })
 
-    if (response.success) {
-      ElMessage.success(`批量拒绝成功，共 ${selectedItems.value.length} 条`)
-      await refreshData()
-    }
+    ElMessage.success(`批量拒绝成功，共 ${selectedItems.value.length} 条`)
+    await refreshData()
   } catch (error) {
     ElMessage.error('批量操作失败')
   }
@@ -504,18 +545,16 @@ const startAutoReview = async () => {
 
   autoReviewLoading.value = true
   try {
-    const response = await api.autoReview({
+    await api.autoReview({
       item_ids: itemIds,
       threshold: autoReviewForm.value.threshold / 100,
       auto_approve: autoReviewForm.value.autoApprove,
       auto_reject: autoReviewForm.value.autoReject
     })
 
-    if (response.success) {
-      ElMessage.success(`自动审核完成，共审核 ${itemIds.length} 条数据`)
-      autoReviewDialogVisible.value = false
-      await refreshData()
-    }
+    ElMessage.success(`自动审核完成，共审核 ${itemIds.length} 条数据`)
+    autoReviewDialogVisible.value = false
+    await refreshData()
   } catch (error) {
     ElMessage.error('自动审核失败')
   } finally {
@@ -527,28 +566,72 @@ const startAutoReview = async () => {
 const exportData = async () => {
   try {
     // 先导出
-    const exportRes = await api.exportReviewedData(taskId, 'approved,modified,auto_approved')
+    await api.exportReviewedData(taskId, 'approved,modified,auto_approved')
     
-    if (exportRes.success) {
-      // 然后下载
-      const blob = await api.downloadReviewedData(taskId)
-      const url = window.URL.createObjectURL(blob as Blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${taskId}_reviewed.json`
-      link.click()
-      window.URL.revokeObjectURL(url)
-      ElMessage.success('导出成功')
-    }
+    // 然后下载（拦截器已返回 response.data，即 Blob 本身）
+    const blob = await api.downloadReviewedData(taskId) as unknown as Blob
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${taskId}_reviewed.json`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
   } catch (error) {
     ElMessage.error('导出失败')
   }
 }
 
 
+// 监听筛选状态变化，重置到第一页
+watch(statusFilter, () => {
+  currentPage.value = 1
+})
+
+// 滚动到顶部
+const scrollToTop = () => {
+  const mainEl = document.querySelector('.layout-main')
+  if (mainEl) {
+    mainEl.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+// 监听滚动，控制"前往顶部"按钮显示
+let mainElement: Element | null = null
+const handleScroll = () => {
+  if (mainElement) {
+    // 滚动超过 200px 时显示按钮
+    showGoToTop.value = mainElement.scrollTop > 200
+  }
+}
+
 // 初始化
 onMounted(() => {
+  // 从 localStorage 恢复每页数量设置
+  const savedPageSize = localStorage.getItem('review_page_size')
+  if (savedPageSize) {
+    const size = parseInt(savedPageSize, 10)
+    if ([10, 20, 50, 100, 200].includes(size)) {
+      pageSize.value = size
+    }
+  }
+  
+  // 添加滚动监听
+  setTimeout(() => {
+    mainElement = document.querySelector('.layout-main')
+    if (mainElement) {
+      mainElement.addEventListener('scroll', handleScroll)
+    }
+  }, 100)
+  
   refreshData()
+})
+
+// 清理
+onUnmounted(() => {
+  if (mainElement) {
+    mainElement.removeEventListener('scroll', handleScroll)
+  }
 })
 </script>
 
@@ -556,7 +639,7 @@ onMounted(() => {
 .review-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -571,82 +654,83 @@ onMounted(() => {
   }
 }
 
-.stats-card {
-  width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
-  transition: all 0.3s;
-}
-
-.stats-card:hover {
-  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
-}
-
-.stats-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 20px;
-  padding: 8px 0;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 16px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  transition: all 0.3s;
-  cursor: default;
-}
-
-.stat-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  font-family: 'Segoe UI', 'Arial', sans-serif;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #909399;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-:deep(.el-card) {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
-}
-
-:deep(.el-card__header) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-bottom: none;
-  padding: 18px 20px;
-}
-
-.card-header {
+/* 数据列表头部（直接在页面中展示） */
+.review-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border-radius: 12px 12px 0 0;
+  margin-bottom: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 1;
+}
+
+.header-title {
   font-size: 18px;
   font-weight: 600;
+  white-space: nowrap;
+  color: white;
+}
+
+.stats-inline {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stat-inline-item {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+.stat-inline-item strong {
+  font-size: 16px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.stat-inline-item.pending strong {
+  color: #ffd666;
+}
+
+.stat-inline-item.approved strong {
+  color: #95de64;
+}
+
+.stat-inline-item.rejected strong {
+  color: #ff7875;
+}
+
+.stat-inline-item.modified strong {
+  color: #69c0ff;
+}
+
+.stat-inline-item.auto-approved strong {
+  color: #b7eb8f;
+}
+
+.stat-inline-item.auto-rejected strong {
+  color: #ffa39e;
 }
 
 .header-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
-:deep(.el-card__header .el-button) {
+:deep(.review-header .el-button) {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.3);
   color: white;
@@ -654,25 +738,36 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-:deep(.el-card__header .el-button:hover) {
+:deep(.review-header .el-button:hover) {
   background: rgba(255, 255, 255, 0.3);
   border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
 }
 
-:deep(.el-card__header .el-select .el-input__wrapper) {
+:deep(.review-header .el-select .el-input__wrapper) {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: none;
 }
 
-:deep(.el-card__header .el-select .el-input__inner) {
+:deep(.review-header .el-select .el-input__inner) {
   color: white;
 }
 
+:deep(.review-header .el-select .el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.table-wrapper {
+  background: white;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
 :deep(.el-table) {
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 14px;
 }
 
@@ -733,6 +828,36 @@ onMounted(() => {
   margin-top: 6px;
   border-left: 3px solid #3b82f6;
   font-weight: 500;
+}
+
+.thinking-process {
+  color: #0f766e;
+  background: linear-gradient(135deg, #ccfbf1 0%, #d1fae5 100%);
+  padding: 10px 14px;
+  border-radius: 6px;
+  display: block;
+  margin-top: 6px;
+  border-left: 3px solid #14b8a6;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
+.final-answer {
+  color: #064e3b;
+  background: linear-gradient(135deg, #d1fae5 0%, #dcfce7 100%);
+  padding: 10px 14px;
+  border-radius: 6px;
+  display: block;
+  margin-top: 6px;
+  border-left: 3px solid #10b981;
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+.text-normal {
+  color: #303133;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .context-info {
@@ -843,6 +968,98 @@ onMounted(() => {
 
 :deep(.el-button--danger:hover) {
   background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+:deep(.el-pagination) {
+  --el-pagination-bg-color: transparent;
+  --el-pagination-text-color: #606266;
+  --el-pagination-border-radius: 6px;
+}
+
+:deep(.el-pagination .el-pager li) {
+  border-radius: 4px;
+  margin: 0 2px;
+  transition: all 0.2s;
+}
+
+:deep(.el-pagination .el-pager li:hover) {
+  background-color: #f0f9ff;
+  color: #409eff;
+}
+
+:deep(.el-pagination .el-pager li.is-active) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+}
+
+:deep(.el-pagination .btn-prev),
+:deep(.el-pagination .btn-next) {
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+:deep(.el-pagination .btn-prev:hover),
+:deep(.el-pagination .btn-next:hover) {
+  background-color: #f0f9ff;
+  color: #409eff;
+}
+
+:deep(.el-pagination .el-select .el-input__wrapper) {
+  border-radius: 4px;
+}
+
+/* "前往顶部"浮动按钮样式 */
+.go-to-top-float {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  cursor: pointer;
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  z-index: 999;
+  opacity: 0;
+  transform: translateY(20px) scale(0.8);
+  pointer-events: none;
+}
+
+.go-to-top-float.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.go-to-top-float:hover {
+  transform: translateY(-4px) scale(1.1);
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
+}
+
+.go-to-top-float .el-icon {
+  font-size: 20px;
+}
+
+.go-to-top-float span {
+  font-size: 10px;
+  margin-top: -2px;
 }
 </style>
 
