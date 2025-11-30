@@ -26,6 +26,7 @@ passlib[bcrypt]
 pydantic[email]
 trafilatura
 transformers
+python-docx
 
 leidenalg
 igraph

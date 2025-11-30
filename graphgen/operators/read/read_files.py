@@ -1,4 +1,4 @@
-from graphgen.models import CSVReader, JSONLReader, JSONReader, PDFReader, TXTReader
+from graphgen.models import CSVReader, DOCXReader, JSONLReader, JSONReader, MarkdownReader, PDFReader, TXTReader
 
 _MAPPING = {
     "jsonl": JSONLReader,
@@ -6,6 +6,9 @@ _MAPPING = {
     "txt": TXTReader,
     "csv": CSVReader,
     "pdf": PDFReader,
+    "docx": DOCXReader,
+    "md": MarkdownReader,
+    "markdown": MarkdownReader,
 }
 
 

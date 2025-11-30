@@ -438,7 +438,7 @@ with gr.Blocks(title="KGE-Gen Demo", theme=gr.themes.Glass(), css=css) as demo:
                             upload_file = gr.File(
                                 label=_("Upload File"),
                                 file_count="single",
-                                file_types=[".txt", ".json", ".jsonl", ".csv"],
+                                file_types=[".txt", ".json", ".jsonl", ".csv", ".docx", ".md", ".markdown"],
                                 interactive=True,
                             )
                             examples_dir = os.path.join(root_dir, "webui", "examples")

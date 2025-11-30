@@ -51,7 +51,7 @@
               :on-change="handleFileChange"
               :on-remove="handleFileRemove"
               :on-exceed="handleExceed"
-              accept=".txt,.json,.jsonl,.csv,.pdf"
+              accept=".txt,.json,.jsonl,.csv,.pdf,.docx,.md,.markdown"
               multiple
             >
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
@@ -60,7 +60,7 @@
               </div>
               <template #tip>
                 <div class="el-upload__tip">
-                  支持 .txt, .json, .jsonl, .csv, .pdf 格式文件，最多10个文件
+                  支持 .txt, .json, .jsonl, .csv, .pdf, .docx, .md, .markdown 格式文件，最多10个文件
                 </div>
               </template>
             </el-upload>
