@@ -50,8 +50,8 @@ class CoTGenerator(BaseGenerator):
         )
         return prompt
 
-    @staticmethod
     def build_combined_prompt(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """
@@ -70,7 +70,11 @@ class CoTGenerator(BaseGenerator):
                 for index, edge in enumerate(edges)
             ]
         )
-        language = detect_main_language(entities_str + relationships_str)
+        # 如果 chinese_only=True，强制使用中文
+        if self.chinese_only:
+            language = "zh"
+        else:
+            language = detect_main_language(entities_str + relationships_str)
         prompt = COT_GENERATION_PROMPT[language]["COT_COMBINED"].format(
             entities=entities_str, relationships=relationships_str
         )
@@ -265,8 +269,8 @@ class CoTGenerator(BaseGenerator):
             "final_answer": final_answer,
         }
     
-    @staticmethod
     def build_prompt_for_cot_generation(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]],
         question: str,
         reasoning_path: str,
@@ -287,7 +291,11 @@ class CoTGenerator(BaseGenerator):
                 for index, edge in enumerate(edges)
             ]
         )
-        language = detect_main_language(entities_str + relationships_str)
+        # 如果 chinese_only=True，强制使用中文
+        if self.chinese_only:
+            language = "zh"
+        else:
+            language = detect_main_language(entities_str + relationships_str)
         prompt = COT_GENERATION_PROMPT[language]["COT_GENERATION"].format(
             entities=entities_str,
             relationships=relationships_str,
