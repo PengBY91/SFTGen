@@ -87,7 +87,8 @@ async def run_concurrent(
     desc: str = "processing",
     unit: str = "item",
     progress_bar: Optional[Any] = None,
-    log_interval: int = 100,  # 新增：日志记录间隔
+    log_interval: int = 50,  # 默认每 50 个记录一次日志
+    desc_callback: Optional[Callable[[int, int, List[R]], str]] = None,  # 新增：动态描述回调 (completed_count, total, results) -> desc
 ) -> List[R]:
     import time
     
@@ -101,7 +102,9 @@ async def run_concurrent(
     batch_completion_times = []  # 记录最近完成的批次的时间戳
     window_size = 10  # 使用最近10个完成项计算速度
 
-    pbar = tqdm_async(total=len(items), desc=desc, unit=unit)
+    # 初始描述（如果有回调，使用回调生成）
+    initial_desc = desc_callback(0, len(items), results) if desc_callback else desc
+    pbar = tqdm_async(total=len(items), desc=initial_desc, unit=unit)
 
     if progress_bar is not None:
         progress_bar(0.0, desc=f"{desc} (0/{len(items)})")
@@ -142,6 +145,13 @@ async def run_concurrent(
                     current_rate = len(batch_completion_times) / time_span
                     pbar.set_postfix({"rate": f"{current_rate:.2f} {unit}/s"})
             
+            # 更新描述（如果有回调）
+            if desc_callback:
+                # 过滤掉异常结果用于回调
+                valid_results = [r for r in results if not isinstance(r, Exception)]
+                new_desc = desc_callback(completed_count, len(items), valid_results)
+                pbar.set_description(new_desc)
+            
             # 更新进度条（一次性更新多个）
             update_count = completed_count - last_logged_count
             pbar.update(update_count)
@@ -149,7 +159,8 @@ async def run_concurrent(
 
             if progress_bar is not None:
                 progress = completed_count / len(items)
-                progress_bar(progress, desc=f"{desc} ({completed_count}/{len(items)})")
+                current_desc = desc_callback(completed_count, len(items), [r for r in results if not isinstance(r, Exception)]) if desc_callback else desc
+                progress_bar(progress, desc=f"{current_desc} ({completed_count}/{len(items)})")
 
     pbar.close()
 

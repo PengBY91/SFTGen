@@ -463,9 +463,21 @@ async def generate_qas(
 
         all_results = []
         data_format = generation_config["data_format"]
+        
+        # 计算每个模式的目标QA数量
+        mode_names = [gen_mode for _, gen_mode in generators]
+        mode_ratios = normalize_mode_ratios(mode_ratios_config, mode_names)
+        mode_targets = {}
+        if target_qa_pairs:
+            for mode_name in mode_names:
+                mode_targets[mode_name] = int(target_qa_pairs * mode_ratios[mode_name])
+            logger.info(
+                "[Generation] Mode targets: %s (total: %d)",
+                mode_targets, target_qa_pairs
+            )
 
         tasks = []
-        for generator, gen_mode in generators:
+        for idx, (generator, gen_mode) in enumerate(generators):
             # 对于atomic模式，过滤批次为一跳信息
             batches_to_use = batches
             if gen_mode == "atomic":
@@ -488,14 +500,37 @@ async def generate_qas(
                     chunks_storage=chunks_storage,
                     full_docs_storage=full_docs_storage,
                 )
+            
+            # 创建动态描述回调函数
+            def create_desc_callback(mode_name, mode_idx, total_modes):
+                def desc_callback(completed_batches, total_batches, results):
+                    # 计算当前已生成的QA数量
+                    # results 是 generator.generate() 返回的 dict 列表
+                    # 每个 dict 的键数量 = QA 对数量
+                    current_qa_count = sum(len(r) if isinstance(r, dict) else 0 for r in results)
+                    
+                    # 构建描述字符串
+                    desc_parts = [f"[类型 {mode_idx + 1}/{total_modes}: {mode_name}]"]
+                    desc_parts.append(f"批次: {completed_batches}/{total_batches}")
+                    
+                    if target_qa_pairs and mode_name in mode_targets:
+                        mode_target = mode_targets[mode_name]
+                        desc_parts.append(f"| 已生成: {current_qa_count} QA (目标: {mode_target})")
+                        desc_parts.append(f"| 总目标: {target_qa_pairs} QA")
+                    else:
+                        desc_parts.append(f"| 已生成: {current_qa_count} QA")
+                    
+                    return " ".join(desc_parts)
+                return desc_callback
 
             task = asyncio.create_task(
                 run_concurrent(
                     generate_with_storage,
                     batches_to_use,
-                    desc=f"[4/4]Generating QAs for {gen_mode}",
+                    desc=f"[类型 {idx + 1}/{len(generators)}: {gen_mode}]",
                     unit="batch",
                     progress_bar=progress_bar,
+                    desc_callback=create_desc_callback(gen_mode, idx, len(generators)),
                 )
             )
             tasks.append(task)
