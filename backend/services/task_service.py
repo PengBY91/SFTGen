@@ -394,7 +394,42 @@ class TaskService:
                     "error": f"文件不存在: {file_path}"
                 }
             
-            # 读取文件内容
+            # 获取文件扩展名
+            file_ext = os.path.splitext(file_path)[1].lower()
+            
+            # 对于 DOCX 文件，使用 DOCXReader 提取内容
+            if file_ext == '.docx':
+                try:
+                    from graphgen.models import DOCXReader
+                    reader = DOCXReader()
+                    # DOCXReader.read() 返回 list[Document]
+                    documents = reader.read(file_path)
+                    
+                    # 将所有文档内容合并
+                    content = "\n\n".join([doc.content for doc in documents])
+                    
+                    # 获取文件大小和行数
+                    file_size = os.path.getsize(file_path)
+                    line_count = content.count('\n') + 1 if content else 0
+                    
+                    return {
+                        "success": True,
+                        "data": {
+                            "filename": filename,
+                            "file_path": file_path,
+                            "content": content,
+                            "file_size": file_size,
+                            "line_count": line_count,
+                            "encoding": "docx (extracted)"
+                        }
+                    }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "error": f"无法读取 DOCX 文件: {str(e)}"
+                    }
+            
+            # 对于文本文件，尝试直接读取
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
@@ -433,7 +468,7 @@ class TaskService:
                 except:
                     return {
                         "success": False,
-                        "error": "无法读取文件，可能是二进制文件或编码不支持"
+                        "error": f"无法读取文件，可能是二进制文件或编码不支持。文件类型: {file_ext}"
                     }
         except Exception as e:
             return {
