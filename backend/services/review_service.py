@@ -438,7 +438,7 @@ class ReviewService:
                 'instruction', 'input', 'output',
                 'reasoning_path', 'thinking_process', 'final_answer',
                 'review_status', 'review_comment', 'reviewer', 
-                'review_time', 'review_score', 'item_id'
+                'review_time', 'auto_review_score', 'item_id'
             ]
             
             # 添加可选字段
@@ -508,7 +508,7 @@ class ReviewService:
             with open(export_file, "w", encoding="utf-8-sig", newline='') as f:
                 writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
                 writer.writerow(['question', 'answer', 'mode', 'review_status', 'review_comment', 
-                               'reviewer', 'review_time', 'review_score', 'item_id'])
+                               'reviewer', 'review_time', 'auto_review_score', 'item_id'])
             return
         
         with open(export_file, "w", encoding="utf-8-sig", newline='') as f:
@@ -516,7 +516,7 @@ class ReviewService:
             fieldnames = [
                 'question', 'answer', 'mode', 
                 'review_status', 'review_comment', 'reviewer', 
-                'review_time', 'review_score', 'item_id'
+                'review_time', 'auto_review_score', 'item_id'
             ]
             
             # 使用 QUOTE_NONNUMERIC 确保所有非数字字段都被引号包围

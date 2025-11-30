@@ -365,8 +365,6 @@ class TaskProcessor:
             "generate": {
                 "mode": mode,
                 "data_format": config.data_format,
-                "target_qa_pairs": getattr(config, "qa_pair_limit", None),
-                "mode_ratios": mode_ratios,
                 # 优化配置
                 "use_multi_template": getattr(config, "use_multi_template", True),
                 "template_seed": getattr(config, "template_seed", None),
