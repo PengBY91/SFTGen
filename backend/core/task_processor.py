@@ -312,28 +312,57 @@ class TaskProcessor:
         # 处理 mode：支持数组格式
         # 如果 mode 是数组，根据情况转换为字符串
         mode = config.mode
+        selected_modes = set()  # 记录用户选择的模式
+        
         if isinstance(mode, list):
             if len(mode) == 0:
                 mode = "aggregated"  # 默认值
+                selected_modes = {"aggregated"}
             elif len(mode) == 1:
                 mode = mode[0]
+                selected_modes = {mode}
             else:
-                # 如果选择了多个模式，检查是否包含所有4种模式
-                all_modes = {"atomic", "multi_hop", "aggregated", "cot"}
+                # 用户选择了多个模式
                 selected_modes = set(mode)
+                all_modes = {"atomic", "multi_hop", "aggregated", "cot"}
+                
                 if selected_modes == all_modes:
-                    mode = "all"  # 如果选择了所有模式，使用 "all"
-                else:
-                    # 如果选择了部分模式，也使用 "all"（因为 KGE-Gen 目前只支持单个模式或 "all"）
-                    # 或者可以提示用户，这里选择使用 "all" 以生成所有模式的数据
+                    # 如果选择了所有4种模式，使用 "all"
                     mode = "all"
+                else:
+                    # 如果选择了部分模式（2个或3个），也使用 "all"
+                    # 但通过 mode_ratios 控制只生成选中的模式
+                    mode = "all"
+                    logger.info(
+                        "[TaskProcessor] 用户选择了部分模式: %s，将使用 mode='all' 但只生成选中的模式",
+                        selected_modes
+                    )
+        else:
+            # mode 是字符串
+            if mode == "all":
+                selected_modes = {"atomic", "multi_hop", "aggregated", "cot"}
+            else:
+                selected_modes = {mode}
         
-        mode_ratios = {
-            "atomic": float(getattr(config, "qa_ratio_atomic", 25.0)),
-            "aggregated": float(getattr(config, "qa_ratio_aggregated", 25.0)),
-            "multi_hop": float(getattr(config, "qa_ratio_multi_hop", 25.0)),
-            "cot": float(getattr(config, "qa_ratio_cot", 25.0)),
-        }
+        # 构建 mode_ratios，未选中的模式设置为 0
+        all_mode_names = {"atomic", "aggregated", "multi_hop", "cot"}
+        mode_ratios = {}
+        
+        for mode_name in all_mode_names:
+            ratio_attr = f"qa_ratio_{mode_name}"
+            configured_ratio = float(getattr(config, ratio_attr, 25.0))
+            
+            # 如果模式未被选中，强制设置为 0
+            if mode_name not in selected_modes:
+                mode_ratios[mode_name] = 0.0
+            else:
+                mode_ratios[mode_name] = configured_ratio
+        
+        # 记录最终的 mode_ratios
+        logger.info(
+            "[TaskProcessor] 选择的模式: %s，mode_ratios: %s",
+            selected_modes, mode_ratios
+        )
 
         result = {
             "if_trainee_model": config.if_trainee_model,

@@ -478,16 +478,66 @@ async def generate_qas(
 
         tasks = []
         for idx, (generator, gen_mode) in enumerate(generators):
-            # 对于atomic模式，过滤批次为一跳信息
+            # 计算当前模式需要的批次数量
             batches_to_use = batches
+            
+            # 如果设置了目标数量，根据模式目标动态分配批次
+            if target_qa_pairs and gen_mode in mode_targets:
+                mode_target = mode_targets[gen_mode]
+                if mode_target > 0:
+                    # 估算每个batch平均生成多少个QA对
+                    estimated_qa_per_batch_mode = {
+                        "atomic": 1.0,      # atomic模式每个batch约1个QA对
+                        "aggregated": 1.5,  # aggregated模式每个batch约1-2个QA对
+                        "multi_hop": 1.0,   # multi_hop模式每个batch约1个QA对
+                        "cot": 1.0,         # cot模式每个batch约1个QA对
+                    }
+                    avg_qa_per_batch = estimated_qa_per_batch_mode.get(gen_mode, 1.0)
+                    # 考虑去重和失败率，使用1.3倍缓冲（降低缓冲比例，更接近目标）
+                    required_batches_for_mode = int(mode_target / avg_qa_per_batch * 1.3)
+                    
+                    # 限制批次数量不超过总批次数
+                    required_batches_for_mode = min(required_batches_for_mode, len(batches))
+                    
+                    # 如果需要的批次数小于总批次数，取前N个批次
+                    if required_batches_for_mode < len(batches):
+                        batches_to_use = batches[:required_batches_for_mode]
+                        logger.info(
+                            "[Generation] Mode %s: allocated %d batches (target: %d QA, estimated %.1f QA per batch)",
+                            gen_mode, len(batches_to_use), mode_target, avg_qa_per_batch
+                        )
+                    else:
+                        logger.info(
+                            "[Generation] Mode %s: using all %d batches (target: %d QA, estimated %.1f QA per batch)",
+                            gen_mode, len(batches), mode_target, avg_qa_per_batch
+                        )
+                else:
+                    # 目标为0，跳过此模式
+                    batches_to_use = []
+                    logger.info(
+                        "[Generation] Mode %s: skipped (target: 0)",
+                        gen_mode
+                    )
+            
+            # 如果没有批次可处理，跳过此模式
+            if not batches_to_use:
+                logger.info("[Generation] Mode %s: no batches to process, skipping", gen_mode)
+                # 创建一个空任务，返回空列表
+                async def return_empty():
+                    return []
+                task = asyncio.create_task(return_empty())
+                tasks.append(task)
+                continue
+            
+            # 对于atomic模式，过滤批次为一跳信息
             if gen_mode == "atomic":
                 batches_to_use = [
-                    _filter_one_hop_batch(batch) for batch in batches
+                    _filter_one_hop_batch(batch) for batch in batches_to_use
                 ]
                 logger.info(
                     "[Generation] Filtered batches for atomic mode to one-hop information. "
-                    "Original batch count: %d, Filtered batch count: %d",
-                    len(batches), len(batches_to_use)
+                    "Batch count: %d",
+                    len(batches_to_use)
                 )
             
             # 创建包装函数，传递chunks_storage和full_docs_storage

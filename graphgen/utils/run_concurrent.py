@@ -104,7 +104,10 @@ async def run_concurrent(
 
     # 初始描述（如果有回调，使用回调生成）
     initial_desc = desc_callback(0, len(items), results) if desc_callback else desc
-    pbar = tqdm_async(total=len(items), desc=initial_desc, unit=unit)
+    # 禁用 tqdm 输出，避免 ANSI 转义序列污染日志文件
+    # file=None 会自动使用 sys.stderr，但我们设置 disable=True 来完全禁用输出
+    # 保留 pbar 对象只是为了兼容性，所有更新都通过 logger 输出
+    pbar = tqdm_async(total=len(items), desc=initial_desc, unit=unit, disable=True, file=None)
 
     if progress_bar is not None:
         progress_bar(0.0, desc=f"{desc} (0/{len(items)})")
@@ -139,6 +142,7 @@ async def run_concurrent(
         
         if should_log:
             # 计算当前批次速度（基于最近完成的项）
+            current_rate = 0.0
             if len(batch_completion_times) >= 2:
                 time_span = batch_completion_times[-1] - batch_completion_times[0]
                 if time_span > 0:
@@ -146,11 +150,33 @@ async def run_concurrent(
                     pbar.set_postfix({"rate": f"{current_rate:.2f} {unit}/s"})
             
             # 更新描述（如果有回调）
+            current_desc = desc
             if desc_callback:
                 # 过滤掉异常结果用于回调
                 valid_results = [r for r in results if not isinstance(r, Exception)]
-                new_desc = desc_callback(completed_count, len(items), valid_results)
-                pbar.set_description(new_desc)
+                current_desc = desc_callback(completed_count, len(items), valid_results)
+                pbar.set_description(current_desc)
+            
+            # 记录到日志（替代 tqdm 的终端输出）
+            progress_percent = (completed_count / len(items)) * 100
+            if current_rate > 0:
+                logger.info(
+                    "%s: %d/%d (%.1f%%) | 速度: %.2f %s/s",
+                    current_desc,
+                    completed_count,
+                    len(items),
+                    progress_percent,
+                    current_rate,
+                    unit
+                )
+            else:
+                logger.info(
+                    "%s: %d/%d (%.1f%%)",
+                    current_desc,
+                    completed_count,
+                    len(items),
+                    progress_percent
+                )
             
             # 更新进度条（一次性更新多个）
             update_count = completed_count - last_logged_count
