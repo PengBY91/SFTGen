@@ -140,7 +140,7 @@
                 size="small"
                 type="success"
                 :disabled="row.status !== 'completed'"
-                @click.stop="handleDownload(row)"
+                @click.stop="showDownloadDialog(row)"
               >
                 <el-icon><Download /></el-icon>
                 下载
@@ -185,7 +185,7 @@
                 size="small"
                 type="success"
                 :disabled="row.status !== 'completed'"
-                @click.stop="handleDownload(row)"
+                @click.stop="showDownloadDialog(row)"
               >
                 <el-icon><Download /></el-icon>
                 下载
@@ -238,6 +238,47 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 下载对话框 -->
+    <el-dialog
+      v-model="downloadDialogVisible"
+      title="下载任务输出"
+      width="500px"
+    >
+      <el-form label-width="120px">
+        <el-form-item label="导出格式">
+          <el-radio-group v-model="downloadFormat">
+            <el-radio label="json">JSON 格式</el-radio>
+            <el-radio label="csv">CSV 格式</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="任务信息" v-if="selectedTask">
+          <div>
+            <p><strong>任务名称：</strong>{{ selectedTask.task_name }}</p>
+            <p><strong>QA数量：</strong>{{ selectedTask.qa_count || 0 }} 条</p>
+          </div>
+        </el-form-item>
+        <el-form-item label="可选字段" v-if="downloadFormat === 'csv'">
+          <el-checkbox-group v-model="downloadFields">
+            <el-checkbox label="context">上下文</el-checkbox>
+            <el-checkbox label="graph">图谱</el-checkbox>
+            <el-checkbox label="source_chunks">来源片段</el-checkbox>
+            <el-checkbox label="source_documents">来源文档</el-checkbox>
+            <el-checkbox label="metadata">元数据</el-checkbox>
+          </el-checkbox-group>
+          <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+            注：这些字段可能包含复杂数据，仅在需要时勾选
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="downloadDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmDownload" :loading="downloadLoading">
+          <el-icon><Download /></el-icon>
+          确认下载
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -272,6 +313,10 @@ const loading = ref(false)
 const searchText = ref('')
 const selectedStatus = ref<string>('')
 const startDialogVisible = ref(false)
+const downloadDialogVisible = ref(false)
+const downloadLoading = ref(false)
+const downloadFormat = ref<'json' | 'csv'>('json')
+const downloadFields = ref<string[]>([])  // 可选字段列表
 const selectedTask = ref<TaskInfo | null>(null)
 const startLoading = ref(false)
 const taskStats = ref({
@@ -452,19 +497,42 @@ const handleResumeTask = async (task: TaskInfo) => {
   }
 }
 
-// 下载任务结果
-const handleDownload = async (task: TaskInfo) => {
+// 显示下载对话框
+const showDownloadDialog = (task: TaskInfo) => {
+  selectedTask.value = task
+  downloadDialogVisible.value = true
+}
+
+// 确认下载
+const confirmDownload = async () => {
+  if (!selectedTask.value) return
+  
+  downloadLoading.value = true
   try {
-    const blob = await api.downloadTask(task.task_id)
+    const blob = await api.downloadTask(selectedTask.value.task_id, downloadFormat.value, downloadFields.value)
     const url = window.URL.createObjectURL(blob as Blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${task.filename}_output.json`
+    
+    // 根据格式设置文件名
+    const fileExt = downloadFormat.value === 'csv' ? 'csv' : 'json'
+    link.download = `${selectedTask.value.filename}_output.${fileExt}`
+    
     link.click()
     window.URL.revokeObjectURL(url)
+    
     ElMessage.success('下载成功')
+    downloadDialogVisible.value = false
   } catch (error) {
+    console.error('下载失败', error)
     ElMessage.error('下载失败')
+  } finally {
+    downloadLoading.value = false
+  }
+}
+    ElMessage.error('下载失败')
+  } finally {
+    downloadLoading.value = false
   }
 }
 

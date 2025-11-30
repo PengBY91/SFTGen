@@ -5,7 +5,7 @@
 import os
 import sys
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -213,8 +213,14 @@ class TaskService:
                 "error": str(e)
             }
     
-    def get_task_output(self, task_id: str) -> Dict[str, Any]:
-        """获取任务输出文件信息"""
+    def get_task_output(self, task_id: str, format: str = 'json', optional_fields: List[str] = []) -> Dict[str, Any]:
+        """获取任务输出文件信息
+        
+        Args:
+            task_id: 任务ID
+            format: 输出格式，'json' 或 'csv'
+            optional_fields: 可选字段列表（仅对 CSV 有效）
+        """
         try:
             task = task_manager.get_task(task_id)
             if not task:
@@ -235,6 +241,21 @@ class TaskService:
                     "error": "输出文件不存在"
                 }
             
+            # 如果请求 CSV 格式，需要转换
+            if format == 'csv':
+                csv_file = self._convert_output_to_csv(task_id, task.output_file, optional_fields)
+                if not csv_file:
+                    return {
+                        "success": False,
+                        "error": "CSV 转换失败"
+                    }
+                return {
+                    "success": True,
+                    "output_file": csv_file,
+                    "filename": f"{task.filename}_output.csv"
+                }
+            
+            # 默认返回 JSON
             return {
                 "success": True,
                 "output_file": task.output_file,
@@ -245,6 +266,86 @@ class TaskService:
                 "success": False,
                 "error": str(e)
             }
+    
+    def _convert_output_to_csv(self, task_id: str, json_file: str, optional_fields: List[str] = []) -> Optional[str]:
+        """将 JSON 输出转换为 CSV 格式
+        
+        Args:
+            task_id: 任务ID
+            json_file: JSON 文件路径
+            optional_fields: 可选字段列表（只导出这些字段）
+            
+        Returns:
+            CSV 文件路径，失败返回 None
+        """
+        try:
+            import csv
+            import json
+            
+            # 读取 JSON 文件
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # 生成 CSV 文件路径（保存在 tasks/outputs 目录）
+            csv_file = json_file.replace('.json', '.csv').replace('.jsonl', '.csv')
+            
+            # 定义基本列（必须的字段）
+            base_fieldnames = [
+                'question', 'answer', 'mode',
+                'instruction', 'input', 'output',
+                'reasoning_path', 'thinking_process', 'final_answer'
+            ]
+            
+            # 如果数据为空
+            if not data:
+                with open(csv_file, "w", encoding="utf-8-sig", newline='') as f:
+                    writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+                    writer.writerow(base_fieldnames + optional_fields)
+                return csv_file
+            
+            # 写入 CSV
+            with open(csv_file, "w", encoding="utf-8-sig", newline='') as f:
+                # 组合基本列和可选字段
+                fieldnames = base_fieldnames + optional_fields
+                
+                # 使用 QUOTE_NONNUMERIC 确保所有非数字字段都被引号包围
+                # 这样可以安全处理包含逗号、换行符等特殊字符的内容
+                writer = csv.DictWriter(
+                    f, 
+                    fieldnames=fieldnames, 
+                    extrasaction='ignore',
+                    quoting=csv.QUOTE_NONNUMERIC
+                )
+                writer.writeheader()
+                
+                # 写入数据
+                for item in data:
+                    if isinstance(item, dict):
+                        # 处理每个字段，确保复杂对象被序列化为字符串
+                        processed_item = {}
+                        for key in fieldnames:
+                            value = item.get(key)
+                            if value is None:
+                                processed_item[key] = ''
+                            elif isinstance(value, (dict, list)):
+                                # 将字典和列表转换为 JSON 字符串
+                                processed_item[key] = json.dumps(value, ensure_ascii=False)
+                            elif isinstance(value, (int, float)):
+                                # 保持数字类型
+                                processed_item[key] = value
+                            else:
+                                # 转换为字符串
+                                processed_item[key] = str(value)
+                        
+                        writer.writerow(processed_item)
+            
+            return csv_file
+            
+        except Exception as e:
+            print(f"CSV 转换失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def get_task_stats(self) -> Dict[str, Any]:
         """获取任务统计"""

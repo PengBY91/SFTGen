@@ -172,9 +172,18 @@ async def get_task_source(
 
 
 @router.get("/tasks/{task_id}/download")
-async def download_task_output(task_id: str):
-    """下载任务输出文件"""
-    result = task_service.get_task_output(task_id)
+async def download_task_output(task_id: str, format: str = 'json', optional_fields: str = ''):
+    """下载任务输出文件
+    
+    Args:
+        task_id: 任务ID
+        format: 下载格式，'json' 或 'csv'
+        optional_fields: 可选字段，逗号分隔（仅对 CSV 有效）
+    """
+    # 解析可选字段
+    fields_list = [f.strip() for f in optional_fields.split(',') if f.strip()] if optional_fields else []
+    
+    result = task_service.get_task_output(task_id, format, fields_list)
     
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
@@ -182,10 +191,13 @@ async def download_task_output(task_id: str):
     output_file = result.get("output_file")
     filename = result.get("filename")
     
+    # 根据格式设置 MIME 类型
+    media_type = "text/csv" if format == "csv" else "application/json"
+    
     return FileResponse(
         path=output_file,
         filename=filename,
-        media_type="application/json"
+        media_type=media_type
     )
 
 
@@ -269,28 +281,50 @@ async def auto_review(
 
 
 @router.get("/reviews/{task_id}/export", response_model=TaskResponse)
-async def export_reviewed_data(task_id: str, status_filter: str = None):
-    """导出审核后的数据"""
+async def export_reviewed_data(task_id: str, status_filter: str = None, format: str = 'json'):
+    """导出审核后的数据
+    
+    Args:
+        task_id: 任务ID
+        status_filter: 状态过滤，用逗号分隔，如 'approved,modified'，或 'all' 表示所有
+        format: 导出格式，'json' 或 'csv'
+    """
     status_list = status_filter.split(",") if status_filter else None
-    result = review_service.export_reviewed_data(task_id, status_list)
+    result = review_service.export_reviewed_data(task_id, status_list, format)
     return result
 
 
 @router.get("/reviews/{task_id}/download")
-async def download_reviewed_data(task_id: str):
-    """下载审核后的数据文件"""
+async def download_reviewed_data(task_id: str, format: str = 'json', optional_fields: str = ''):
+    """下载审核后的数据文件
+    
+    Args:
+        task_id: 任务ID
+        format: 下载格式，'json' 或 'csv'
+        optional_fields: 可选字段，逗号分隔（仅对 CSV 有效）
+    """
     import os
     from backend.services.review_service import review_service
     
-    export_file = os.path.join(review_service.review_dir, f"{task_id}_reviewed.json")
+    # 解析可选字段
+    fields_list = [f.strip() for f in optional_fields.split(',') if f.strip()] if optional_fields else []
     
-    if not os.path.exists(export_file):
-        raise HTTPException(status_code=404, detail="导出文件不存在，请先导出数据")
+    # 获取导出文件路径（根据格式动态转换）
+    result = review_service.get_export_file(task_id, format, fields_list)
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get("error", "文件不存在"))
+    
+    export_file = result.get("export_file")
+    filename = result.get("filename")
+    
+    # 根据格式设置 MIME 类型
+    media_type = "text/csv" if format == "csv" else "application/json"
     
     return FileResponse(
         path=export_file,
-        filename=f"{task_id}_reviewed.json",
-        media_type="application/json"
+        filename=filename,
+        media_type=media_type
     )
 
 

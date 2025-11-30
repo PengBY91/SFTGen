@@ -86,8 +86,12 @@ export const api = {
   },
 
   // 下载任务输出
-  downloadTask(taskId: string) {
+  downloadTask(taskId: string, format: 'json' | 'csv' = 'json', optionalFields: string[] = []) {
     return request.get(`/tasks/${taskId}/download`, {
+      params: { 
+        format,
+        optional_fields: optionalFields.join(',')
+      },
       responseType: 'blob'
     })
   },
@@ -134,16 +138,22 @@ export const api = {
     return request.post<TaskResponse>('/reviews/auto-review', data)
   },
 
-  // 导出审核后的数据
+  // 导出审核后的数据（后端总是生成 JSON，不需要传递格式）
   exportReviewedData(taskId: string, statusFilter?: string) {
     return request.get<TaskResponse>(`/reviews/${taskId}/export`, {
-      params: { status_filter: statusFilter }
+      params: { 
+        status_filter: statusFilter
+      }
     })
   },
 
   // 下载审核后的数据
-  downloadReviewedData(taskId: string) {
+  downloadReviewedData(taskId: string, format: 'json' | 'csv' = 'json', optionalFields: string[] = []) {
     return request.get(`/reviews/${taskId}/download`, {
+      params: { 
+        format,
+        optional_fields: optionalFields.join(',')
+      },
       responseType: 'blob'
     })
   },

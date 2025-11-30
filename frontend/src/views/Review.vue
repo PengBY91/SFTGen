@@ -40,8 +40,9 @@
             <el-button size="small" type="danger" @click="batchReject" :disabled="selectedItems.length === 0">
               批量拒绝
             </el-button>
-            <el-button size="small" type="success" @click="exportData">
+            <el-button size="small" type="success" @click="showExportDialog">
               <el-icon><Download /></el-icon>
+              下载数据
             </el-button>
             <el-select v-model="pageSize" placeholder="每页数量" style="width: 120px; margin-left: 10px" @change="handlePageSizeChange">
               <el-option label="10" :value="10" />
@@ -224,6 +225,48 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 导出数据对话框 -->
+    <el-dialog
+      v-model="exportDialogVisible"
+      title="导出数据"
+      width="500px"
+    >
+      <el-form label-width="120px">
+        <el-form-item label="导出格式">
+          <el-radio-group v-model="exportFormat">
+            <el-radio label="json">JSON 格式</el-radio>
+            <el-radio label="csv">CSV 格式</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="数据范围">
+          <el-alert
+            title="将导出所有问答对数据，包含审核状态信息"
+            type="info"
+            :closable="false"
+          />
+        </el-form-item>
+        <el-form-item label="可选字段" v-if="exportFormat === 'csv'">
+          <el-checkbox-group v-model="exportFields">
+            <el-checkbox label="context">上下文</el-checkbox>
+            <el-checkbox label="graph">图谱</el-checkbox>
+            <el-checkbox label="source_chunks">来源片段</el-checkbox>
+            <el-checkbox label="source_documents">来源文档</el-checkbox>
+            <el-checkbox label="metadata">元数据</el-checkbox>
+          </el-checkbox-group>
+          <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+            注：这些字段可能包含复杂数据，仅在需要时勾选
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="exportDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmExport" :loading="exportLoading">
+          <el-icon><Download /></el-icon>
+          确认导出
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -275,6 +318,10 @@ const modeFilter = ref('')
 const selectedItems = ref<DataItem[]>([])
 const autoReviewDialogVisible = ref(false)
 const autoReviewLoading = ref(false)
+const exportDialogVisible = ref(false)
+const exportLoading = ref(false)
+const exportFormat = ref<'json' | 'csv'>('json')
+const exportFields = ref<string[]>([])  // 可选字段列表
 const tableRef = ref<any>(null)
 const isTableUpdating = ref(false)  // 标志：表格数据正在更新或清除选择中
 
@@ -673,23 +720,38 @@ const startAutoReview = async () => {
   }
 }
 
-// 导出数据
-const exportData = async () => {
+// 显示导出对话框
+const showExportDialog = () => {
+  exportDialogVisible.value = true
+}
+
+// 确认导出
+const confirmExport = async () => {
+  exportLoading.value = true
   try {
-    // 先导出
-    await api.exportReviewedData(taskId, 'approved,modified,auto_approved')
+    // 导出所有数据（不过滤状态），后端只生成 JSON
+    await api.exportReviewedData(taskId, 'all')
     
-    // 然后下载（拦截器已返回 response.data，即 Blob 本身）
-    const blob = await api.downloadReviewedData(taskId) as unknown as Blob
+    // 下载文件（根据选择的格式，后端会即时转换）
+    const blob = await api.downloadReviewedData(taskId, exportFormat.value, exportFields.value) as unknown as Blob
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${taskId}_reviewed.json`
+    
+    // 根据格式设置文件名
+    const fileExt = exportFormat.value === 'csv' ? 'csv' : 'json'
+    link.download = `${taskId}_all_data.${fileExt}`
+    
     link.click()
     window.URL.revokeObjectURL(url)
+    
     ElMessage.success('导出成功')
+    exportDialogVisible.value = false
   } catch (error) {
+    console.error('导出失败', error)
     ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
   }
 }
 
