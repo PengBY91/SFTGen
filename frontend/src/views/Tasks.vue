@@ -530,11 +530,6 @@ const confirmDownload = async () => {
     downloadLoading.value = false
   }
 }
-    ElMessage.error('下载失败')
-  } finally {
-    downloadLoading.value = false
-  }
-}
 
 // 查看详情
 const handleViewDetail = (task: TaskInfo) => {
