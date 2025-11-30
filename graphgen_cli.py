@@ -89,7 +89,7 @@ class GraphGenCLI:
             tokenizer=tokenizer_instance,
         )
 
-        # 创建 KGE-Gen 实例（不传递 config 参数）
+        # 创建 KGE-Gen 实例（传递 synthesizer_llm_client 和 trainee_llm_client）
         graph_gen = GraphGen(
             working_dir=working_dir,
             tokenizer_instance=tokenizer_instance,
@@ -296,14 +296,30 @@ class GraphGenCLI:
                 "split": {
                     "chunk_size": args.chunk_size,
                     "chunk_overlap": args.chunk_overlap,
+                    # 批量请求优化
+                    "enable_batch_requests": True,
+                    "batch_size": 30,
+                    "max_wait_time": 1.0,
+                    "use_adaptive_batching": True,
+                    "min_batch_size": 10,
+                    "max_batch_size": 50,
+                    "enable_extraction_cache": True,
+                    # Prompt合并优化
+                    "enable_prompt_merging": True,
+                    "prompt_merge_size": 5,
                 },
                 "output_data_type": args.output_data_type,
                 "output_data_format": args.output_data_format,
                 "tokenizer": args.tokenizer,
                 "search": {"enabled": False},
-                "quiz_and_judge_strategy": {
+                "quiz_and_judge": {
                     "enabled": args.use_trainee_model,
                     "quiz_samples": args.quiz_samples,
+                    "re_judge": False,
+                    # 批量请求优化
+                    "enable_batch_requests": True,
+                    "batch_size": 30,
+                    "max_wait_time": 1.0,
                 },
                 "traverse_strategy": {
                     "bidirectional": args.bidirectional,
@@ -341,8 +357,12 @@ class GraphGenCLI:
             # 构建 quiz_and_judge 配置
             quiz_and_judge_config = {
                 "enabled": config["if_trainee_model"],
-                "quiz_samples": config["quiz_and_judge_strategy"]["quiz_samples"],
+                "quiz_samples": config["quiz_and_judge"]["quiz_samples"],
                 "re_judge": False,
+                # 批量请求优化
+                "enable_batch_requests": config["quiz_and_judge"].get("enable_batch_requests", True),
+                "batch_size": config["quiz_and_judge"].get("batch_size", 30),
+                "max_wait_time": config["quiz_and_judge"].get("max_wait_time", 1.0),
             }
             
             if quiz_and_judge_config["enabled"]:
@@ -369,8 +389,36 @@ class GraphGenCLI:
 
             # 构建 generate 配置
             generate_config = {
-                "mode": config["output_data_type"],  # 支持 "atomic", "multi_hop", "aggregated", "all"
+                "mode": config["output_data_type"],  # 支持 "atomic", "multi_hop", "aggregated", "cot", "all"
                 "data_format": config["output_data_format"],
+                # 优化配置
+                "use_multi_template": True,
+                "template_seed": None,
+                "chinese_only": getattr(args, "chinese_only", False),
+                # 批量请求配置
+                "enable_batch_requests": True,
+                "batch_size": 30,
+                "max_wait_time": 1.0,
+                "use_adaptive_batching": True,
+                "min_batch_size": 10,
+                "max_batch_size": 50,
+                # 缓存优化
+                "enable_prompt_cache": True,
+                "cache_max_size": 50000,
+                "cache_ttl": None,
+                # 合并模式优化
+                "use_combined_mode": True,
+                # 去重优化
+                "enable_deduplication": True,
+                "persistent_deduplication": True,
+                # 生成数量与比例
+                "target_qa_pairs": getattr(args, "qa_pair_limit", None),
+                "mode_ratios": {
+                    "atomic": 25.0,
+                    "aggregated": 25.0,
+                    "multi_hop": 25.0,
+                    "cot": 25.0,
+                },
             }
 
             # 生成问答对
@@ -720,7 +768,7 @@ def create_parser():
     gen_group.add_argument("--tokenizer", 
                           default=os.getenv("TOKENIZER", "cl100k_base"), 
                           help="Tokenizer 名称 (默认从环境变量 TOKENIZER 读取)")
-    gen_group.add_argument("--output-data-type", choices=["atomic", "multi_hop", "aggregated"], 
+    gen_group.add_argument("--output-data-type", choices=["atomic", "multi_hop", "aggregated", "cot", "all"], 
                           default=os.getenv("OUTPUT_DATA_TYPE", "aggregated"), 
                           help="输出数据类型 (默认从环境变量 OUTPUT_DATA_TYPE 读取)")
     gen_group.add_argument("--output-data-format", choices=["Alpaca", "Sharegpt", "ChatML"], 
@@ -729,6 +777,12 @@ def create_parser():
     gen_group.add_argument("--quiz-samples", type=int, 
                           default=int(os.getenv("QUIZ_SAMPLES", "2")), 
                           help="测验样本数量 (默认从环境变量 QUIZ_SAMPLES 读取)")
+    gen_group.add_argument("--chinese-only", action="store_true",
+                          default=os.getenv("CHINESE_ONLY", "false").lower() == "true",
+                          help="只生成中文问答对 (默认从环境变量 CHINESE_ONLY 读取)")
+    gen_group.add_argument("--qa-pair-limit", type=int,
+                          default=int(os.getenv("QA_PAIR_LIMIT", "0")) or None,
+                          help="目标QA对数量限制，0表示不限制 (默认从环境变量 QA_PAIR_LIMIT 读取)")
 
     # 遍历策略
     traverse_group = parser.add_argument_group("遍历策略")

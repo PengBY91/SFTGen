@@ -7,13 +7,15 @@ from graphgen.utils import compute_content_hash, detect_main_language, logger
 
 
 class MultiHopGenerator(BaseGenerator):
-    def __init__(self, llm_client):
+    def __init__(self, llm_client, chinese_only: bool = False):
         """
         初始化 Multi-hop 生成器
         
         :param llm_client: LLM客户端
+        :param chinese_only: 是否只生成中文（强制使用中文模板）
         """
         super().__init__(llm_client)
+        self.chinese_only = chinese_only
         self._generation_mode = "multi_hop"
     
     @staticmethod
@@ -52,6 +54,9 @@ class MultiHopGenerator(BaseGenerator):
         :return: formatted prompt string
         """
         entities_str, relationships_str, language = self._format_batch_data(batch)
+        # 如果 chinese_only=True，强制使用中文
+        if self.chinese_only:
+            language = "zh"
         prompt = MULTI_HOP_GENERATION_PROMPT[language].format(
             entities=entities_str, relationships=relationships_str
         )

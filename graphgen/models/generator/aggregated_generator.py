@@ -15,15 +15,17 @@ class AggregatedGenerator(BaseGenerator):
     Can also use COMBINED mode to generate both in one step (reduces 50% of API calls).
     """
     
-    def __init__(self, llm_client, use_combined_mode: bool = False):
+    def __init__(self, llm_client, use_combined_mode: bool = False, chinese_only: bool = False):
         """
         初始化 Aggregated 生成器
         
         :param llm_client: LLM客户端
         :param use_combined_mode: 是否使用合并模式（一次性生成重述文本和问题，减少50%调用）
+        :param chinese_only: 是否只生成中文（强制使用中文模板）
         """
         super().__init__(llm_client)
         self.use_combined_mode = use_combined_mode
+        self.chinese_only = chinese_only
 
     def build_prompt(
         self,
@@ -47,7 +49,11 @@ class AggregatedGenerator(BaseGenerator):
                 for index, edge in enumerate(edges)
             ]
         )
-        language = detect_main_language(entities_str + relations_str)
+        # 如果 chinese_only=True，强制使用中文
+        if self.chinese_only:
+            language = "zh"
+        else:
+            language = detect_main_language(entities_str + relations_str)
 
         # TODO: configure add_context
         #     if add_context:

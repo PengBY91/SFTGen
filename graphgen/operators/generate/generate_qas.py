@@ -456,9 +456,9 @@ async def generate_qas(
         # 创建所有四种生成器的列表，并记录对应的 mode
         generators = [
             (AtomicGenerator(actual_llm_client, use_multi_template=use_multi_template, template_seed=template_seed, chinese_only=chinese_only), "atomic"),
-            (AggregatedGenerator(actual_llm_client, use_combined_mode=use_combined_mode), "aggregated"),
-            (MultiHopGenerator(actual_llm_client), "multi_hop"),
-            (CoTGenerator(actual_llm_client, use_combined_mode=use_combined_mode), "cot"),
+            (AggregatedGenerator(actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only), "aggregated"),
+            (MultiHopGenerator(actual_llm_client, chinese_only=chinese_only), "multi_hop"),
+            (CoTGenerator(actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only), "cot"),
         ]
 
         all_results = []
@@ -616,13 +616,13 @@ async def generate_qas(
             )
         elif mode == "aggregated":
             generator = AggregatedGenerator(
-                actual_llm_client, use_combined_mode=use_combined_mode
+                actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only
             )
         elif mode == "multi_hop":
-            generator = MultiHopGenerator(actual_llm_client)
+            generator = MultiHopGenerator(actual_llm_client, chinese_only=chinese_only)
         elif mode == "cot":
             generator = CoTGenerator(
-                actual_llm_client, use_combined_mode=use_combined_mode
+                actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only
             )
         else:
             raise ValueError(f"Unsupported generation mode: {mode}")

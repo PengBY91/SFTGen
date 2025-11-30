@@ -233,39 +233,40 @@ class TaskProcessor:
             # 关闭LLM客户端，避免Event loop is closed错误
             import asyncio
             try:
-                # 获取当前运行的事件循环或创建新的
+                # 获取当前运行的事件循环
                 try:
                     loop = asyncio.get_running_loop()
+                    # 如果有正在运行的事件循环，不能使用 run_until_complete
+                    # 而应该使用 create_task 或者跳过清理（让垃圾回收处理）
+                    # 这里选择跳过，因为在 finally 中创建 task 可能导致其他问题
+                    logger.info("[TaskProcessor] Event loop is running, skipping explicit client cleanup")
+                    loop = None  # 设置为 None，跳过后续清理
                 except RuntimeError:
+                    # 没有运行中的事件循环，可以创建新的
                     loop = None
                 
-                # 如果事件循环存在且未关闭，则关闭客户端
-                if loop and not loop.is_closed():
-                    if synthesizer_llm_client:
-                        try:
-                            loop.run_until_complete(synthesizer_llm_client.aclose())
-                        except Exception:
-                            pass
-                    if trainee_llm_client:
-                        try:
-                            loop.run_until_complete(trainee_llm_client.aclose())
-                        except Exception:
-                            pass
-                else:
-                    # 事件循环已关闭或不存在，尝试创建新的事件循环来清理
+                # 只有在没有运行中的事件循环时才尝试清理
+                if loop is None:
+                    # 创建新的事件循环来清理
                     try:
                         new_loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(new_loop)
                         if synthesizer_llm_client:
-                            new_loop.run_until_complete(synthesizer_llm_client.aclose())
+                            try:
+                                new_loop.run_until_complete(synthesizer_llm_client.aclose())
+                            except Exception as e:
+                                logger.debug(f"[TaskProcessor] Failed to close synthesizer client: {e}")
                         if trainee_llm_client:
-                            new_loop.run_until_complete(trainee_llm_client.aclose())
+                            try:
+                                new_loop.run_until_complete(trainee_llm_client.aclose())
+                            except Exception as e:
+                                logger.debug(f"[TaskProcessor] Failed to close trainee client: {e}")
                         new_loop.close()
-                    except Exception:
-                        pass
-            except Exception:
+                    except Exception as e:
+                        logger.debug(f"[TaskProcessor] Error during client cleanup: {e}")
+            except Exception as e:
                 # 静默处理所有异常，因为清理失败不应影响任务状态
-                pass
+                logger.debug(f"[TaskProcessor] Cleanup error: {e}")
             
             # 清理临时工作目录（但保留日志文件）
             # 只删除 working_dir，保留 logs 目录和日志文件

@@ -503,11 +503,11 @@ class TaskService:
                 try:
                     from graphgen.models import DOCXReader
                     reader = DOCXReader()
-                    # DOCXReader.read() 返回 list[Document]
+                    # DOCXReader.read() 返回 list[dict]，不是 Document 对象
                     documents = reader.read(file_path)
                     
-                    # 将所有文档内容合并
-                    content = "\n\n".join([doc.content for doc in documents])
+                    # 将所有文档内容合并（使用字典访问而不是属性访问）
+                    content = "\n\n".join([doc.get("content", "") for doc in documents])
                     
                     # 获取文件大小和行数
                     file_size = os.path.getsize(file_path)

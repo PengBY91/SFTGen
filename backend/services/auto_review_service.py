@@ -158,11 +158,9 @@ class AutoReviewService:
                     errors.append({"item_id": item_id, "error": "数据项不存在"})
                     continue
                 
-                # 使用已经在reviews中的item，如果不存在则使用items_dict中的
-                if item_id in reviews:
-                    item = reviews[item_id]
-                else:
-                    item = items_dict[item_id]
+                # 始终使用 items_dict 中的新鲜数据进行自动审核
+                # 不使用 reviews 中可能被手动修改过的数据
+                item = items_dict[item_id]
                 
                 # 调用自动审核
                 review_result = await self.review_single_item(item)
