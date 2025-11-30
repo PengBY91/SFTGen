@@ -398,7 +398,7 @@ class ReviewService:
                 "review_comment": item_dict.get("review_comment", ""),
                 "reviewer": item_dict.get("reviewer", ""),
                 "review_time": item_dict.get("review_time", ""),
-                "review_score": item_dict.get("review_score"),
+                "auto_review_score": item_dict.get("auto_review_score"),
                 "item_id": item_dict.get("item_id", "")
             }
             exported_data.append(export_item)
@@ -484,7 +484,7 @@ class ReviewService:
                     'review_comment': process_value(item.get('review_comment', '')),
                     'reviewer': process_value(item.get('reviewer', '')),
                     'review_time': process_value(item.get('review_time', '')),
-                    'review_score': process_value(item.get('review_score', '')),
+                    'auto_review_score': process_value(item.get('auto_review_score', '')),
                     'item_id': process_value(item.get('item_id', ''))
                 }
                 
@@ -562,7 +562,7 @@ class ReviewService:
                     'review_comment': process_value(item_dict.get("review_comment", "")),
                     'reviewer': process_value(item_dict.get("reviewer", "")),
                     'review_time': process_value(item_dict.get("review_time", "")),
-                    'review_score': item_dict.get("review_score") if item_dict.get("review_score") is not None else '',
+                    'auto_review_score': item_dict.get("auto_review_score") if item_dict.get("auto_review_score") is not None else '',
                     'item_id': process_value(item_dict.get("item_id", ""))
                 }
                 writer.writerow(row)

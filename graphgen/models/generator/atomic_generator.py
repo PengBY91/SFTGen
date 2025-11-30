@@ -251,9 +251,22 @@ class AtomicGenerator(BaseGenerator):
         """
         result = {}
         
+        # 首先使用修复工具预处理响应
+        from graphgen.utils import repair_llm_response
+        
+        repaired_response = repair_llm_response(
+            response,
+            expected_format="qa_pair"
+        )
+        
+        logger.debug(
+            "QA pair repair: original length=%d, repaired length=%d",
+            len(response), len(repaired_response)
+        )
+        
         # First try to parse the whole response as a single QA pair
         # This is more robust than splitting first, as splitting can break up valid QA pairs
-        lang, question, answer = _extract_question_and_answer(response)
+        lang, question, answer = _extract_question_and_answer(repaired_response)
         
         if question and answer:
             # Successfully parsed as single QA pair, return it
@@ -267,10 +280,10 @@ class AtomicGenerator(BaseGenerator):
         
         # If single parse failed, try splitting by common separators
         separators = ["** **", "**", "\n\n---\n\n", "---"]
-        parts = [response]
+        parts = [repaired_response]
         for sep in separators:
-            if sep in response:
-                parts = response.split(sep)
+            if sep in repaired_response:
+                parts = repaired_response.split(sep)
                 logger.debug("Split response by separator '%s' into %d parts", sep, len(parts))
                 break
         

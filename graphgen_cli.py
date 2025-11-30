@@ -560,14 +560,30 @@ class GraphGenCLI:
             "split": {
                 "chunk_size": args.chunk_size,
                 "chunk_overlap": args.chunk_overlap,
+                # 批量请求优化
+                "enable_batch_requests": True,
+                "batch_size": 30,
+                "max_wait_time": 1.0,
+                "use_adaptive_batching": True,
+                "min_batch_size": 10,
+                "max_batch_size": 50,
+                "enable_extraction_cache": True,
+                # Prompt合并优化
+                "enable_prompt_merging": True,
+                "prompt_merge_size": 5,
             },
             "output_data_type": args.output_data_type,
             "output_data_format": args.output_data_format,
             "tokenizer": args.tokenizer,
             "search": {"enabled": False},
-            "quiz_and_judge_strategy": {
+            "quiz_and_judge": {
                 "enabled": args.use_trainee_model,
                 "quiz_samples": args.quiz_samples,
+                "re_judge": False,
+                # 批量请求优化
+                "enable_batch_requests": True,
+                "batch_size": 30,
+                "max_wait_time": 1.0,
             },
             "traverse_strategy": {
                 "bidirectional": args.bidirectional,
@@ -624,8 +640,12 @@ class GraphGenCLI:
             # 构建 quiz_and_judge 配置
             quiz_and_judge_config = {
                 "enabled": config["if_trainee_model"],
-                "quiz_samples": config["quiz_and_judge_strategy"]["quiz_samples"],
+                "quiz_samples": config["quiz_and_judge"]["quiz_samples"],
                 "re_judge": False,
+                # 批量请求优化
+                "enable_batch_requests": config["quiz_and_judge"].get("enable_batch_requests", True),
+                "batch_size": config["quiz_and_judge"].get("batch_size", 30),
+                "max_wait_time": config["quiz_and_judge"].get("max_wait_time", 1.0),
             }
             
             if quiz_and_judge_config["enabled"]:
@@ -654,8 +674,36 @@ class GraphGenCLI:
 
             # 构建 generate 配置
             generate_config = {
-                "mode": config["output_data_type"],  # 支持 "atomic", "multi_hop", "aggregated", "all"
+                "mode": config["output_data_type"],  # 支持 "atomic", "multi_hop", "aggregated", "cot", "all"
                 "data_format": config["output_data_format"],
+                # 优化配置
+                "use_multi_template": True,
+                "template_seed": None,
+                "chinese_only": getattr(args, "chinese_only", False),
+                # 批量请求配置
+                "enable_batch_requests": True,
+                "batch_size": 30,
+                "max_wait_time": 1.0,
+                "use_adaptive_batching": True,
+                "min_batch_size": 10,
+                "max_batch_size": 50,
+                # 缓存优化
+                "enable_prompt_cache": True,
+                "cache_max_size": 50000,
+                "cache_ttl": None,
+                # 合并模式优化
+                "use_combined_mode": True,
+                # 去重优化
+                "enable_deduplication": True,
+                "persistent_deduplication": True,
+                # 生成数量与比例
+                "target_qa_pairs": getattr(args, "qa_pair_limit", None),
+                "mode_ratios": {
+                    "atomic": 25.0,
+                    "aggregated": 25.0,
+                    "multi_hop": 25.0,
+                    "cot": 25.0,
+                },
             }
 
             # 生成问答对

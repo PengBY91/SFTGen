@@ -20,6 +20,15 @@ from .adaptive_batch_manager import AdaptiveBatchRequestManager
 from .run_concurrent import run_concurrent
 from .temperature_scheduler import TemperatureScheduler
 from .wrap import async_to_sync_method
+from .llm_response_repair import (
+    repair_llm_response,
+    clean_markdown_code_blocks,
+    clean_common_llm_artifacts,
+    repair_text_markers,
+    repair_kg_extraction_format,
+    repair_qa_pair_format,
+    try_parse_json,
+)
 
 # 可选依赖，如果导入失败不影响其他功能
 try:

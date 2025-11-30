@@ -234,19 +234,20 @@ class TaskProcessor:
             import asyncio
             try:
                 # 获取当前运行的事件循环
+                loop_is_running = False
                 try:
                     loop = asyncio.get_running_loop()
                     # 如果有正在运行的事件循环，不能使用 run_until_complete
                     # 而应该使用 create_task 或者跳过清理（让垃圾回收处理）
                     # 这里选择跳过，因为在 finally 中创建 task 可能导致其他问题
                     logger.info("[TaskProcessor] Event loop is running, skipping explicit client cleanup")
-                    loop = None  # 设置为 None，跳过后续清理
+                    loop_is_running = True
                 except RuntimeError:
                     # 没有运行中的事件循环，可以创建新的
-                    loop = None
+                    pass
                 
                 # 只有在没有运行中的事件循环时才尝试清理
-                if loop is None:
+                if not loop_is_running:
                     # 创建新的事件循环来清理
                     try:
                         new_loop = asyncio.new_event_loop()

@@ -77,8 +77,16 @@ class MultiHopGenerator(BaseGenerator):
             logger.warning("Empty multi-hop response received")
             return {}
         
+        # 使用修复工具预处理响应
+        from graphgen.utils import repair_llm_response
+        
+        repaired_response = repair_llm_response(
+            response,
+            expected_format="general"
+        )
+        
         # Try to clean up the response first
-        response_clean = response.strip()
+        response_clean = repaired_response.strip()
         
         # Remove common meta-descriptions and preambles
         import re

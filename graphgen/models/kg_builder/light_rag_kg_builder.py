@@ -73,7 +73,7 @@ class LightRAGKGBuilder(BaseKGBuilder):
             final_result = await self.batch_manager.add_request(hint_prompt)
         else:
             final_result = await self.llm_client.generate_answer(hint_prompt)
-        logger.debug("First extraction result: %s", final_result)
+        logger.debug("First extraction result: %s", final_result[:200] if len(final_result) > 200 else final_result)
 
         # step3: iterative refinement
         # history = pack_history_conversations(hint_prompt, final_result)
@@ -95,9 +95,22 @@ class LightRAGKGBuilder(BaseKGBuilder):
         #     )
         #     final_result += glean_result
 
-        # step 4: parse the final result
-        records = split_string_by_multi_markers(
+        # step 4: 修复并解析结果
+        from graphgen.utils import repair_llm_response
+        
+        # 使用修复工具预处理响应
+        repaired_result = repair_llm_response(
             final_result,
+            expected_format="kg_extraction"
+        )
+        
+        logger.debug(
+            "KG extraction repair: original length=%d, repaired length=%d",
+            len(final_result), len(repaired_result)
+        )
+        
+        records = split_string_by_multi_markers(
+            repaired_result,
             [
                 KG_EXTRACTION_PROMPT["FORMAT"]["record_delimiter"],
                 KG_EXTRACTION_PROMPT["FORMAT"]["completion_delimiter"],

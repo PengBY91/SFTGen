@@ -295,18 +295,32 @@ async def parse_merged_extraction_response(
         "Parsing merged response for %d chunks, response length: %d",
         len(chunk_batch), len(response)
     )
-    # 移除response preview，太占日志空间
-    # logger.debug("Response preview: %s", response[:500])
     
-    # 分割响应，按文本编号分组
+    # 首先尝试修复响应格式
+    from graphgen.utils import repair_llm_response
+    
     text_markers_zh = [f"[文本{i}]" for i in range(1, len(chunk_batch) + 1)]
     text_markers_en = [f"[Text {i}]" for i in range(1, len(chunk_batch) + 1)]
+    expected_markers = text_markers_zh + text_markers_en
     
+    # 使用修复工具预处理响应
+    repaired_response = repair_llm_response(
+        response,
+        expected_format="text_markers",
+        expected_markers=text_markers_zh
+    )
+    
+    logger.debug(
+        "Response repair: original length=%d, repaired length=%d",
+        len(response), len(repaired_response)
+    )
+    
+    # 分割响应，按文本编号分组
     # 改进的分割逻辑：按文本标记分组，未标记的行归入当前section
     text_sections = {}  # {chunk_idx: [lines]}
     current_idx = None  # 当前正在处理的文本索引
     
-    lines = response.split("\n")
+    lines = repaired_response.split("\n")
     for line in lines:
         if not line.strip():
             continue
@@ -345,16 +359,18 @@ async def parse_merged_extraction_response(
     # 如果没有找到标记，将整个响应分配给所有chunks（fallback）
     if not text_sections_list:
         logger.warning(
-            "Failed to split merged response by text markers, "
+            "Failed to split merged response by text markers even after repair, "
             "falling back to duplicate extraction for all %d chunks. "
             "This might indicate that the LLM did not follow the format correctly.",
             len(chunk_batch)
         )
         logger.debug("Response markers expected: %s", text_markers_zh[:3])
+        logger.debug("Original response preview: %s", response[:500])
+        logger.debug("Repaired response preview: %s", repaired_response[:500])
         
         # Fallback策略：将整个响应作为单个文本处理
         # 然后将结果复制给所有chunks
-        nodes, edges = await parse_single_extraction(response, chunk_batch[0].id)
+        nodes, edges = await parse_single_extraction(repaired_response, chunk_batch[0].id)
         
         logger.info(
             "Fallback extraction result: %d nodes, %d edges (will be assigned to all %d chunks)",

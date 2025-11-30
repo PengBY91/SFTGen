@@ -80,13 +80,29 @@ class AggregatedGenerator(BaseGenerator):
         :param response:
         :return: rephrased text
         """
-        if "Rephrased Text:" in response:
-            rephrased_text = response.split("Rephrased Text:")[1].strip()
-        elif "重述文本:" in response:
-            rephrased_text = response.split("重述文本:")[1].strip()
+        # 使用修复工具预处理响应
+        from graphgen.utils import repair_llm_response
+        
+        repaired_response = repair_llm_response(
+            response,
+            expected_format="general"
+        )
+        
+        if "Rephrased Text:" in repaired_response:
+            rephrased_text = repaired_response.split("Rephrased Text:")[1].strip()
+        elif "重述文本:" in repaired_response or "重述文本：" in repaired_response:
+            # 处理中文冒号变体
+            rephrased_text = None
+            for marker in ["重述文本:", "重述文本："]:
+                if marker in repaired_response:
+                    rephrased_text = repaired_response.split(marker)[1].strip()
+                    break
+            # 如果循环未找到任何标记（理论上不应该，因为 elif 条件已检查）
+            if rephrased_text is None:
+                rephrased_text = repaired_response.strip()
         else:
-            rephrased_text = response.strip()
-        return rephrased_text.strip('"')
+            rephrased_text = repaired_response.strip()
+        return rephrased_text.strip('"').strip("'")
 
     @staticmethod
     def build_combined_prompt(
@@ -121,8 +137,16 @@ class AggregatedGenerator(BaseGenerator):
         """
         import re
         
+        # 使用修复工具预处理响应
+        from graphgen.utils import repair_llm_response
+        
+        repaired_response = repair_llm_response(
+            response,
+            expected_format="general"
+        )
+        
         # Pre-processing: Remove common meta-descriptions and preambles
-        response_clean = response.strip()
+        response_clean = repaired_response.strip()
         meta_prefixes = [
             r"^(?:Here is|This is|Below is).*?(?:rephrased text|question).*?[：:]\s*",
             r"^(?:以下是|这是).*?(?:重述|问题).*?[：:]\s*",

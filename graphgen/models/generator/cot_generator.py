@@ -83,8 +83,16 @@ class CoTGenerator(BaseGenerator):
         """
         import re
         
+        # 使用修复工具预处理响应
+        from graphgen.utils import repair_llm_response
+        
+        repaired_response = repair_llm_response(
+            response,
+            expected_format="general"
+        )
+        
         # Pre-processing: Remove common meta-descriptions and preambles
-        response_clean = response.strip()
+        response_clean = repaired_response.strip()
         meta_prefixes = [
             r"^(?:Here is|This is|Below is).*?(?:question|reasoning|answer).*?[：:]\s*",
             r"^(?:以下是|这是).*?(?:问题|推理|答案).*?[：:]\s*",
