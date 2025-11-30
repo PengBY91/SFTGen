@@ -128,13 +128,6 @@ async def run_concurrent(
         if len(batch_completion_times) > window_size:
             batch_completion_times.pop(0)
         
-        # 计算当前批次速度（基于最近完成的项）
-        if len(batch_completion_times) >= 2:
-            time_span = batch_completion_times[-1] - batch_completion_times[0]
-            if time_span > 0:
-                current_rate = len(batch_completion_times) / time_span
-                pbar.set_postfix({"rate": f"{current_rate:.2f} {unit}/s"})
-        
         # 【优化】只在达到间隔或完成时更新进度条和日志
         should_log = (
             completed_count - last_logged_count >= log_interval or  # 达到间隔
@@ -142,6 +135,13 @@ async def run_concurrent(
         )
         
         if should_log:
+            # 计算当前批次速度（基于最近完成的项）
+            if len(batch_completion_times) >= 2:
+                time_span = batch_completion_times[-1] - batch_completion_times[0]
+                if time_span > 0:
+                    current_rate = len(batch_completion_times) / time_span
+                    pbar.set_postfix({"rate": f"{current_rate:.2f} {unit}/s"})
+            
             # 更新进度条（一次性更新多个）
             update_count = completed_count - last_logged_count
             pbar.update(update_count)
