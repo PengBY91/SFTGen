@@ -87,6 +87,7 @@ async def run_concurrent(
     desc: str = "processing",
     unit: str = "item",
     progress_bar: Optional[Any] = None,
+    log_interval: int = 100,  # 新增：日志记录间隔
 ) -> List[R]:
     import time
     
@@ -104,6 +105,9 @@ async def run_concurrent(
 
     if progress_bar is not None:
         progress_bar(0.0, desc=f"{desc} (0/{len(items)})")
+
+    # 用于记录上次日志时的数量
+    last_logged_count = 0
 
     for future in asyncio.as_completed(tasks):
         try:
@@ -131,11 +135,21 @@ async def run_concurrent(
                 current_rate = len(batch_completion_times) / time_span
                 pbar.set_postfix({"rate": f"{current_rate:.2f} {unit}/s"})
         
-        pbar.update(1)
+        # 【优化】只在达到间隔或完成时更新进度条和日志
+        should_log = (
+            completed_count - last_logged_count >= log_interval or  # 达到间隔
+            completed_count == len(items)  # 或者全部完成
+        )
+        
+        if should_log:
+            # 更新进度条（一次性更新多个）
+            update_count = completed_count - last_logged_count
+            pbar.update(update_count)
+            last_logged_count = completed_count
 
-        if progress_bar is not None:
-            progress = completed_count / len(items)
-            progress_bar(progress, desc=f"{desc} ({completed_count}/{len(items)})")
+            if progress_bar is not None:
+                progress = completed_count / len(items)
+                progress_bar(progress, desc=f"{desc} ({completed_count}/{len(items)})")
 
     pbar.close()
 

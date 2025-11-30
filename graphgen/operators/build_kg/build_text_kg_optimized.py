@@ -168,15 +168,17 @@ async def extract_with_prompt_merging(
             batch_hash = compute_content_hash(batch_content, prefix="merged-extract-")
             cached_result = await cache_storage.get_by_id(batch_hash)
             if cached_result is not None:
-                logger.debug("Cache hit for merged batch of %d chunks", len(chunk_batch))
+                # 缓存命中时只记录info级别
+                logger.info("Cache hit for merged batch of %d chunks", len(chunk_batch))
                 return cached_result["results"]
         
         # 构建合并prompt
         merged_prompt = build_merged_extraction_prompt(chunk_batch)
-        logger.debug(
-            "Built merged prompt for %d chunks, prompt length: %d",
-            len(chunk_batch), len(merged_prompt)
-        )
+        # 移除过于频繁的debug日志
+        # logger.debug(
+        #     "Built merged prompt for %d chunks, prompt length: %d",
+        #     len(chunk_batch), len(merged_prompt)
+        # )
         
         # 调用LLM（一次调用处理多个chunks）
         if kg_builder.batch_manager:
@@ -184,11 +186,12 @@ async def extract_with_prompt_merging(
         else:
             response = await kg_builder.llm_client.generate_answer(merged_prompt)
         
-        logger.debug(
-            "Received LLM response for merged batch: length=%d, preview=%s",
-            len(response) if response else 0,
-            response[:200] if response else "None"
-        )
+        # 只在有响应时记录摘要信息
+        if response:
+            logger.debug(
+                "Received LLM response for merged batch of %d chunks: length=%d",
+                len(chunk_batch), len(response)
+            )
         
         # 解析响应，分配给各个chunk（使用await）
         results = await parse_merged_extraction_response(
@@ -211,7 +214,8 @@ async def extract_with_prompt_merging(
                     "chunk_ids": [c.id for c in chunk_batch]
                 }
             })
-            logger.debug("Cached merged extraction result for %d chunks", len(chunk_batch))
+            # 移除过于频繁的debug日志
+            # logger.debug("Cached merged extraction result for %d chunks", len(chunk_batch))
         
         return results
     
@@ -291,7 +295,8 @@ async def parse_merged_extraction_response(
         "Parsing merged response for %d chunks, response length: %d",
         len(chunk_batch), len(response)
     )
-    logger.debug("Response preview: %s", response[:500])
+    # 移除response preview，太占日志空间
+    # logger.debug("Response preview: %s", response[:500])
     
     # 分割响应，按文本编号分组
     text_markers_zh = [f"[文本{i}]" for i in range(1, len(chunk_batch) + 1)]
@@ -378,6 +383,8 @@ async def parse_merged_extraction_response(
     
     # 为每个chunk解析其对应的section（使用await）
     results = []
+    parsed_count = 0
+    fallback_count = 0
     
     for idx, chunk in enumerate(chunk_batch):
         # 找到对应的section
@@ -389,20 +396,31 @@ async def parse_merged_extraction_response(
         
         if section_text:
             nodes, edges = await parse_single_extraction(section_text, chunk.id)
-            logger.debug(
-                "Chunk %d (%s): parsed section with %d nodes, %d edges",
-                idx, chunk.id, len(nodes), len(edges)
-            )
+            parsed_count += 1
+            # 只在前几个或每10个时记录详细信息
+            if parsed_count <= 3 or parsed_count % 10 == 0:
+                logger.debug(
+                    "Chunk %d (%s): parsed section with %d nodes, %d edges",
+                    idx, chunk.id, len(nodes), len(edges)
+                )
         else:
             # 如果没有找到对应section，记录警告但不返回空结果
-            # 尝试使用整个响应（可能是LLM没有完全遵循格式）
-            logger.warning(
-                "No section found for chunk %d (%s), using full response as fallback",
-                idx, chunk.id
-            )
+            fallback_count += 1
+            if fallback_count <= 3:  # 只记录前3个警告
+                logger.warning(
+                    "No section found for chunk %d (%s), using full response as fallback",
+                    idx, chunk.id
+                )
             nodes, edges = await parse_single_extraction(response, chunk.id)
         
         results.append((nodes, edges))
+    
+    # 汇总信息
+    if fallback_count > 3:
+        logger.warning(
+            "Total %d chunks used fallback parsing (only first 3 logged)",
+            fallback_count
+        )
     
     return results
 
@@ -423,18 +441,29 @@ async def parse_single_extraction(text: str, chunk_id: str):
         ],
     )
     
-    parse_logger.debug(
-        "Parsing extraction for chunk %s: found %d records",
-        chunk_id, len(records)
-    )
+    # 只在有records时记录总体信息
+    if records:
+        parse_logger.debug(
+            "Parsing extraction for chunk %s: found %d records",
+            chunk_id, len(records)
+        )
     
     nodes = defaultdict(list)
     edges = defaultdict(list)
     
+    # 统计信息（减少日志频率）
+    no_match_count = 0
+    entity_count = 0
+    relation_count = 0
+    neither_count = 0
+    
     for record_idx, record in enumerate(records):
         match = re.search(r"\((.*)\)", record)
         if not match:
-            parse_logger.debug("Record %d: no match for pattern", record_idx)
+            no_match_count += 1
+            # 只记录前几个失败的，或者每100个记录一次
+            if no_match_count <= 3 or record_idx % 100 == 0:
+                parse_logger.debug("Record %d: no match for pattern", record_idx)
             continue
         inner = match.group(1)
         
@@ -442,36 +471,48 @@ async def parse_single_extraction(text: str, chunk_id: str):
             inner, [KG_EXTRACTION_PROMPT["FORMAT"]["tuple_delimiter"]]
         )
         
-        parse_logger.debug(
-            "Record %d: parsed %d attributes, first attr: %s",
-            record_idx, len(attributes), attributes[0] if attributes else "N/A"
-        )
+        # 只在前几个或每100个时记录详细信息
+        if record_idx < 3 or record_idx % 100 == 0:
+            parse_logger.debug(
+                "Record %d: parsed %d attributes, first attr: %s",
+                record_idx, len(attributes), attributes[0] if attributes else "N/A"
+            )
         
         # 使用 await 而不是 asyncio.run()
         entity = await handle_single_entity_extraction(attributes, chunk_id)
         if entity is not None:
             nodes[entity["entity_name"]].append(entity)
-            parse_logger.debug("Record %d: extracted entity '%s'", record_idx, entity["entity_name"])
+            entity_count += 1
+            # 只在前几个或每100个时记录
+            if entity_count <= 3 or entity_count % 100 == 0:
+                parse_logger.debug("Record %d: extracted entity '%s'", record_idx, entity["entity_name"])
             continue
         
         relation = await handle_single_relationship_extraction(attributes, chunk_id)
         if relation is not None:
             key = (relation["src_id"], relation["tgt_id"])
             edges[key].append(relation)
-            parse_logger.debug(
-                "Record %d: extracted relationship '%s' -> '%s'",
-                record_idx, relation["src_id"], relation["tgt_id"]
-            )
+            relation_count += 1
+            # 只在前几个或每100个时记录
+            if relation_count <= 3 or relation_count % 100 == 0:
+                parse_logger.debug(
+                    "Record %d: extracted relationship '%s' -> '%s'",
+                    record_idx, relation["src_id"], relation["tgt_id"]
+                )
             continue
         
-        parse_logger.warning(
-            "Record %d: neither entity nor relationship. Attributes: %s",
-            record_idx, attributes[:5] if len(attributes) > 5 else attributes
-        )
+        neither_count += 1
+        # 只记录前几个失败的
+        if neither_count <= 3:
+            parse_logger.warning(
+                "Record %d: neither entity nor relationship. Attributes: %s",
+                record_idx, attributes[:5] if len(attributes) > 5 else attributes
+            )
     
+    # 汇总统计信息
     parse_logger.info(
-        "Chunk %s extraction complete: %d nodes, %d edges",
-        chunk_id, len(nodes), len(edges)
+        "Chunk %s extraction complete: %d nodes, %d edges (from %d records, %d failed)",
+        chunk_id, len(nodes), len(edges), len(records), no_match_count + neither_count
     )
     
     return dict(nodes), dict(edges)
