@@ -26,14 +26,19 @@ class TaskService:
         """获取所有任务"""
         try:
             tasks = task_manager.get_all_tasks()
+            # 确保返回列表，即使为空
+            task_list = [task.to_dict() for task in tasks] if tasks else []
             return {
                 "success": True,
-                "data": [task.to_dict() for task in tasks]
+                "data": task_list
             }
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "data": []  # 出错时也返回空数组
             }
     
     def get_task(self, task_id: str) -> Dict[str, Any]:

@@ -131,7 +131,7 @@ class AutoReviewService:
             }
     
     async def auto_review_batch(self, request: AutoReviewRequest) -> Dict[str, Any]:
-        """批量自动审核"""
+        """批量自动审核（优化版）"""
         try:
             results = []
             errors = []
@@ -142,20 +142,27 @@ class AutoReviewService:
             
             task_id = "_".join(request.item_ids[0].split("_")[:-1])
             
-            # 加载任务数据
+            # 【优化1】一次性加载任务数据
             load_result = review_service.load_task_data(task_id)
             if not load_result["success"]:
                 return load_result
             
             items_dict = {item["item_id"]: DataItem(**item) for item in load_result["data"]}
             
-            # 逐个审核
+            # 【优化2】提前加载审核数据，避免后面重复加载
+            reviews = review_service._load_reviews(task_id)
+            
+            # 逐个审核（这部分需要调用LLM，无法避免）
             for item_id in request.item_ids:
                 if item_id not in items_dict:
                     errors.append({"item_id": item_id, "error": "数据项不存在"})
                     continue
                 
-                item = items_dict[item_id]
+                # 使用已经在reviews中的item，如果不存在则使用items_dict中的
+                if item_id in reviews:
+                    item = reviews[item_id]
+                else:
+                    item = items_dict[item_id]
                 
                 # 调用自动审核
                 review_result = await self.review_single_item(item)
@@ -176,6 +183,9 @@ class AutoReviewService:
                         item.review_status = ReviewStatus.AUTO_REJECTED
                         item.review_time = datetime.now().isoformat()
                     
+                    # 【优化3】直接更新到reviews字典中
+                    reviews[item_id] = item
+                    
                     results.append({
                         "item_id": item_id,
                         "score": score,
@@ -188,12 +198,9 @@ class AutoReviewService:
                         "error": review_result.get("error", "未知错误")
                     })
             
-            # 保存审核结果
-            reviews = review_service._load_reviews(task_id)
-            for item_id in request.item_ids:
-                if item_id in items_dict:
-                    reviews[item_id] = items_dict[item_id]
-            review_service._save_reviews(task_id, reviews)
+            # 【优化4】只保存一次文件（移除了重复的_load_reviews调用）
+            if results:  # 只有成功审核的才保存
+                review_service._save_reviews(task_id, reviews)
             
             return {
                 "success": True,

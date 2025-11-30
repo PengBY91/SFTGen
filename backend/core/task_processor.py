@@ -30,6 +30,8 @@ class TaskProcessor:
         cache_folder = None
         working_dir = None
         log_file = None
+        synthesizer_llm_client = None
+        trainee_llm_client = None
         try:
             # 获取任务信息
             task = task_manager.get_task(task_id)
@@ -228,6 +230,43 @@ class TaskProcessor:
                 logger.error(f"[TaskProcessor] 任务失败，日志文件: {log_file}")
         
         finally:
+            # 关闭LLM客户端，避免Event loop is closed错误
+            import asyncio
+            try:
+                # 获取当前运行的事件循环或创建新的
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                
+                # 如果事件循环存在且未关闭，则关闭客户端
+                if loop and not loop.is_closed():
+                    if synthesizer_llm_client:
+                        try:
+                            loop.run_until_complete(synthesizer_llm_client.aclose())
+                        except Exception:
+                            pass
+                    if trainee_llm_client:
+                        try:
+                            loop.run_until_complete(trainee_llm_client.aclose())
+                        except Exception:
+                            pass
+                else:
+                    # 事件循环已关闭或不存在，尝试创建新的事件循环来清理
+                    try:
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        if synthesizer_llm_client:
+                            new_loop.run_until_complete(synthesizer_llm_client.aclose())
+                        if trainee_llm_client:
+                            new_loop.run_until_complete(trainee_llm_client.aclose())
+                        new_loop.close()
+                    except Exception:
+                        pass
+            except Exception:
+                # 静默处理所有异常，因为清理失败不应影响任务状态
+                pass
+            
             # 清理临时工作目录（但保留日志文件）
             # 只删除 working_dir，保留 logs 目录和日志文件
             # 注意：不要删除整个 cache_folder，因为 logs 目录在其中
@@ -324,10 +363,13 @@ class TaskProcessor:
             "generate": {
                 "mode": mode,
                 "data_format": config.data_format,
+                "target_qa_pairs": getattr(config, "qa_pair_limit", None),
+                "mode_ratios": mode_ratios,
                 # 优化配置
                 "use_multi_template": getattr(config, "use_multi_template", True),
                 "template_seed": getattr(config, "template_seed", None),
-                # 批量生成配置（问题生成阶段）
+                "chinese_only": getattr(config, "chinese_only", False),  # 添加 chinese_only 配置
+                # 批量请求配置（问题生成阶段）
                 "enable_batch_requests": getattr(config, "enable_batch_requests", True),
                 "batch_size": getattr(config, "batch_size", 10),
                 "max_wait_time": getattr(config, "max_wait_time", 0.5),

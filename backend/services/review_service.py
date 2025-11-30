@@ -168,25 +168,50 @@ class ReviewService:
             }
     
     def batch_review(self, request: BatchReviewRequest) -> Dict[str, Any]:
-        """批量审核数据项"""
+        """批量审核数据项（优化版）"""
         try:
             results = []
             errors = []
             
+            # 【优化1】只加载一次任务数据
+            task_data_result = self.load_task_data(request.task_id)
+            if not task_data_result["success"]:
+                return task_data_result
+            
+            all_items = {item["item_id"]: item for item in task_data_result["data"]}
+            
+            # 【优化2】只加载一次审核数据
+            reviews = self._load_reviews(request.task_id)
+            
+            # 【优化3】批量更新审核数据
             for item_id in request.item_ids:
-                review_request = ReviewRequest(
-                    task_id=request.task_id,  # 添加 task_id
-                    item_id=item_id,
-                    review_status=request.review_status,
-                    review_comment=request.review_comment,
-                    reviewer=request.reviewer
-                )
-                
-                result = self.review_item(review_request)
-                if result["success"]:
+                try:
+                    if item_id not in all_items:
+                        errors.append({"item_id": item_id, "error": "数据项不存在"})
+                        continue
+                    
+                    # 获取或创建数据项
+                    if item_id in reviews:
+                        item = reviews[item_id]
+                    else:
+                        item = DataItem(**all_items[item_id])
+                    
+                    # 更新审核信息
+                    item.review_status = request.review_status
+                    item.review_comment = request.review_comment
+                    item.reviewer = request.reviewer
+                    item.review_time = datetime.now().isoformat()
+                    
+                    # 保存到内存中
+                    reviews[item_id] = item
                     results.append(item_id)
-                else:
-                    errors.append({"item_id": item_id, "error": result["error"]})
+                    
+                except Exception as e:
+                    errors.append({"item_id": item_id, "error": str(e)})
+            
+            # 【优化4】只保存一次文件
+            if results:  # 只有成功审核的才保存
+                self._save_reviews(request.task_id, reviews)
             
             return {
                 "success": True,

@@ -232,6 +232,11 @@
             </el-radio-group>
           </el-form-item>
 
+          <el-form-item label="只生成中文">
+            <el-switch v-model="taskConfig.chinese_only" />
+            <div class="form-item-tip">强制生成纯中文问答对，问题和答案都不包含英文（推荐用于中文训练数据）</div>
+          </el-form-item>
+
           <el-divider content-position="left">数量与类型控制</el-divider>
 
           <el-form-item label="目标问答数量">

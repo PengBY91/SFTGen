@@ -355,6 +355,7 @@ async def generate_qas(
     # 获取优化配置
     use_multi_template = generation_config.get("use_multi_template", True)
     template_seed = generation_config.get("template_seed", None)
+    chinese_only = generation_config.get("chinese_only", False)
     enable_batch_requests = generation_config.get("enable_batch_requests", True)
     batch_size = generation_config.get("batch_size", 10)
     max_wait_time = generation_config.get("max_wait_time", 0.5)
@@ -454,7 +455,7 @@ async def generate_qas(
     if mode == "all":
         # 创建所有四种生成器的列表，并记录对应的 mode
         generators = [
-            (AtomicGenerator(actual_llm_client, use_multi_template=use_multi_template, template_seed=template_seed), "atomic"),
+            (AtomicGenerator(actual_llm_client, use_multi_template=use_multi_template, template_seed=template_seed, chinese_only=chinese_only), "atomic"),
             (AggregatedGenerator(actual_llm_client, use_combined_mode=use_combined_mode), "aggregated"),
             (MultiHopGenerator(actual_llm_client), "multi_hop"),
             (CoTGenerator(actual_llm_client, use_combined_mode=use_combined_mode), "cot"),
@@ -576,6 +577,7 @@ async def generate_qas(
                 actual_llm_client,
                 use_multi_template=use_multi_template,
                 template_seed=template_seed,
+                chinese_only=chinese_only,
             )
         elif mode == "aggregated":
             generator = AggregatedGenerator(
@@ -603,6 +605,7 @@ async def generate_qas(
                 actual_llm_client,
                 use_multi_template=use_multi_template,
                 template_seed=template_seed,
+                chinese_only=chinese_only,
             )
 
             async def generate_questions_with_storage(batch):
@@ -689,9 +692,15 @@ async def generate_qas(
                     
                     # 2. 检测语言并选择模板
                     language = detect_main_language(context_text or entry["question"])
-                    template = ATOMIC_ANSWER_PROMPT.get(
-                        language, ATOMIC_ANSWER_PROMPT["en"]
-                    )
+                    
+                    # 3. 选择模板（考虑chinese_only配置）
+                    if chinese_only:
+                        from graphgen.templates import ATOMIC_ANSWER_PROMPT_CHINESE_ONLY
+                        template = ATOMIC_ANSWER_PROMPT_CHINESE_ONLY.get("zh", ATOMIC_ANSWER_PROMPT["zh"])
+                    else:
+                        template = ATOMIC_ANSWER_PROMPT.get(
+                            language, ATOMIC_ANSWER_PROMPT["en"]
+                        )
                     
                     # 3. 构建 prompt
                     prompt = template.format(

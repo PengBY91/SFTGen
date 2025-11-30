@@ -176,17 +176,19 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
 
 
 class AtomicGenerator(BaseGenerator):
-    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None):
+    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None, chinese_only: bool = False):
         """
         Initialize AtomicGenerator with optional multi-template support.
         
         :param llm_client: LLM client instance
         :param use_multi_template: Whether to use multiple template variants for diversity
         :param template_seed: Optional seed for template selection (for reproducibility)
+        :param chinese_only: Whether to generate only Chinese QA pairs
         """
         super().__init__(llm_client)
         self.use_multi_template = use_multi_template
         self.template_seed = template_seed
+        self.chinese_only = chinese_only
         if template_seed is not None:
             random.seed(template_seed)
         self._generation_mode = "atomic"
@@ -208,12 +210,26 @@ class AtomicGenerator(BaseGenerator):
     ) -> str:
         """
         Build prompt for LLM based on the given batch.
-        Supports multi-template sampling for diversity.
+        Supports multi-template sampling for diversity and Chinese-only mode.
         """
         context, language = self._build_context(batch)
 
+        # Use Chinese-only templates if enabled
+        if self.chinese_only:
+            if self.use_multi_template:
+                from graphgen.templates import ATOMIC_GENERATION_PROMPT_VARIANTS_CHINESE_ONLY
+                if "zh" in ATOMIC_GENERATION_PROMPT_VARIANTS_CHINESE_ONLY:
+                    templates = ATOMIC_GENERATION_PROMPT_VARIANTS_CHINESE_ONLY["zh"]
+                    selected_template = random.choice(templates)
+                    logger.debug("Selected Chinese-only template variant")
+                else:
+                    from graphgen.templates import ATOMIC_GENERATION_PROMPT_CHINESE_ONLY
+                    selected_template = ATOMIC_GENERATION_PROMPT_CHINESE_ONLY.get("zh")
+            else:
+                from graphgen.templates import ATOMIC_GENERATION_PROMPT_CHINESE_ONLY
+                selected_template = ATOMIC_GENERATION_PROMPT_CHINESE_ONLY.get("zh")
         # Use multi-template sampling if enabled
-        if self.use_multi_template and language in ATOMIC_GENERATION_PROMPT_VARIANTS:
+        elif self.use_multi_template and language in ATOMIC_GENERATION_PROMPT_VARIANTS:
             templates = ATOMIC_GENERATION_PROMPT_VARIANTS[language]
             selected_template = random.choice(templates)
             logger.debug("Selected template variant for language %s", language)
@@ -340,8 +356,8 @@ class AtomicQuestionGenerator(AtomicGenerator):
     Generator that only produces questions (used for two-phase generation).
     """
 
-    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None):
-        super().__init__(llm_client, use_multi_template, template_seed)
+    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None, chinese_only: bool = False):
+        super().__init__(llm_client, use_multi_template, template_seed, chinese_only)
         self._generation_mode = "atomic_question"
 
     def build_prompt(
@@ -349,7 +365,13 @@ class AtomicQuestionGenerator(AtomicGenerator):
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         context, language = self._build_context(batch)
-        template = ATOMIC_QUESTION_PROMPT.get(language, ATOMIC_QUESTION_PROMPT["en"])
+        
+        # Use Chinese-only templates if enabled
+        if self.chinese_only:
+            from graphgen.templates import ATOMIC_QUESTION_PROMPT_CHINESE_ONLY
+            template = ATOMIC_QUESTION_PROMPT_CHINESE_ONLY.get("zh", ATOMIC_QUESTION_PROMPT["zh"])
+        else:
+            template = ATOMIC_QUESTION_PROMPT.get(language, ATOMIC_QUESTION_PROMPT["en"])
         return template.format(context=context)
 
     @staticmethod

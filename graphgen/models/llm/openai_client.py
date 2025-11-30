@@ -63,6 +63,28 @@ class OpenAIClient(BaseLLMClient):
         self.client = AsyncOpenAI(
             api_key=self.api_key or "dummy", base_url=self.base_url
         )
+    
+    async def __aenter__(self):
+        """异步上下文管理器入口"""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """异步上下文管理器退出，确保客户端正确关闭"""
+        await self.aclose()
+        return False
+    
+    async def aclose(self):
+        """关闭异步客户端"""
+        try:
+            if hasattr(self, 'client') and self.client is not None:
+                await self.client.close()
+        except RuntimeError as e:
+            # 忽略"Event loop is closed"错误
+            if "Event loop is closed" not in str(e):
+                raise
+        except Exception:
+            # 静默处理其他关闭错误
+            pass
 
     def _pre_generate(self, text: str, history: List[str]) -> Dict:
         kwargs = {

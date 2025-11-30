@@ -311,20 +311,58 @@ const filteredTasks = computed(() => {
 // 刷新任务列表
 const refreshTasks = async () => {
   loading.value = true
-  await taskStore.fetchTasks()
-  await fetchTaskStats()
-  loading.value = false
+  let fetchSuccess = false
+  try {
+    await taskStore.fetchTasks()
+    fetchSuccess = true
+    await fetchTaskStats()
+  } catch (error: any) {
+    fetchSuccess = false
+    console.error('刷新任务列表失败:', error)
+    // 检查是否是认证错误
+    if (error?.response?.status === 401 || error?.message?.includes('401')) {
+      ElMessage.error('登录已过期，请重新登录')
+      // 等待一下再跳转，让用户看到错误消息
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
+    } else if (error?.response?.status === 403) {
+      ElMessage.error('权限不足，无法访问任务列表')
+    } else if (!error?.response) {
+      // 网络错误已在拦截器中处理，这里不需要重复
+      console.warn('网络错误或后端服务未运行')
+    }
+  } finally {
+    loading.value = false
+  }
 }
 
 // 获取任务统计
 const fetchTaskStats = async () => {
   try {
     const response = await api.getTaskStats()
-    if (response.success && response.data) {
+    if (response?.success && response.data) {
       taskStats.value = response.data
+    } else {
+      // 如果获取失败，重置统计
+      taskStats.value = {
+        total: 0,
+        pending: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0
+      }
     }
   } catch (error) {
     console.error('获取任务统计失败', error)
+    // 重置统计以避免显示错误数据
+    taskStats.value = {
+      total: 0,
+      pending: 0,
+      processing: 0,
+      completed: 0,
+      failed: 0
+    }
   }
 }
 
@@ -458,8 +496,13 @@ const handleRowClick = (task: TaskInfo) => {
 
 // 初始化
 onMounted(async () => {
-  await configStore.loadConfig()
-  await refreshTasks()
+  try {
+    await configStore.loadConfig()
+    await refreshTasks()
+  } catch (error) {
+    console.error('初始化失败:', error)
+    ElMessage.error('页面初始化失败，请刷新页面重试')
+  }
   // 自动刷新已禁用，用户可以通过点击刷新按钮手动刷新
   // refreshTimer = window.setInterval(() => {
   //   refreshTasks()

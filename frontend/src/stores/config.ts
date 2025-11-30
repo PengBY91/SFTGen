@@ -55,7 +55,8 @@ export const useConfigStore = defineStore('config', () => {
     qa_ratio_multi_hop: 25,
     qa_ratio_cot: 25,
     persistent_deduplication: true,
-    question_first: true
+    question_first: true,
+    chinese_only: false  // 默认不限制语言
   })
 
   // 加载配置
@@ -145,7 +146,8 @@ export const useConfigStore = defineStore('config', () => {
       qa_ratio_multi_hop: 25,
       qa_ratio_cot: 25,
       persistent_deduplication: true,
-      question_first: true
+      question_first: true,
+      chinese_only: false  // 默认不限制语言
     }
   }
 

@@ -12,7 +12,13 @@
         </div>
       </div>
       <div class="header-actions">
-            <el-select v-model="statusFilter" placeholder="筛选状态" clearable style="width: 150px; margin-right: 10px">
+            <el-select v-model="modeFilter" placeholder="筛选生成模式" clearable style="width: 150px; margin-right: 10px">
+              <el-option label="Atomic" value="atomic" />
+              <el-option label="Multi-hop" value="multi_hop" />
+              <el-option label="Aggregated" value="aggregated" />
+              <el-option label="CoT" value="cot" />
+            </el-select>
+            <el-select v-model="statusFilter" placeholder="筛选审核状态" clearable style="width: 150px; margin-right: 10px">
               <el-option label="待审核" value="pending" />
               <el-option label="已通过" value="approved" />
               <el-option label="已拒绝" value="rejected" />
@@ -50,13 +56,15 @@
     <!-- 数据表格（直接在页面中展示） -->
     <div class="table-wrapper">
       <el-table
+        ref="tableRef"
         :data="paginatedData"
         @selection-change="handleSelectionChange"
+        row-key="item_id"
         style="width: 100%"
         stripe
         v-loading="loading"
       >
-        <el-table-column type="selection" width="50" />
+        <el-table-column type="selection" width="50" :reserve-selection="false" />
         <el-table-column prop="item_id" label="ID" width="160" show-overflow-tooltip />
         <el-table-column label="内容预览" min-width="600">
           <template #default="{ row }">
@@ -220,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 // 状态映射（提升到组件外避免重复创建）
@@ -263,9 +271,12 @@ const stats = ref<ReviewStats>({
 })
 
 const statusFilter = ref('')
+const modeFilter = ref('')
 const selectedItems = ref<DataItem[]>([])
 const autoReviewDialogVisible = ref(false)
 const autoReviewLoading = ref(false)
+const tableRef = ref<any>(null)
+const isTableUpdating = ref(false)  // 标志：表格数据正在更新或清除选择中
 
 // 分页相关
 const currentPage = ref(1)
@@ -284,8 +295,16 @@ const autoReviewForm = ref({
 // 过滤后的数据
 const filteredData = computed(() => {
   let result = data.value
+  // 按审核状态筛选
   if (statusFilter.value) {
     result = result.filter(item => item.review_status === statusFilter.value)
+  }
+  // 按生成模式筛选
+  if (modeFilter.value) {
+    result = result.filter(item => {
+      const mode = getGenerationMode(item)
+      return mode === modeFilter.value
+    })
   }
   return result
 })
@@ -299,25 +318,60 @@ const paginatedData = computed(() => {
 
 // 刷新数据
 const refreshData = async () => {
+  // 防止重复调用导致的卡死
+  if (loading.value) {
+    console.warn('[refreshData] 刷新正在进行中，跳过重复调用')
+    return
+  }
+  
+  console.log('[refreshData] 开始刷新数据')
   loading.value = true
+  isTableUpdating.value = true // 标记开始更新，阻止 selection-change 副作用
+  
+  // 先清空选中项并清除表格选择
+  selectedItems.value = []
+  if (tableRef.value) {
+    try {
+      tableRef.value.clearSelection()
+      console.log('[refreshData] 表格选择已提前清除')
+    } catch (e) {
+      console.warn('[refreshData] 清除表格选择失败:', e)
+    }
+  }
+  
   try {
+    console.log('[refreshData] 发送API请求')
     const [dataRes, statsRes] = await Promise.all([
       api.getReviewData(taskId),
       api.getReviewStats(taskId)
     ]) as [any, any]  // 因为拦截器已解包
 
+    console.log('[refreshData] API请求完成')
+    
     // 响应拦截器已经返回 response.data，所以直接访问
     if (dataRes?.success && dataRes.data) {
       data.value = dataRes.data
+      console.log('[refreshData] 数据已更新，条数:', dataRes.data.length)
+    } else {
+      data.value = []
+      console.log('[refreshData] 数据为空或失败')
     }
 
     if (statsRes?.success && statsRes.data) {
       stats.value = statsRes.data
     }
+    
+    console.log('[refreshData] 刷新完成')
   } catch (error) {
-    console.error('刷新数据失败', error)
+    console.error('[refreshData] 刷新数据失败', error)
+    selectedItems.value = []
   } finally {
     loading.value = false
+    // 缩短延迟时间，因为后端已经优化
+    setTimeout(() => {
+      isTableUpdating.value = false
+      console.log('[refreshData] isTableUpdating重置')
+    }, 100)
   }
 }
 
@@ -412,29 +466,51 @@ const getFinalAnswer = (content: DataContent): string => {
 // 分页变化处理
 const handlePageChange = (page: number) => {
   currentPage.value = page
+  // 分页变化时清空选择
+  selectedItems.value = []
+  
   // 滚动到表格顶部
-  const tableEl = document.querySelector('.el-table__body-wrapper')
-  if (tableEl) {
-    tableEl.scrollTop = 0
-  }
+  nextTick(() => {
+    const tableEl = document.querySelector('.el-table__body-wrapper')
+    if (tableEl) {
+      tableEl.scrollTop = 0
+    }
+  })
 }
 
 // 每页数量变化处理
 const handlePageSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1  // 重置到第一页
+  // 分页变化时清空选择
+  selectedItems.value = []
+  
   // 保存到 localStorage
   localStorage.setItem('review_page_size', String(size))
+  
   // 滚动到表格顶部
-  const tableEl = document.querySelector('.el-table__body-wrapper')
-  if (tableEl) {
-    tableEl.scrollTop = 0
-  }
+  nextTick(() => {
+    const tableEl = document.querySelector('.el-table__body-wrapper')
+    if (tableEl) {
+      tableEl.scrollTop = 0
+    }
+  })
 }
 
 // 选择变化
 const handleSelectionChange = (selection: DataItem[]) => {
-  selectedItems.value = selection
+  console.log('[handleSelectionChange] 触发，isTableUpdating:', isTableUpdating.value, '选中数:', selection.length)
+  
+  // 如果表格正在更新或清除选择，忽略此次更新
+  if (isTableUpdating.value) {
+    console.log('[handleSelectionChange] isTableUpdating=true，忽略')
+    return
+  }
+  
+  // 过滤掉不在当前分页数据中的选中项，避免状态不一致
+  const currentItemIds = new Set(paginatedData.value.map(item => item.item_id))
+  selectedItems.value = selection.filter(item => currentItemIds.has(item.item_id))
+  console.log('[handleSelectionChange] 更新selectedItems，条数:', selectedItems.value.length)
 }
 
 // 查看详情（跳转到详情页面）
@@ -480,18 +556,33 @@ const rejectItem = async (item: DataItem) => {
 // 批量通过
 const batchApprove = async () => {
   if (selectedItems.value.length === 0) return
+  if (loading.value) {
+    console.warn('[batchApprove] 正在刷新中，跳过')
+    return
+  }
+
+  console.log('[batchApprove] 开始批量通过')
+  const itemCount = selectedItems.value.length
+  const itemIds = selectedItems.value.map(item => item.item_id)
 
   try {
+    console.log('[batchApprove] 发送批量审核请求')
     await api.batchReview({
       task_id: taskId,
-      item_ids: selectedItems.value.map(item => item.item_id),
+      item_ids: itemIds,
       review_status: 'approved',
       reviewer: '批量审核'
     })
 
-    ElMessage.success(`批量通过成功，共 ${selectedItems.value.length} 条`)
+    console.log('[batchApprove] 批量审核完成')
+    ElMessage.success(`批量通过成功，共 ${itemCount} 条`)
+    
+    // 调用refreshData（会自动处理选择清除）
+    console.log('[batchApprove] 调用refreshData')
     await refreshData()
+    console.log('[batchApprove] refreshData完成')
   } catch (error) {
+    console.error('[batchApprove] 批量操作失败', error)
     ElMessage.error('批量操作失败')
   }
 }
@@ -499,18 +590,32 @@ const batchApprove = async () => {
 // 批量拒绝
 const batchReject = async () => {
   if (selectedItems.value.length === 0) return
+  if (loading.value) {
+    console.warn('[batchReject] 正在刷新中，跳过')
+    return
+  }
+
+  console.log('[batchReject] 开始批量拒绝')
+  const itemCount = selectedItems.value.length
+  const itemIds = selectedItems.value.map(item => item.item_id)
 
   try {
+    console.log('[batchReject] 发送批量审核请求')
     await api.batchReview({
       task_id: taskId,
-      item_ids: selectedItems.value.map(item => item.item_id),
+      item_ids: itemIds,
       review_status: 'rejected',
       reviewer: '批量审核'
     })
 
-    ElMessage.success(`批量拒绝成功，共 ${selectedItems.value.length} 条`)
+    console.log('[batchReject] 批量拒绝完成')
+    ElMessage.success(`批量拒绝成功，共 ${itemCount} 条`)
+    
+    console.log('[batchReject] 调用refreshData')
     await refreshData()
+    console.log('[batchReject] refreshData完成')
   } catch (error) {
+    console.error('[batchReject] 批量操作失败', error)
     ElMessage.error('批量操作失败')
   }
 }
@@ -543,6 +648,7 @@ const startAutoReview = async () => {
     return
   }
 
+  console.log('[startAutoReview] 开始自动审核', itemIds.length, '条数据')
   autoReviewLoading.value = true
   try {
     await api.autoReview({
@@ -552,10 +658,15 @@ const startAutoReview = async () => {
       auto_reject: autoReviewForm.value.autoReject
     })
 
+    console.log('[startAutoReview] 自动审核完成')
     ElMessage.success(`自动审核完成，共审核 ${itemIds.length} 条数据`)
     autoReviewDialogVisible.value = false
+    
+    console.log('[startAutoReview] 调用refreshData')
     await refreshData()
+    console.log('[startAutoReview] refreshData完成')
   } catch (error) {
+    console.error('[startAutoReview] 自动审核失败', error)
     ElMessage.error('自动审核失败')
   } finally {
     autoReviewLoading.value = false
@@ -584,7 +695,7 @@ const exportData = async () => {
 
 
 // 监听筛选状态变化，重置到第一页
-watch(statusFilter, () => {
+watch([statusFilter, modeFilter], () => {
   currentPage.value = 1
 })
 

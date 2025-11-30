@@ -283,6 +283,11 @@
 
             <el-divider content-position="left">生成优化选项</el-divider>
 
+            <el-form-item label="只生成中文">
+              <el-switch v-model="config.chinese_only" />
+              <span class="form-item-tip">强制生成纯中文问答对，问题和答案都不包含英文（推荐用于中文训练数据）</span>
+            </el-form-item>
+
             <el-form-item label="多模板采样">
               <el-switch v-model="config.use_multi_template" />
               <span class="form-item-tip">为原子QA生成使用多个模板变体，提升生成数据多样性（推荐开启）</span>

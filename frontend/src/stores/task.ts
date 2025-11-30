@@ -13,11 +13,26 @@ export const useTaskStore = defineStore('task', () => {
     loading.value = true
     try {
       const response = await api.getAllTasks()
-      if (response.success && response.data) {
-        tasks.value = response.data
+      if (response?.success) {
+        // 确保 data 是数组
+        if (Array.isArray(response.data)) {
+          tasks.value = response.data
+        } else if (response.data) {
+          // 如果 data 不是数组，尝试包装
+          tasks.value = [response.data]
+        } else {
+          tasks.value = []
+        }
+      } else {
+        // 如果 success 为 false，清空列表
+        tasks.value = []
+        console.warn('获取任务列表失败:', response?.error || response?.message)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取任务列表失败', error)
+      tasks.value = []
+      // 抛出错误以便上层处理
+      throw error
     } finally {
       loading.value = false
     }

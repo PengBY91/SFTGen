@@ -49,6 +49,8 @@ export interface TaskConfig {
   // 去重优化
   persistent_deduplication?: boolean  // 是否启用持久化去重
   question_first?: boolean  // 是否启用先问后答流程
+  // 语言控制
+  chinese_only?: boolean  // 只生成中文问答（默认不限制）
 }
 
 export interface TaskInfo {

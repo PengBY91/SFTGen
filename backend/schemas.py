@@ -59,7 +59,9 @@ class TaskConfig(BaseModel):
     qa_ratio_cot: float = 25.0  # CoT 类型占比
     # 去重优化
     persistent_deduplication: bool = True  # 默认启用持久化去重
-    question_first: bool = True  # 默认启用“先问后答”流程（在不支持的模式下会被忽略）
+    question_first: bool = True  # 默认启用"先问后答"流程（在不支持的模式下会被忽略）
+    # 语言控制
+    chinese_only: bool = False  # 只生成中文问答（默认不限制）
 
 
 class APITestRequest(BaseModel):
