@@ -72,25 +72,63 @@ class DOCXReader(BaseReader):
         
         return "\n".join(markdown_lines)
     
+    def _extract_text_from_element(self, element) -> str:
+        """
+        Recursively extract text from a docx element, including text in runs and nested elements.
+        
+        :param element: docx element (paragraph, table cell, etc.)
+        :return: Extracted text content
+        """
+        text_parts = []
+        
+        # Extract text from runs (direct text content)
+        if hasattr(element, 'runs'):
+            for run in element.runs:
+                if run.text:
+                    text_parts.append(run.text)
+        
+        # Extract text from paragraphs if element has them
+        if hasattr(element, 'paragraphs'):
+            for para in element.paragraphs:
+                para_text = para.text.strip()
+                if para_text:
+                    text_parts.append(para_text)
+        
+        # Extract text from tables if element has them
+        if hasattr(element, 'tables'):
+            for table in element.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        cell_text = self._extract_text_from_element(cell)
+                        if cell_text.strip():
+                            text_parts.append(cell_text)
+        
+        return "\n".join(text_parts)
+    
     def read(self, file_path: str) -> List[Dict[str, Any]]:
         """
         Read text content from a .docx file.
+        Extracts text from main document paragraphs and tables only.
+        Excludes headers, footers, footnotes, endnotes, and page numbers.
         
         :param file_path: Path to the .docx file.
         :return: List containing a single dictionary with the document content.
         """
         try:
             doc = Document(file_path)
-            # Extract text from all paragraphs
+            text_parts = []
+            
+            # Extract text from main document paragraphs
             paragraphs = []
             for para in doc.paragraphs:
-                if para.text.strip():  # Only include non-empty paragraphs
-                    paragraphs.append(para.text)
+                para_text = para.text.strip()
+                if para_text:
+                    paragraphs.append(para_text)
             
-            # Join paragraphs with newlines to preserve structure
-            full_text = "\n\n".join(paragraphs)
+            if paragraphs:
+                text_parts.append("\n\n".join(paragraphs))
             
-            # Also extract text from tables if present and convert to Markdown format
+            # Extract text from tables in main document
             tables_text = []
             for table in doc.tables:
                 if len(table.rows) == 0:
@@ -101,7 +139,7 @@ class DOCXReader(BaseReader):
                     markdown_table = self._table_to_markdown(table)
                     if markdown_table:
                         tables_text.append(markdown_table)
-                except Exception as e:
+                except Exception:
                     # If Markdown conversion fails, fallback to plain text format
                     try:
                         table_rows = []
@@ -116,12 +154,86 @@ class DOCXReader(BaseReader):
                         if table_rows:
                             tables_text.append("\n".join(table_rows))
                     except Exception:
-                        # If even plain text extraction fails, skip this table
+                        # If even plain text extraction fails, try recursive extraction
+                        try:
+                            table_text = self._extract_text_from_element(table)
+                            if table_text.strip():
+                                tables_text.append(table_text)
+                        except Exception:
+                            pass
+            
+            if tables_text:
+                text_parts.append("\n\n".join(tables_text))
+            
+            # If no text found in standard locations, try comprehensive extraction from document body only
+            if not text_parts or not any(part.strip() for part in text_parts):
+                # Try to extract all text from document body XML (excluding headers/footers)
+                try:
+                    from docx.oxml.text.paragraph import CT_P
+                    from docx.oxml.table import CT_Tbl
+                    from docx.text.paragraph import Paragraph
+                    from docx.table import Table
+                    
+                    body_elements = []
+                    # Iterate through all elements in document body only (not headers/footers)
+                    for element in doc.element.body:
+                        if isinstance(element, CT_P):
+                            # Extract text from paragraph
+                            try:
+                                para = Paragraph(element, doc)
+                                para_text = para.text.strip()
+                                if para_text:
+                                    body_elements.append(para_text)
+                            except Exception:
+                                # If Paragraph creation fails, try direct XML text extraction
+                                try:
+                                    para_text = element.text.strip()
+                                    if para_text:
+                                        body_elements.append(para_text)
+                                except Exception:
+                                    pass
+                        elif isinstance(element, CT_Tbl):
+                            # Extract text from table
+                            try:
+                                table = Table(element, doc)
+                                # Try to extract text from all cells
+                                table_texts = []
+                                for row in table.rows:
+                                    row_texts = []
+                                    for cell in row.cells:
+                                        cell_text = cell.text.strip()
+                                        if cell_text:
+                                            row_texts.append(cell_text)
+                                    if row_texts:
+                                        table_texts.append(" | ".join(row_texts))
+                                if table_texts:
+                                    body_elements.append("\n".join(table_texts))
+                            except Exception:
+                                # If Table creation fails, try recursive text extraction from element
+                                try:
+                                    table_text = self._extract_text_from_element(element)
+                                    if table_text.strip():
+                                        body_elements.append(table_text)
+                                except Exception:
+                                    pass
+                    
+                    if body_elements:
+                        text_parts = ["\n\n".join(body_elements)]
+                except Exception:
+                    # Last resort: try to extract all text using XML text extraction from body only
+                    try:
+                        all_text = []
+                        # Extract all text nodes from document body only
+                        for para in doc.element.body.iter():
+                            if para.text and para.text.strip():
+                                all_text.append(para.text.strip())
+                        if all_text:
+                            text_parts = ["\n\n".join(all_text)]
+                    except Exception:
                         pass
             
-            # Combine paragraphs and tables
-            if tables_text:
-                full_text += "\n\n" + "\n\n".join(tables_text)
+            # Combine all text parts
+            full_text = "\n\n".join(text_parts) if text_parts else ""
             
             docs = [{
                 self.text_column: full_text,
