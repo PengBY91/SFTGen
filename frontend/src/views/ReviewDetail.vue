@@ -64,6 +64,20 @@
                 placeholder="推理路径（只读）"
               />
             </el-form-item>
+            <!-- 显示思考过程（COT 特有，只读） -->
+            <el-form-item 
+              v-if="getGenerationMode(currentItem) === 'cot' && getThinkingProcess(currentItem.content)" 
+              label="思考过程"
+            >
+              <el-input
+                :model-value="getThinkingProcess(currentItem.content)"
+                type="textarea"
+                :rows="6"
+                readonly
+                disabled
+                placeholder="思考过程（只读）"
+              />
+            </el-form-item>
             <el-form-item label="输入" v-if="currentItem.content.input">
               <el-input
                 v-model="editForm.input"
@@ -100,6 +114,11 @@
             <div class="content-section" v-if="(getGenerationMode(currentItem) === 'cot' || getGenerationMode(currentItem) === 'multi_hop') && getReasoningPath(currentItem.content)">
               <div class="section-label">推理路径</div>
               <div class="section-content reasoning-path-content">{{ getReasoningPath(currentItem.content) }}</div>
+            </div>
+            <!-- 显示思考过程（COT 特有） -->
+            <div class="content-section" v-if="getGenerationMode(currentItem) === 'cot' && getThinkingProcess(currentItem.content)">
+              <div class="section-label">思考过程</div>
+              <div class="section-content thinking-process-content">{{ getThinkingProcess(currentItem.content) }}</div>
             </div>
             <div class="content-section" v-if="'input' in currentItem.content && currentItem.content.input">
               <div class="section-label">输入</div>
@@ -512,6 +531,14 @@ const getReasoningPath = (content: DataContent): string => {
   return ''
 }
 
+// 获取思考过程（COT 特有）
+const getThinkingProcess = (content: DataContent): string => {
+  if ('thinking_process' in content && content.thinking_process) {
+    return content.thinking_process
+  }
+  return ''
+}
+
 // 辅助函数
 const getNodeName = (node: any): string => {
   if (typeof node === 'string') return node
@@ -700,6 +727,13 @@ onMounted(() => {
   border-left: 3px solid #409eff;
   color: #409eff;
   font-style: italic;
+}
+
+.thinking-process-content {
+  background-color: #f0f9ff;
+  border-left: 3px solid #67c23a;
+  color: #606266;
+  line-height: 1.8;
 }
 
 .info-section {

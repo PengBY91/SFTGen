@@ -7,6 +7,7 @@ import sys
 import hashlib
 import time
 import requests
+import urllib3
 from pathlib import Path
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -27,6 +28,29 @@ RETRY_DELAY = 2  # 秒
 def create_session_with_retries():
     """创建带重试机制的 requests session"""
     session = requests.Session()
+    
+    # 支持代理配置（从环境变量读取）
+    proxies = {}
+    if os.environ.get("HTTP_PROXY"):
+        proxies["http"] = os.environ.get("HTTP_PROXY")
+    if os.environ.get("HTTPS_PROXY"):
+        proxies["https"] = os.environ.get("HTTPS_PROXY")
+    if os.environ.get("http_proxy"):
+        proxies["http"] = os.environ.get("http_proxy")
+    if os.environ.get("https_proxy"):
+        proxies["https"] = os.environ.get("https_proxy")
+    
+    if proxies:
+        session.proxies = proxies
+        print(f"使用代理: {proxies}")
+    
+    # 支持禁用 SSL 验证（仅用于解决代理 SSL 问题）
+    verify_ssl = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("CURL_CA_BUNDLE")
+    if verify_ssl == "false" or os.environ.get("SKIP_SSL_VERIFY") == "1":
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        session.verify = False
+        print("警告: SSL 验证已禁用（仅用于解决代理问题）")
+    
     retry_strategy = Retry(
         total=MAX_RETRIES,
         backoff_factor=1,
