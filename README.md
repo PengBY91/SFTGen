@@ -357,9 +357,6 @@ async def generate_qas(
   - 请求限流（RPM/TPM）
   - 批量请求优化
 
-#### `OllamaClient` (`graphgen/models/llm/ollama_client.py`)
-- **用途**：封装本地 Ollama 模型调用
-
 #### `BatchLLMWrapper` (`graphgen/models/llm/batch_llm_wrapper.py`)
 - **用途**：批量请求包装器，优化 LLM 调用
 - **功能**：

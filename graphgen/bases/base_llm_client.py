@@ -10,7 +10,7 @@ from graphgen.bases.datatypes import Token
 
 class BaseLLMClient(abc.ABC):
     """
-    LLM client base class, agnostic to specific backends (OpenAI / Ollama / ...).
+    LLM client base class, agnostic to specific backends (OpenAI / OpenAI-compatible APIs).
     """
 
     def __init__(

@@ -32,7 +32,8 @@ class BatchRequestManager:
         llm_client,
         batch_size: int = 10,
         max_wait_time: float = 0.5,
-        enable_batching: bool = True
+        enable_batching: bool = True,
+        max_concurrent: Optional[int] = None,  # 新增：最大并发数，None 表示无限制
     ):
         """
         初始化批量请求管理器
@@ -41,17 +42,24 @@ class BatchRequestManager:
         :param batch_size: 每批处理的请求数量
         :param max_wait_time: 最大等待时间（秒），超过此时间即使未达到batch_size也会发送
         :param enable_batching: 是否启用批量处理
+        :param max_concurrent: 最大并发请求数，用于限制同时处理的请求数量（适用于 Ollama 等服务）
         """
         self.llm_client = llm_client
         self.batch_size = batch_size
         self.max_wait_time = max_wait_time
         self.enable_batching = enable_batching
+        self.max_concurrent = max_concurrent
         
         self.request_queue: List[BatchRequest] = []
         self.queue_lock = asyncio.Lock()
         self.batch_task: Optional[asyncio.Task] = None
         self.pending_futures: Dict[int, asyncio.Future] = {}
         self.request_counter = 0
+        
+        # 如果有并发限制，创建 Semaphore
+        self.semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent and max_concurrent > 0 else None
+        if self.semaphore:
+            logger.debug(f"BatchRequestManager 启用并发限制: max_concurrent={max_concurrent}")
     
     async def add_request(
         self,
@@ -139,17 +147,34 @@ class BatchRequestManager:
     async def _process_single_request(self, request: BatchRequest):
         """处理单个请求"""
         try:
-            if request.extra_params:
-                result = await self.llm_client.generate_answer(
-                    request.prompt,
-                    request.history,
-                    **request.extra_params
-                )
+            # 如果有并发限制，使用 Semaphore 控制
+            if self.semaphore:
+                async with self.semaphore:
+                    if request.extra_params:
+                        result = await self.llm_client.generate_answer(
+                            request.prompt,
+                            request.history,
+                            **request.extra_params
+                        )
+                    else:
+                        result = await self.llm_client.generate_answer(
+                            request.prompt,
+                            request.history
+                        )
             else:
-                result = await self.llm_client.generate_answer(
-                    request.prompt,
-                    request.history
-                )
+                # 无并发限制，直接调用
+                if request.extra_params:
+                    result = await self.llm_client.generate_answer(
+                        request.prompt,
+                        request.history,
+                        **request.extra_params
+                    )
+                else:
+                    result = await self.llm_client.generate_answer(
+                        request.prompt,
+                        request.history
+                    )
+            
             if request.callback:
                 request.callback(result)
         except Exception as e:
@@ -176,7 +201,8 @@ async def batch_generate_answers(
     histories: Optional[List[Optional[List[str]]]] = None,
     batch_size: int = 10,
     max_wait_time: float = 0.5,
-    enable_batching: bool = True
+    enable_batching: bool = True,
+    max_concurrent: Optional[int] = None,  # 新增：最大并发数
 ) -> List[str]:
     """
     批量生成答案的便捷函数
@@ -187,6 +213,7 @@ async def batch_generate_answers(
     :param batch_size: 批次大小
     :param max_wait_time: 最大等待时间
     :param enable_batching: 是否启用批量处理
+    :param max_concurrent: 最大并发请求数（适用于 Ollama 等服务）
     :return: 结果列表
     """
     if not enable_batching or len(prompts) == 1:
@@ -209,7 +236,8 @@ async def batch_generate_answers(
         llm_client=llm_client,
         batch_size=batch_size,
         max_wait_time=max_wait_time,
-        enable_batching=True
+        enable_batching=True,
+        max_concurrent=max_concurrent,
     )
     
     # 添加所有请求

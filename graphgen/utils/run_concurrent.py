@@ -89,8 +89,21 @@ async def run_concurrent(
     progress_bar: Optional[Any] = None,
     log_interval: int = 50,  # 默认每 50 个记录一次日志
     desc_callback: Optional[Callable[[int, int, List[R]], str]] = None,  # 新增：动态描述回调 (completed_count, total, results) -> desc
+    max_concurrent: Optional[int] = None,  # 新增：最大并发数，None 表示无限制
 ) -> List[R]:
     import time
+    
+    # 如果有并发限制，使用 Semaphore 包装 coro_fn
+    if max_concurrent is not None and max_concurrent > 0:
+        semaphore = asyncio.Semaphore(max_concurrent)
+        original_coro_fn = coro_fn
+        
+        async def limited_coro_fn(item: T) -> R:
+            async with semaphore:
+                return await original_coro_fn(item)
+        
+        coro_fn = limited_coro_fn
+        logger.debug(f"启用并发限制: max_concurrent={max_concurrent}")
     
     tasks = [asyncio.create_task(coro_fn(it)) for it in items]
 
