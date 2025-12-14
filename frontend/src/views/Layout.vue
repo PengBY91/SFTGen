@@ -23,10 +23,14 @@
             <el-menu-item index="/tasks/create-sft">新建SFT任务</el-menu-item>
             <el-menu-item index="/tasks/create-evaluation">新建评测任务</el-menu-item>
           </el-sub-menu>
-          <el-menu-item v-if="authStore.isAdmin" index="/config">
-            <el-icon><Setting /></el-icon>
-            <span>配置设置</span>
-          </el-menu-item>
+          <el-sub-menu v-if="authStore.isAdmin" index="/config">
+            <template #title>
+              <el-icon><Setting /></el-icon>
+              <span>配置设置</span>
+            </template>
+            <el-menu-item index="/config/sft">SFT配置</el-menu-item>
+            <el-menu-item index="/config/evaluation">评测配置</el-menu-item>
+          </el-sub-menu>
           <el-menu-item v-if="authStore.isAdmin" index="/users">
             <el-icon><User /></el-icon>
             <span>用户管理</span>

@@ -112,7 +112,7 @@ class TaskProcessor:
             
             logger.info(f"[TaskProcessor] 所有文件处理完成，共处理 {len(filepaths)} 个文件")
             
-            if graphgen_config[\"if_trainee_model"]:
+            if graphgen_config["if_trainee_model"]:
                 graph_gen.quiz_and_judge(quiz_and_judge_config=graphgen_config["quiz_and_judge"])
             
             # 根据任务类型执行不同的生成逻辑

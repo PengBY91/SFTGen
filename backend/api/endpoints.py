@@ -93,7 +93,8 @@ async def create_task(
         task_name=request.task_name,
         filenames=request.filenames,
         filepaths=request.filepaths,
-        task_description=request.task_description
+        task_description=request.task_description,
+        task_type=request.task_type.value  # 传递任务类型
     )
     # 确保 task_id 在响应的顶层
     if result.get("success") and result.get("task_id"):

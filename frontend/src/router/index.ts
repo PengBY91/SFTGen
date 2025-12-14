@@ -41,6 +41,18 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: '新建评测任务', requiresAuth: true, requiresAdmin: true }
       },
       {
+        path: '/config/sft',
+        name: 'SFTConfig',
+        component: () => import('@/views/Config.vue'),
+        meta: { title: 'SFT配置', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: '/config/evaluation',
+        name: 'EvaluationConfig',
+        component: () => import('@/views/EvaluationConfig.vue'),
+        meta: { title: '评测配置', requiresAuth: true, requiresAdmin: true }
+      },
+      {
         path: '/config',
         name: 'Config',
         component: () => import('@/views/Config.vue'),
