@@ -118,12 +118,45 @@ class TaskProcessor:
             # 根据任务类型执行不同的生成逻辑
             if task.task_type == "evaluation":
                 # 评测任务：只生成评测集
-                logger.info("[TaskProcessor] 评测任务：开始生成评测集")
-                graph_gen.generate_evaluation(
-                    partition_config=graphgen_config["partition"],
-                    evaluation_config=graphgen_config["evaluation"],
+                logger.info(f"[TaskProcessor] 评测任务：开始生成评测集")
+                await graph_gen.generate_evaluation(
+                    eval_config=graphgen_config.get("evaluation", {})
                 )
-                logger.info("[TaskProcessor] 评测集生成完成")
+                logger.info(f"[TaskProcessor] 评测集生成完成")
+                
+                # 对于评测任务，检查评测数据文件
+                eval_data_dir = os.path.join(working_dir, "data", "evaluation")
+                eval_files = []
+                if os.path.exists(eval_data_dir):
+                    eval_files = [f for f in os.listdir(eval_data_dir) if f.endswith('.json')]
+                
+                if not eval_files:
+                    raise ValueError("评测集生成失败：未生成任何评测数据文件")
+                
+                # 使用第一个评测文件作为输出
+                output_file = os.path.join(eval_data_dir, eval_files[0])
+                logger.info(f"[TaskProcessor] 评测数据文件: {output_file}")
+                
+                # 读取评测数据统计信息
+                try:
+                    with open(output_file, 'r', encoding='utf-8') as f:
+                        eval_data = json.load(f)
+                    
+                    # 获取评测项数量
+                    eval_count = len(eval_data.get('items', []))
+                    logger.info(f"[TaskProcessor] 评测集包含 {eval_count} 个评测项")
+                    
+                    # 更新任务状态为完成（评测任务）
+                    task_manager.update_task_status(
+                        task_id,
+                        TaskStatus.COMPLETED,
+                        output_file=output_file,
+                        qa_count=eval_count  # 使用评测项数量
+                    )
+                except Exception as e:
+                    logger.error(f"[TaskProcessor] 读取评测数据失败: {e}")
+                    raise ValueError(f"读取评测数据失败: {e}")
+                
             else:
                 # SFT任务：生成训练数据
                 logger.info("[TaskProcessor] SFT任务：开始生成训练数据")
@@ -150,72 +183,56 @@ class TaskProcessor:
                                     pass
                 
                 # 在生成过程中定期保存临时输出
-                graph_gen.generate(
-                    partition_config=graphgen_config["partition"],
-                    generate_config=graphgen_config["generate"],
+                await graph_gen.generate(
+                    gen_config=graphgen_config["generate"],
                 )
-            
-            # 保存输出
-            output_data = graph_gen.qa_storage.data
-            output_file = task_manager.get_task_output_path(task_id)
-            
-            # 验证输出数据
-            if not output_data or len(output_data) == 0:
-                raise Exception("数据生成失败：未生成任何问答对。请检查 API key 是否正确，以及 LLM 服务是否可用。")
-            
-            # 保存完整输出（包含 context 和 graph）
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(output_data, f, ensure_ascii=False, indent=2)
-            
-            # 计算 token 使用量（区分 input 和 output）
-            def sum_tokens(client):
-                total = sum(u["total_tokens"] for u in client.token_usage)
-                prompt = sum(u.get("prompt_tokens", 0) for u in client.token_usage)
-                completion = sum(u.get("completion_tokens", 0) for u in client.token_usage)
-                return {
-                    "total": total,
-                    "input": prompt,
-                    "output": completion
+                logger.info(f"[TaskProcessor] 训练数据生成完成")
+                
+                # 检查生成的数据
+                output_data = graph_gen.qa_storage.get_all()
+                if not output_data:
+                    raise ValueError("数据生成失败：未生成任何问答对。请检查 API key 是否正确，以及 LLM 服务是否可用。")
+                
+                # 保存输出文件
+                output_file = os.path.join(working_dir, "data", f"{task_id}_output.json")
+                os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(output_data, f, ensure_ascii=False, indent=2)
+                
+                logger.info(f"[TaskProcessor] 输出文件已保存: {output_file}")
+                
+                # 获取token使用统计
+                synthesizer_usage = graph_gen.synthesizer_llm_client.get_usage()
+                trainee_usage = graph_gen.trainee_llm_client.get_usage() if graph_gen.trainee_llm_client else {"total": 0, "input": 0, "output": 0}
+                
+                total_tokens = synthesizer_usage["total"] + trainee_usage["total"]
+                total_input_tokens = synthesizer_usage["input"] + trainee_usage["input"]
+                total_output_tokens = synthesizer_usage["output"] + trainee_usage["output"]
+                
+                token_usage = {
+                    "synthesizer_tokens": synthesizer_usage["total"],
+                    "synthesizer_input_tokens": synthesizer_usage["input"],
+                    "synthesizer_output_tokens": synthesizer_usage["output"],
+                    "trainee_tokens": trainee_usage["total"],
+                    "trainee_input_tokens": trainee_usage["input"],
+                    "trainee_output_tokens": trainee_usage["output"],
+                    "total_tokens": total_tokens,
+                    "total_input_tokens": total_input_tokens,
+                    "total_output_tokens": total_output_tokens
                 }
-            
-            synthesizer_usage = sum_tokens(graph_gen.synthesizer_llm_client)
-            trainee_usage = (
-                sum_tokens(graph_gen.trainee_llm_client)
-                if graphgen_config["if_trainee_model"]
-                else {"total": 0, "input": 0, "output": 0}
-            )
-            
-            total_tokens = synthesizer_usage["total"] + trainee_usage["total"]
-            total_input_tokens = synthesizer_usage["input"] + trainee_usage["input"]
-            total_output_tokens = synthesizer_usage["output"] + trainee_usage["output"]
-            
-            # 验证 token 使用量
-            if total_tokens == 0:
-                raise Exception("数据生成失败：未使用任何 token。请检查 API key 是否正确，以及 LLM 服务是否可用。")
-            
-            token_usage = {
-                "synthesizer_tokens": synthesizer_usage["total"],
-                "synthesizer_input_tokens": synthesizer_usage["input"],
-                "synthesizer_output_tokens": synthesizer_usage["output"],
-                "trainee_tokens": trainee_usage["total"],
-                "trainee_input_tokens": trainee_usage["input"],
-                "trainee_output_tokens": trainee_usage["output"],
-                "total_tokens": total_tokens,
-                "total_input_tokens": total_input_tokens,
-                "total_output_tokens": total_output_tokens
-            }
-            
-            # 计算问答对数量
-            qa_count = len(output_data) if output_data else 0
-            
-            # 更新任务状态为完成
-            task_manager.update_task_status(
-                task_id,
-                TaskStatus.COMPLETED,
-                output_file=output_file,
-                token_usage=token_usage,
-                qa_count=qa_count
-            )
+                
+                # 计算问答对数量
+                qa_count = len(output_data) if output_data else 0
+                
+                # 更新任务状态为完成（SFT任务）
+                task_manager.update_task_status(
+                    task_id,
+                    TaskStatus.COMPLETED,
+                    output_file=output_file,
+                    token_usage=token_usage,
+                    qa_count=qa_count
+                )
             
             # 清理临时工作目录（但保留日志文件）
             # 只删除 working_dir，保留 logs 目录和日志文件

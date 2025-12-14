@@ -85,11 +85,12 @@ async def generate_eval_dataset(
                 continue
             
             # Select batches for this difficulty/type combination
-            # Use different batches for different types to ensure diversity
-            batch_count = min(count, len(batches))
-            selected_batches = batches[:batch_count]
+            # We need exactly 'count' items, so select that many batches
+            # Cycle through batches if we need more items than batches
+            batch_indices = [i % len(batches) for i in range(count)]
+            selected_batches = [batches[i] for i in batch_indices]
             
-            # Generate evaluation items
+            # Generate evaluation items (one per batch)
             async def generate_for_batch(batch):
                 try:
                     return await generator.generate(
@@ -108,10 +109,16 @@ async def generate_eval_dataset(
                 desc=f"Generating {eval_type} ({difficulty})",
             )
             
-            # Collect evaluation items
+            # Collect evaluation items (limit to exact count needed)
+            items_collected = 0
             for result in results:
+                if items_collected >= count:
+                    break
                 for item_id, item in result.items():
+                    if items_collected >= count:
+                        break
                     all_eval_items.append(item)
+                    items_collected += 1
     
     # Remove duplicates based on question similarity
     unique_items = _deduplicate_eval_items(all_eval_items)
