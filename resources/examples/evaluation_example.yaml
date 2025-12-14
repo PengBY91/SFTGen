@@ -1,0 +1,45 @@
+# Example Evaluation Configuration
+
+# This is a minimal example configuration for generating evaluation datasets
+
+# Read configuration
+read:
+  input_file: "resources/examples/sample_document.txt"
+
+# Split configuration
+split:
+  chunk_size: 512
+  chunk_overlap: 64
+  enable_prompt_merging: true
+  prompt_merge_size: 3
+
+# Partition configuration
+partition:
+  method: "bfs"
+  max_tokens_per_batch: 1024
+  k_hop: 1
+
+# Evaluation configuration
+evaluation:
+  enabled: true
+  dataset_name: "Sample Evaluation Dataset"
+  description: "Example evaluation dataset for testing"
+  
+  # Small dataset for testing
+  target_eval_items: 20
+  
+  # Balanced type distribution
+  type_distribution:
+    knowledge_coverage: 0.4
+    reasoning_ability: 0.3
+    factual_accuracy: 0.2
+    comprehensive: 0.1
+  
+  # Mostly easy and medium questions for testing
+  difficulty_distribution:
+    easy: 0.4
+    medium: 0.5
+    hard: 0.1
+  
+  output_format: "benchmark"
+  min_quality_score: 0.4

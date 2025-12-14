@@ -51,6 +51,16 @@
         @row-click="handleRowClick"
       >
         <el-table-column prop="task_name" label="任务名称" width="120" show-overflow-tooltip />
+        <el-table-column label="任务类型" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.task_type === 'evaluation'" type="success" size="small">
+              评测任务
+            </el-tag>
+            <el-tag v-else type="primary" size="small">
+              SFT任务
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="文件数" width="80">
           <template #default="{ row }">
             {{ row.filenames?.length || 1 }}
@@ -300,7 +310,9 @@ import {
   Delete,
   Edit,
   RefreshRight,
-  RefreshLeft
+  RefreshLeft,
+  Plus,
+  Document
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 

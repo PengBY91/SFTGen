@@ -53,6 +53,14 @@
         <el-descriptions title="基本信息" :column="2" border>
           <el-descriptions-item label="任务ID">{{ task.task_id }}</el-descriptions-item>
           <el-descriptions-item label="任务名称">{{ task.task_name || task.filename }}</el-descriptions-item>
+          <el-descriptions-item label="任务类型">
+            <el-tag v-if="task.task_type === 'evaluation'" type="success">
+              评测任务
+            </el-tag>
+            <el-tag v-else type="primary">
+              SFT任务
+            </el-tag>
+          </el-descriptions-item>
           <el-descriptions-item label="任务简介">{{ task.task_description || '-' }}</el-descriptions-item>
           <el-descriptions-item label="文件数量">{{ task.filenames?.length || 1 }}</el-descriptions-item>
           <el-descriptions-item label="状态">
@@ -60,7 +68,9 @@
               {{ getStatusText(task.status) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="问答对数">{{ task.qa_count || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="task.task_type === 'evaluation' ? '评测项数' : '问答对数'">
+            {{ task.qa_count || '-' }}
+          </el-descriptions-item>
           <el-descriptions-item label="创建时间">
             {{ formatDate(task.created_at) }}
           </el-descriptions-item>
@@ -129,9 +139,9 @@
           </el-table>
         </el-card>
 
-        <!-- Token 使用情况 -->
+        <!-- Token 使用情况 (仅SFT任务) -->
         <el-descriptions
-          v-if="task.token_usage"
+          v-if="task.token_usage && task.task_type !== 'evaluation'"
           title="Token 使用情况"
           :column="3"
           border
@@ -225,6 +235,102 @@
             </el-card>
           </el-timeline-item>
         </el-timeline>
+
+        <!-- 评测集展示 (仅评测任务) -->
+        <el-card shadow="never" style="margin-top: 40px" v-if="task.status === 'completed' && task.task_type === 'evaluation'">
+          <template #header>
+            <div class="card-header-inline">
+              <span>评测集</span>
+              <el-button
+                v-if="evaluationData"
+                type="primary"
+                size="small"
+                @click="handleDownloadEvaluation"
+              >
+                <el-icon><Download /></el-icon>
+                下载评测集
+              </el-button>
+            </div>
+          </template>
+
+          <div v-loading="evaluationLoading">
+            <div v-if="evaluationData">
+              <!-- 统计信息 -->
+              <el-descriptions title="评测集统计" :column="2" border>
+                <el-descriptions-item label="评测集名称">
+                  {{ evaluationData.name }}
+                </el-descriptions-item>
+                <el-descriptions-item label="总评测项">
+                  {{ evaluationStats.total_items }}
+                </el-descriptions-item>
+                <el-descriptions-item label="生成时间" :span="2">
+                  {{ evaluationStats.generated_at ? formatDate(evaluationStats.generated_at) : '未知' }}
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <!-- 类型分布 -->
+              <div style="margin-top: 24px">
+                <h4 style="margin-bottom: 16px">评测类型分布</h4>
+                <div v-for="(value, key) in evaluationStats.type_distribution" :key="key" style="margin-bottom: 12px">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
+                    <span>{{ getEvalTypeName(key) }}</span>
+                    <span>{{ Math.round(value * 100) }}%</span>
+                  </div>
+                  <el-progress
+                    :percentage="Math.round(value * 100)"
+                    :color="getEvalTypeColor(key)"
+                  />
+                </div>
+              </div>
+
+              <!-- 难度分布 -->
+              <div style="margin-top: 24px">
+                <h4 style="margin-bottom: 16px">难度分布</h4>
+                <div v-for="(value, key) in evaluationStats.difficulty_distribution" :key="key" style="margin-bottom: 12px">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
+                    <span>{{ getEvalDifficultyName(key) }}</span>
+                    <span>{{ Math.round(value * 100) }}%</span>
+                  </div>
+                  <el-progress
+                    :percentage="Math.round(value * 100)"
+                    :color="getEvalDifficultyColor(key)"
+                  />
+                </div>
+              </div>
+
+              <!-- 评测项预览 -->
+              <div style="margin-top: 24px">
+                <h4 style="margin-bottom: 16px">评测项预览（前10项）</h4>
+                <el-table :data="evaluationData.items.slice(0, 10)" border style="width: 100%">
+                  <el-table-column prop="id" label="ID" width="180" />
+                  <el-table-column label="问题" min-width="300">
+                    <template #default="{ row }">
+                      <el-tooltip :content="row.question" placement="top">
+                        <span>{{ row.question.substring(0, 50) }}{{ row.question.length > 50 ? '...' : '' }}</span>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="类型" width="120">
+                    <template #default="{ row }">
+                      <el-tag :color="getEvalTypeColor(row.type)" effect="light">
+                        {{ getEvalTypeName(row.type) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="难度" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="getEvalDifficultyTagType(row.difficulty)">
+                        {{ getEvalDifficultyName(row.difficulty) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+
+            <el-empty v-else description="该任务未生成评测集" />
+          </div>
+        </el-card>
       </div>
     </el-card>
 
@@ -322,6 +428,7 @@ import { useConfigStore } from '@/stores/config'
 import { useAuthStore } from '@/stores/auth'
 import type { TaskInfo } from '@/api/types'
 import api from '@/api'
+import { getEvaluationDataset, getEvaluationStats, downloadEvaluation } from '@/api/evaluation'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Document, Download, View, CopyDocument, Plus, UploadFilled } from '@element-plus/icons-vue'
 import type { UploadInstance, UploadProps, UploadRawFile, UploadUserFile } from 'element-plus'
@@ -355,6 +462,16 @@ const sourceData = ref({
   file_size: 0,
   line_count: 0,
   encoding: 'utf-8'
+})
+
+// 评测集相关
+const evaluationLoading = ref(false)
+const evaluationData = ref<any>(null)
+const evaluationStats = ref<any>({
+  total_items: 0,
+  type_distribution: {},
+  difficulty_distribution: {},
+  generated_at: null
 })
 
 // 获取任务详情
@@ -598,8 +715,108 @@ const formatFileSize = (bytes: number) => {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
+// 评测集相关函数
+const loadEvaluationData = async () => {
+  if (!task.value) return
+  
+  // 只有评测任务才加载评测数据
+  if (task.value.task_type !== 'evaluation') {
+    return
+  }
+  
+  evaluationLoading.value = true
+  try {
+    // 获取评测集统计
+    const statsResponse = await evaluationApi.getEvaluationStats(task.value.task_id)
+    if (statsResponse.success && statsResponse.data) {
+      evaluationStats.value = statsResponse.data
+    }
+
+    // 获取评测集数据
+    const dataResponse = await evaluationApi.getEvaluationDataset(task.value.task_id)
+    if (dataResponse.success && dataResponse.data) {
+      evaluationData.value = dataResponse.data
+    }
+  } catch (error) {
+    console.error('加载评测集失败:', error)
+    // 评测集加载失败不影响页面其他功能
+  } finally {
+    evaluationLoading.value = false
+  }
+}
+
+const getEvalTypeName = (type: string) => {
+  const names: Record<string, string> = {
+    knowledge_coverage: '知识覆盖',
+    reasoning_ability: '推理能力',
+    factual_accuracy: '事实准确',
+    comprehensive: '综合应用'
+  }
+  return names[type] || type
+}
+
+const getEvalDifficultyName = (difficulty: string) => {
+  const names: Record<string, string> = {
+    easy: '简单',
+    medium: '中等',
+    hard: '困难'
+  }
+  return names[difficulty] || difficulty
+}
+
+const getEvalTypeColor = (type: string) => {
+  const colors: Record<string, string> = {
+    knowledge_coverage: '#409eff',
+    reasoning_ability: '#67c23a',
+    factual_accuracy: '#e6a23c',
+    comprehensive: '#f56c6c'
+  }
+  return colors[type] || '#909399'
+}
+
+const getEvalDifficultyColor = (difficulty: string) => {
+  const colors: Record<string, string> = {
+    easy: '#67c23a',
+    medium: '#e6a23c',
+    hard: '#f56c6c'
+  }
+  return colors[difficulty] || '#909399'
+}
+
+const getEvalDifficultyTagType = (difficulty: string) => {
+  const types: Record<string, any> = {
+    easy: 'success',
+    medium: 'warning',
+    hard: 'danger'
+  }
+  return types[difficulty] || 'info'
+}
+
+const handleDownloadEvaluation = async () => {
+  if (!task.value) return
+  
+  try {
+    const response = await downloadEvaluation(taskId, 'json')
+    const url = window.URL.createObjectURL(new Blob([response as any]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `${taskId}_evaluation.json`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('下载成功')
+  } catch (error) {
+    ElMessage.error('下载失败')
+  }
+}
+
 onMounted(async () => {
   await fetchTaskDetail()
+  // 只有评测任务才加载评测数据
+  if (task.value?.task_type === 'evaluation') {
+    await loadEvaluationData()
+  }
   // 如果任务正在处理中，启动自动刷新
   if (task.value?.status === 'processing') {
     refreshTimer = window.setInterval(() => {
@@ -687,6 +904,12 @@ onUnmounted(() => {
 :deep(.el-timeline-item__timestamp) {
   color: #909399;
   font-size: 13px;
+}
+
+.card-header-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>
 

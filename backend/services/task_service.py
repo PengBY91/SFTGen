@@ -62,14 +62,15 @@ class TaskService:
             }
     
     def create_task(self, task_name: str, filenames: list, filepaths: list, 
-                    task_description: str = None) -> Dict[str, Any]:
+                    task_description: str = None, task_type: str = "sft") -> Dict[str, Any]:
         """创建新任务"""
         try:
             task_id = task_manager.create_task(
                 task_name=task_name,
                 filenames=filenames,
                 filepaths=filepaths,
-                task_description=task_description
+                task_description=task_description,
+                task_type=task_type
             )
             task = task_manager.get_task(task_id)
             return {

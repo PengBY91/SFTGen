@@ -112,36 +112,48 @@ class TaskProcessor:
             
             logger.info(f"[TaskProcessor] 所有文件处理完成，共处理 {len(filepaths)} 个文件")
             
-            if graphgen_config["if_trainee_model"]:
+            if graphgen_config[\"if_trainee_model"]:
                 graph_gen.quiz_and_judge(quiz_and_judge_config=graphgen_config["quiz_and_judge"])
             
-            # 添加进度回调来实时更新任务状态
-            def update_progress(current_count, total_batches):
-                if total_batches > 0:
-                    # 定期更新进度（每处理10%更新一次）
-                    if current_count % max(1, total_batches // 10) == 0:
-                        # 尝试从临时文件读取当前已生成的问答对数量
-                        temp_file = os.path.join(working_dir, "temp_output.json")
-                        if os.path.exists(temp_file):
-                            try:
-                                with open(temp_file, "r", encoding="utf-8") as f:
-                                    temp_data = json.load(f)
-                                    temp_count = len(temp_data) if isinstance(temp_data, list) else 0
-                                    # 更新任务状态但不改变状态
-                                    if temp_count > 0:
-                                        task_manager.update_task_status(
-                                            task_id,
-                                            TaskStatus.PROCESSING,
-                                            qa_count=temp_count
-                                        )
-                            except:
-                                pass
-            
-            # 在生成过程中定期保存临时输出
-            graph_gen.generate(
-                partition_config=graphgen_config["partition"],
-                generate_config=graphgen_config["generate"],
-            )
+            # 根据任务类型执行不同的生成逻辑
+            if task.task_type == "evaluation":
+                # 评测任务：只生成评测集
+                logger.info("[TaskProcessor] 评测任务：开始生成评测集")
+                graph_gen.generate_evaluation(
+                    partition_config=graphgen_config["partition"],
+                    evaluation_config=graphgen_config["evaluation"],
+                )
+                logger.info("[TaskProcessor] 评测集生成完成")
+            else:
+                # SFT任务：生成训练数据
+                logger.info("[TaskProcessor] SFT任务：开始生成训练数据")
+                # 添加进度回调来实时更新任务状态
+                def update_progress(current_count, total_batches):
+                    if total_batches > 0:
+                        # 定期更新进度（每处理10%更新一次）
+                        if current_count % max(1, total_batches // 10) == 0:
+                            # 尝试从临时文件读取当前已生成的问答对数量
+                            temp_file = os.path.join(working_dir, "temp_output.json")
+                            if os.path.exists(temp_file):
+                                try:
+                                    with open(temp_file, "r", encoding="utf-8") as f:
+                                        temp_data = json.load(f)
+                                        temp_count = len(temp_data) if isinstance(temp_data, list) else 0
+                                        # 更新任务状态但不改变状态
+                                        if temp_count > 0:
+                                            task_manager.update_task_status(
+                                                task_id,
+                                                TaskStatus.PROCESSING,
+                                                qa_count=temp_count
+                                            )
+                                except:
+                                    pass
+                
+                # 在生成过程中定期保存临时输出
+                graph_gen.generate(
+                    partition_config=graphgen_config["partition"],
+                    generate_config=graphgen_config["generate"],
+                )
             
             # 保存输出
             output_data = graph_gen.qa_storage.data
@@ -411,6 +423,25 @@ class TaskProcessor:
                 # 生成数量与比例
                 "target_qa_pairs": getattr(config, "qa_pair_limit", None),
                 "mode_ratios": mode_ratios,
+            },
+            "evaluation": {
+                "enabled": getattr(config, "evaluation_enabled", False),
+                "dataset_name": getattr(config, "evaluation_dataset_name", "Domain Knowledge Evaluation Dataset"),
+                "description": getattr(config, "evaluation_description", "Evaluation dataset for domain model assessment"),
+                "target_eval_items": getattr(config, "evaluation_target_items", 200),
+                "type_distribution": getattr(config, "evaluation_type_distribution", {
+                    "knowledge_coverage": 0.3,
+                    "reasoning_ability": 0.3,
+                    "factual_accuracy": 0.2,
+                    "comprehensive": 0.2,
+                }),
+                "difficulty_distribution": getattr(config, "evaluation_difficulty_distribution", {
+                    "easy": 0.3,
+                    "medium": 0.5,
+                    "hard": 0.2,
+                }),
+                "output_format": getattr(config, "evaluation_output_format", "benchmark"),
+                "min_quality_score": getattr(config, "evaluation_min_quality_score", 0.5),
             },
         }
         

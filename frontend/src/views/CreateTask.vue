@@ -389,6 +389,7 @@ if (typeof initialConfig.mode === 'string') {
   initialConfig.mode = ['aggregated']
 }
 const taskConfig = ref<TaskConfig>(initialConfig)
+
 const ratioTotal = computed(() => {
   const ratios = [
     Number(taskConfig.value.qa_ratio_atomic ?? 0),

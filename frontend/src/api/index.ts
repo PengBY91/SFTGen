@@ -1,8 +1,8 @@
 import request from './request'
-import type { 
-  TaskConfig, 
-  TaskInfo, 
-  TaskResponse, 
+import type {
+  TaskConfig,
+  TaskInfo,
+  TaskResponse,
   TaskStats,
   DataItem,
   ReviewRequest,
@@ -44,12 +44,13 @@ export const api = {
   },
 
   // 创建任务
-  createTask(task_name: string, filenames: string[], filepaths: string[], task_description?: string) {
+  createTask(task_name: string, filenames: string[], filepaths: string[], task_description?: string, task_type: string = 'sft') {
     return request.post<TaskResponse>('/tasks', {
       task_name,
       filenames,
       filepaths,
-      task_description
+      task_description,
+      task_type
     })
   },
 
@@ -88,7 +89,7 @@ export const api = {
   // 下载任务输出
   downloadTask(taskId: string, format: 'json' | 'csv' = 'json', optionalFields: string[] = []) {
     return request.get(`/tasks/${taskId}/download`, {
-      params: { 
+      params: {
         format,
         optional_fields: optionalFields.join(',')
       },
@@ -141,7 +142,7 @@ export const api = {
   // 导出审核后的数据（后端总是生成 JSON，不需要传递格式）
   exportReviewedData(taskId: string, statusFilter?: string) {
     return request.get<TaskResponse>(`/reviews/${taskId}/export`, {
-      params: { 
+      params: {
         status_filter: statusFilter
       }
     })
@@ -150,7 +151,7 @@ export const api = {
   // 下载审核后的数据
   downloadReviewedData(taskId: string, format: 'json' | 'csv' = 'json', optionalFields: string[] = []) {
     return request.get(`/reviews/${taskId}/download`, {
-      params: { 
+      params: {
         format,
         optional_fields: optionalFields.join(',')
       },

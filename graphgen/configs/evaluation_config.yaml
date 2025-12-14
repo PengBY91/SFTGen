@@ -1,0 +1,76 @@
+# Evaluation Dataset Generation Configuration
+
+# Read configuration
+read:
+  input_file: "path/to/your/documents"  # Path to input documents
+
+# Split configuration
+split:
+  chunk_size: 1024
+  chunk_overlap: 128
+  dynamic_chunk_size: false
+  enable_prompt_merging: true
+  prompt_merge_size: 5
+  enable_extraction_cache: true
+  enable_batch_requests: true
+  batch_size: 30
+  max_wait_time: 1.0
+
+# Partition configuration
+partition:
+  method: "bfs"  # bfs, dfs, ece, leiden, anchor_bfs
+  max_tokens_per_batch: 2048
+  k_hop: 2
+
+# Evaluation configuration
+evaluation:
+  enabled: true
+  
+  # Dataset metadata
+  dataset_name: "Domain Knowledge Evaluation Dataset"
+  description: "Evaluation dataset for assessing domain model knowledge and reasoning capabilities"
+  
+  # Target size
+  target_eval_items: 200
+  
+  # Type distribution (must sum to 1.0)
+  type_distribution:
+    knowledge_coverage: 0.3    # 30% knowledge coverage questions
+    reasoning_ability: 0.3     # 30% reasoning questions
+    factual_accuracy: 0.2      # 20% factual accuracy questions
+    comprehensive: 0.2         # 20% comprehensive application questions
+  
+  # Difficulty distribution (must sum to 1.0)
+  difficulty_distribution:
+    easy: 0.3      # 30% easy questions
+    medium: 0.5    # 50% medium questions
+    hard: 0.2      # 20% hard questions
+  
+  # Output format: benchmark, qa_pair, multiple_choice
+  output_format: "benchmark"
+  
+  # Quality control
+  min_quality_score: 0.5  # Minimum quality score (0.0-1.0) to keep an item
+  
+  # Knowledge coverage specific settings
+  knowledge_coverage:
+    include_definitions: true
+    include_relationships: true
+    coverage_strategy: "balanced"  # balanced, comprehensive, targeted
+  
+  # Reasoning ability specific settings
+  reasoning_ability:
+    max_hops: 3
+    include_causal: true
+    include_analogical: true
+  
+  # Factual accuracy specific settings
+  factual_accuracy:
+    include_true_false: true
+    include_error_detection: true
+    distractor_count: 3
+  
+  # Comprehensive application specific settings
+  comprehensive:
+    min_knowledge_points: 3
+    include_scenarios: true

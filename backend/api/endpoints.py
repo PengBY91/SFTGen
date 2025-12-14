@@ -17,7 +17,10 @@ from backend.schemas import (
     UserCreate,
     UserLogin,
     UserUpdate,
-    ChangePasswordRequest
+    ChangePasswordRequest,
+    EvaluationConfig,
+    EvaluationDatasetResponse,
+    EvaluationStatsResponse
 )
 from backend.services.task_service import task_service
 from backend.services.file_service import file_service
@@ -393,4 +396,130 @@ async def delete_user(
     """删除用户（仅管理员）"""
     result = auth_service.delete_user(username)
     return result
+
+
+# ==================== 评测集相关端点 ====================
+
+@router.get("/tasks/{task_id}/evaluation", response_model=TaskResponse)
+async def get_evaluation_dataset(
+    task_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """获取任务的评测集（需要登录）"""
+    import os
+    import json
+    from webui.task_manager import task_manager
+    
+    # 获取任务信息
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 构建评测集文件路径
+    cache_folder = task.cache_folder if hasattr(task, 'cache_folder') else f"cache/{task_id}"
+    eval_file = os.path.join(cache_folder, "data", "evaluation", f"{task_id}_eval.json")
+    
+    if not os.path.exists(eval_file):
+        return TaskResponse(
+            success=False,
+            error="评测集不存在，可能未启用评测集生成"
+        )
+    
+    try:
+        with open(eval_file, "r", encoding="utf-8") as f:
+            eval_data = json.load(f)
+        
+        return TaskResponse(
+            success=True,
+            data=eval_data
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取评测集失败: {str(e)}")
+
+
+@router.get("/tasks/{task_id}/evaluation/stats", response_model=TaskResponse)
+async def get_evaluation_stats(
+    task_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """获取评测集统计信息（需要登录）"""
+    import os
+    import json
+    from webui.task_manager import task_manager
+    
+    # 获取任务信息
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 构建评测集文件路径
+    cache_folder = task.cache_folder if hasattr(task, 'cache_folder') else f"cache/{task_id}"
+    eval_file = os.path.join(cache_folder, "data", "evaluation", f"{task_id}_eval.json")
+    
+    if not os.path.exists(eval_file):
+        return TaskResponse(
+            success=False,
+            error="评测集不存在"
+        )
+    
+    try:
+        with open(eval_file, "r", encoding="utf-8") as f:
+            eval_data = json.load(f)
+        
+        # 提取统计信息
+        stats = {
+            "task_id": task_id,
+            "total_items": eval_data.get("statistics", {}).get("total_items", 0),
+            "type_distribution": eval_data.get("statistics", {}).get("type_distribution", {}),
+            "difficulty_distribution": eval_data.get("statistics", {}).get("difficulty_distribution", {}),
+            "generated_at": eval_data.get("metadata", {}).get("generated_at"),
+        }
+        
+        return TaskResponse(
+            success=True,
+            data=stats
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取评测统计失败: {str(e)}")
+
+
+@router.get("/tasks/{task_id}/evaluation/download")
+async def download_evaluation_dataset(
+    task_id: str,
+    format: str = 'json',
+    current_user: User = Depends(get_current_active_user)
+):
+    """下载评测集文件
+    
+    Args:
+        task_id: 任务ID
+        format: 下载格式，'json' 或 'csv'
+    """
+    import os
+    from webui.task_manager import task_manager
+    
+    # 获取任务信息
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 构建评测集文件路径
+    cache_folder = task.cache_folder if hasattr(task, 'cache_folder') else f"cache/{task_id}"
+    eval_file = os.path.join(cache_folder, "data", "evaluation", f"{task_id}_eval.json")
+    
+    if not os.path.exists(eval_file):
+        raise HTTPException(status_code=404, detail="评测集文件不存在")
+    
+    # 根据格式返回文件
+    if format == 'json':
+        return FileResponse(
+            path=eval_file,
+            filename=f"{task_id}_evaluation.json",
+            media_type="application/json"
+        )
+    elif format == 'csv':
+        # TODO: 实现CSV格式转换
+        raise HTTPException(status_code=501, detail="CSV格式暂不支持")
+    else:
+        raise HTTPException(status_code=400, detail="不支持的格式")
 

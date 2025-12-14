@@ -15,10 +15,14 @@
             <el-icon><List /></el-icon>
             <span>任务管理</span>
           </el-menu-item>
-          <el-menu-item v-if="authStore.isAdmin" index="/create">
-            <el-icon><Plus /></el-icon>
-            <span>新建任务</span>
-          </el-menu-item>
+          <el-sub-menu v-if="authStore.isAdmin" index="/create">
+            <template #title>
+              <el-icon><Plus /></el-icon>
+              <span>新建任务</span>
+            </template>
+            <el-menu-item index="/tasks/create-sft">新建SFT任务</el-menu-item>
+            <el-menu-item index="/tasks/create-evaluation">新建评测任务</el-menu-item>
+          </el-sub-menu>
           <el-menu-item v-if="authStore.isAdmin" index="/config">
             <el-icon><Setting /></el-icon>
             <span>配置设置</span>

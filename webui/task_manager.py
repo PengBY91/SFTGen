@@ -29,10 +29,11 @@ class TaskInfo:
     task_id: str
     task_name: str  # 任务名称
     task_description: Optional[str]  # 任务简介
-    filenames: List[str]  # 文件名列表（支持多文件）
-    filepaths: List[str]  # 文件路径列表（支持多文件）
-    status: TaskStatus
-    created_at: datetime
+    task_type: str = "sft"  # 任务类型：sft 或 evaluation
+    filenames: List[str] = None  # 文件名列表（支持多文件）
+    filepaths: List[str] = None  # 文件路径列表（支持多文件）
+    status: TaskStatus = TaskStatus.PENDING
+    created_at: datetime = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
@@ -109,6 +110,7 @@ class TaskManager:
                             task_id=task_data['task_id'],
                             task_name=task_data.get('task_name', task_data.get('filename', '未命名任务')),
                             task_description=task_data.get('task_description'),
+                            task_type=task_data.get('task_type', 'sft'),  # 默认为sft类型
                             filenames=filenames,
                             filepaths=filepaths,
                             status=TaskStatus(task_data['status']),
@@ -138,7 +140,8 @@ class TaskManager:
             print(f"保存任务信息失败: {e}")
     
     def create_task(self, task_name: str, filenames: List[str], filepaths: List[str],
-                    task_description: Optional[str] = None, config: Optional[Dict[str, Any]] = None) -> str:
+                    task_description: Optional[str] = None, task_type: str = "sft",
+                    config: Optional[Dict[str, Any]] = None) -> str:
         """创建新任务"""
         with self.lock:
             task_id = str(uuid.uuid4())
@@ -146,6 +149,7 @@ class TaskManager:
                 task_id=task_id,
                 task_name=task_name,
                 task_description=task_description,
+                task_type=task_type,
                 filenames=filenames,
                 filepaths=filepaths,
                 status=TaskStatus.PENDING,

@@ -353,6 +353,84 @@ class GraphGen:
         await self.qa_storage.index_done_callback()
 
     @async_to_sync_method
+    async def generate_evaluation(self, partition_config: Dict, evaluation_config: Dict):
+        """
+        Generate evaluation dataset from knowledge graph.
+        
+        :param partition_config: configuration for graph partitioning
+        :param evaluation_config: configuration for evaluation generation
+        """
+        from graphgen.operators.evaluate import (
+            generate_eval_dataset,
+            save_eval_dataset,
+            score_dataset_difficulty,
+            filter_low_quality_items,
+        )
+        
+        logger.info("Starting evaluation dataset generation")
+        
+        # Step 1: partition the graph (reuse existing partition logic)
+        batches = await partition_kg(
+            self.graph_storage,
+            self.chunks_storage,
+            self.tokenizer_instance,
+            partition_config,
+        )
+        
+        if not batches:
+            logger.warning("No batches generated for evaluation")
+            return
+        
+        logger.info(f"Generated {len(batches)} batches for evaluation")
+        
+        # Step 2: generate evaluation dataset
+        eval_dataset = await generate_eval_dataset(
+            llm_client=self.synthesizer_llm_client,
+            batches=batches,
+            evaluation_config=evaluation_config,
+            chunks_storage=self.chunks_storage,
+            full_docs_storage=self.full_docs_storage,
+        )
+        
+        if not eval_dataset or not eval_dataset.items:
+            logger.warning("No evaluation items generated")
+            return
+        
+        logger.info(f"Generated {len(eval_dataset.items)} evaluation items")
+        
+        # Step 3: score difficulty for all items
+        difficulty_stats = score_dataset_difficulty(eval_dataset.items)
+        logger.info(f"Difficulty statistics: {difficulty_stats}")
+        
+        # Step 4: filter low-quality items
+        min_quality_score = evaluation_config.get("min_quality_score", 0.5)
+        filtered_items = filter_low_quality_items(eval_dataset.items, min_quality_score)
+        logger.info(f"Filtered to {len(filtered_items)} high-quality items")
+        
+        # Update dataset with filtered items
+        eval_dataset.items = filtered_items
+        eval_dataset.metadata["quality_filtered"] = True
+        eval_dataset.metadata["min_quality_score"] = min_quality_score
+        
+        # Step 5: save evaluation dataset
+        output_format = evaluation_config.get("output_format", "benchmark")
+        output_path = os.path.join(
+            self.working_dir,
+            "data",
+            "evaluation",
+            f"{self.unique_id}_eval.json"
+        )
+        
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        await save_eval_dataset(eval_dataset, output_path, output_format)
+        
+        logger.info(f"Evaluation dataset saved to {output_path}")
+        logger.info(f"Final statistics: {eval_dataset.get_statistics()}")
+
+
+    @async_to_sync_method
     async def clear(self):
         await self.full_docs_storage.drop()
         await self.chunks_storage.drop()

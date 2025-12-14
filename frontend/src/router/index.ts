@@ -29,6 +29,18 @@ const routes: Array<RouteRecordRaw> = [
         meta: { title: '新建任务', requiresAuth: true, requiresAdmin: true }
       },
       {
+        path: '/tasks/create-sft',
+        name: 'CreateSFTTask',
+        component: () => import('@/views/CreateTask.vue'),
+        meta: { title: '新建SFT任务', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: '/tasks/create-evaluation',
+        name: 'CreateEvaluationTask',
+        component: () => import('@/views/CreateEvaluationTask.vue'),
+        meta: { title: '新建评测任务', requiresAuth: true, requiresAdmin: true }
+      },
+      {
         path: '/config',
         name: 'Config',
         component: () => import('@/views/Config.vue'),
@@ -73,11 +85,11 @@ router.beforeEach(async (to, from, next) => {
     if (title) {
       document.title = `${title} - KGE-Gen`
     }
-    
+
     const authStore = useAuthStore()
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
     const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
-    
+
     // 如果需要认证
     if (requiresAuth) {
       // 如果没有 token，跳转到登录页
@@ -85,7 +97,7 @@ router.beforeEach(async (to, from, next) => {
         next('/login')
         return
       }
-      
+
       // 如果有 token 但没有用户信息，尝试获取
       if (!authStore.user) {
         try {
@@ -106,20 +118,20 @@ router.beforeEach(async (to, from, next) => {
           console.warn('API call failed but using cached user info:', error)
         }
       }
-      
+
       // 检查管理员权限
       if (requiresAdmin && !authStore.isAdmin) {
         next('/tasks')
         return
       }
     }
-    
+
     // 如果已登录，访问登录页，跳转到任务页
     if (to.path === '/login' && authStore.isAuthenticated) {
       next('/tasks')
       return
     }
-    
+
     next()
   } catch (error) {
     // 捕获所有未处理的错误，避免路由阻塞

@@ -71,10 +71,17 @@ class APITestRequest(BaseModel):
     model_name: str
 
 
+class TaskType(str, Enum):
+    """任务类型枚举"""
+    SFT = "sft"
+    EVALUATION = "evaluation"
+
+
 class CreateTaskRequest(BaseModel):
     """创建任务请求"""
     task_name: str  # 任务名称
     task_description: Optional[str] = None  # 任务简介
+    task_type: TaskType = TaskType.SFT  # 任务类型
     filenames: List[str]  # 文件名列表（支持多文件）
     filepaths: List[str]  # 文件路径列表（支持多文件）
 
@@ -191,3 +198,71 @@ class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
 
+
+# ==================== 评测集相关 ====================
+
+class EvaluationType(str, Enum):
+    """评测类型枚举"""
+    KNOWLEDGE_COVERAGE = "knowledge_coverage"
+    REASONING_ABILITY = "reasoning_ability"
+    FACTUAL_ACCURACY = "factual_accuracy"
+    COMPREHENSIVE = "comprehensive"
+
+
+class DifficultyLevel(str, Enum):
+    """难度等级枚举"""
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+
+class EvaluationConfig(BaseModel):
+    """评测配置模型"""
+    enabled: bool = False
+    dataset_name: str = "Domain Knowledge Evaluation Dataset"
+    description: str = "Evaluation dataset for domain model assessment"
+    target_eval_items: int = 200
+    type_distribution: Dict[str, float] = {
+        "knowledge_coverage": 0.3,
+        "reasoning_ability": 0.3,
+        "factual_accuracy": 0.2,
+        "comprehensive": 0.2,
+    }
+    difficulty_distribution: Dict[str, float] = {
+        "easy": 0.3,
+        "medium": 0.5,
+        "hard": 0.2,
+    }
+    output_format: str = "benchmark"  # benchmark, qa_pair, multiple_choice
+    min_quality_score: float = 0.5
+
+
+class EvaluationItemResponse(BaseModel):
+    """评测项响应模型"""
+    id: str
+    type: str
+    difficulty: str
+    question: str
+    reference_answer: str
+    evaluation_criteria: Dict[str, Any]
+    metadata: Dict[str, Any]
+    distractors: List[str] = []
+
+
+class EvaluationDatasetResponse(BaseModel):
+    """评测集响应模型"""
+    name: str
+    description: str
+    items: List[EvaluationItemResponse]
+    statistics: Dict[str, Any]
+    metadata: Dict[str, Any]
+
+
+class EvaluationStatsResponse(BaseModel):
+    """评测集统计信息响应"""
+    task_id: str
+    total_items: int
+    type_distribution: Dict[str, float]
+    difficulty_distribution: Dict[str, float]
+    quality_stats: Optional[Dict[str, Any]] = None
+    generated_at: Optional[str] = None
