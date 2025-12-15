@@ -498,6 +498,16 @@ class TaskProcessor:
         else:
             logger.info("[TaskProcessor] No QA pair limit configured (unlimited generation)")
         
+        # 记录评测配置信息
+        eval_target = getattr(config, "evaluation_target_items", None)
+        if eval_target:
+            logger.info(
+                "[TaskProcessor] Evaluation config - Target items: %d, Type dist: %s, Difficulty dist: %s",
+                eval_target,
+                getattr(config, "evaluation_type_distribution", "default"),
+                getattr(config, "evaluation_difficulty_distribution", "default")
+            )
+        
         return result
     
     def _build_env(self, config: TaskConfig) -> Dict[str, Any]:

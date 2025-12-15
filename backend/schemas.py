@@ -62,6 +62,15 @@ class TaskConfig(BaseModel):
     question_first: bool = True  # 默认启用"先问后答"流程（在不支持的模式下会被忽略）
     # 语言控制
     chinese_only: bool = False  # 只生成中文问答（默认不限制）
+    # 评测配置
+    evaluation_enabled: bool = False
+    evaluation_dataset_name: str = "Domain Knowledge Evaluation Dataset"
+    evaluation_description: str = "Evaluation dataset for domain model assessment"
+    evaluation_target_items: int = 200
+    evaluation_type_distribution: Optional[Dict[str, float]] = None
+    evaluation_difficulty_distribution: Optional[Dict[str, float]] = None
+    evaluation_output_format: str = "benchmark"
+    evaluation_min_quality_score: float = 0.5
 
 
 class APITestRequest(BaseModel):

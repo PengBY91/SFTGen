@@ -49,9 +49,13 @@ async def generate_eval_dataset(
     })
     output_format = evaluation_config.get("output_format", "benchmark")
     
+    # Average number of items generated per batch (prompts typically request 2-3 items)
+    items_per_batch = evaluation_config.get("items_per_batch", 2.5)
+    
     # Calculate target counts for each type and difficulty
+    import math
     type_targets = {
-        eval_type: int(target_eval_items * ratio)
+        eval_type: math.ceil(target_eval_items * ratio)
         for eval_type, ratio in type_distribution.items()
     }
     
@@ -75,7 +79,7 @@ async def generate_eval_dataset(
         
         # Distribute difficulty levels
         difficulty_counts = {
-            difficulty: int(target_count * ratio)
+            difficulty: math.ceil(target_count * ratio)
             for difficulty, ratio in difficulty_distribution.items()
         }
         
@@ -85,10 +89,18 @@ async def generate_eval_dataset(
                 continue
             
             # Select batches for this difficulty/type combination
-            # We need exactly 'count' items, so select that many batches
-            # Cycle through batches if we need more items than batches
-            batch_indices = [i % len(batches) for i in range(count)]
+            # Each batch generates ~2-3 items, so we need fewer batches than items
+            import math
+            num_batches_needed = max(1, math.ceil(count / items_per_batch))
+            
+            # Cycle through batches if we need more batches than available
+            batch_indices = [i % len(batches) for i in range(num_batches_needed)]
             selected_batches = [batches[i] for i in batch_indices]
+            
+            logger.info(
+                f"  {difficulty}: need {count} items, selecting {num_batches_needed} batches "
+                f"(~{items_per_batch:.1f} items/batch)"
+            )
             
             # Generate evaluation items (one per batch)
             async def generate_for_batch(batch):
@@ -109,22 +121,35 @@ async def generate_eval_dataset(
                 desc=f"Generating {eval_type} ({difficulty})",
             )
             
-            # Collect evaluation items (limit to exact count needed)
-            items_collected = 0
+            # Collect all evaluation items from results
+            batch_items = []
             for result in results:
-                if items_collected >= count:
-                    break
                 for item_id, item in result.items():
-                    if items_collected >= count:
-                        break
-                    all_eval_items.append(item)
-                    items_collected += 1
+                    batch_items.append(item)
+            
+            # Limit to exact count needed (truncate if we got more than expected)
+            items_to_add = batch_items[:count]
+            all_eval_items.extend(items_to_add)
+            
+            logger.info(
+                f"  Generated {len(batch_items)} items from {len(results)} batches, "
+                f"using {len(items_to_add)} items"
+            )
+    
+    # Log pre-deduplication count
+    logger.info(f"Total items before deduplication: {len(all_eval_items)}")
     
     # Remove duplicates based on question similarity
     unique_items = _deduplicate_eval_items(all_eval_items)
     
+    logger.info(
+        f"Items after deduplication: {len(unique_items)} "
+        f"(removed {len(all_eval_items) - len(unique_items)} duplicates)"
+    )
+    
     # Limit to target count
     if len(unique_items) > target_eval_items:
+        logger.info(f"Truncating from {len(unique_items)} to {target_eval_items} items")
         unique_items = unique_items[:target_eval_items]
     
     # Create evaluation dataset
