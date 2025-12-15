@@ -98,6 +98,30 @@
             <el-input v-model="evalConfig.synthesizer_model" />
           </el-form-item>
 
+          <el-divider content-position="left">限流配置</el-divider>
+
+          <el-form-item label="RPM (每分钟请求数)">
+            <el-slider
+              v-model="evalConfig.rpm"
+              :min="10"
+              :max="10000"
+              :step="10"
+              show-input
+            />
+            <div class="form-item-tip">控制API调用频率，避免超出限制</div>
+          </el-form-item>
+
+          <el-form-item label="TPM (每分钟Token数)">
+            <el-slider
+              v-model="evalConfig.tpm"
+              :min="1000"
+              :max="5000000"
+              :step="1000"
+              show-input
+            />
+            <div class="form-item-tip">控制Token使用量，避免超出限制。如果看到TPM超限警告，请降低此值</div>
+          </el-form-item>
+
           <el-divider content-position="left">文本分割配置</el-divider>
 
           <el-form-item label="Chunk Size">
@@ -249,7 +273,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 import { ElMessage } from 'element-plus'
@@ -275,6 +299,8 @@ const evalConfig = ref({
   api_key: '',
   synthesizer_url: 'https://api.siliconflow.cn/v1',
   synthesizer_model: 'Qwen/Qwen2.5-7B-Instruct',
+  rpm: 500,
+  tpm: 100000,
   chunk_size: 1024,
   chunk_overlap: 100,
   evaluation_dataset_name: 'Domain Knowledge Evaluation Dataset',
@@ -400,6 +426,8 @@ const submitTask = async () => {
       api_key: evalConfig.value.api_key,
       synthesizer_url: evalConfig.value.synthesizer_url,
       synthesizer_model: evalConfig.value.synthesizer_model,
+      rpm: evalConfig.value.rpm,
+      tpm: evalConfig.value.tpm,
       chunk_size: evalConfig.value.chunk_size,
       chunk_overlap: evalConfig.value.chunk_overlap,
       partition_method: 'ece',
@@ -440,6 +468,51 @@ const submitTask = async () => {
     submitting.value = false
   }
 }
+// 加载配置
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem('evaluation_config')
+    if (saved) {
+      const savedConfig = JSON.parse(saved)
+      
+      // 更新评测配置
+      evalConfig.value = {
+        api_key: savedConfig.api_key || '',
+        synthesizer_url: savedConfig.synthesizer_url || 'https://api.siliconflow.cn/v1',
+        synthesizer_model: savedConfig.synthesizer_model || 'Qwen/Qwen2.5-7B-Instruct',
+        rpm: savedConfig.rpm || 500,
+        tpm: savedConfig.tpm || 100000,
+        chunk_size: savedConfig.chunk_size || 1024,
+        chunk_overlap: savedConfig.chunk_overlap || 100,
+        evaluation_dataset_name: savedConfig.evaluation_dataset_name || 'Domain Knowledge Evaluation Dataset',
+        evaluation_target_items: savedConfig.evaluation_target_items || 200
+      }
+      
+      // 更新评测类型分布
+      if (savedConfig.evaluation_type_distribution) {
+        evalTypeDistribution.value = {
+          knowledge_coverage: Math.round(savedConfig.evaluation_type_distribution.knowledge_coverage * 100),
+          reasoning_ability: Math.round(savedConfig.evaluation_type_distribution.reasoning_ability * 100),
+          factual_accuracy: Math.round(savedConfig.evaluation_type_distribution.factual_accuracy * 100),
+          comprehensive: Math.round(savedConfig.evaluation_type_distribution.comprehensive * 100)
+        }
+      }
+      
+      // 更新难度分布
+      if (savedConfig.evaluation_difficulty_distribution) {
+        evalDifficultyDistribution.value = {
+          easy: Math.round(savedConfig.evaluation_difficulty_distribution.easy * 100),
+          medium: Math.round(savedConfig.evaluation_difficulty_distribution.medium * 100),
+          hard: Math.round(savedConfig.evaluation_difficulty_distribution.hard * 100)
+        }
+      }
+      
+      ElMessage.success('已加载默认评测配置')
+    }
+  } catch (error) {
+    console.error('加载默认配置失败:', error)
+  }
+})
 </script>
 
 <style scoped>

@@ -68,7 +68,7 @@ class TaskProcessor:
             synthesizer_llm_client = OpenAIClient(
                 model_name=config.synthesizer_model,
                 base_url=config.synthesizer_url,
-                api_key=config.api_key,
+                api_key=config.api_key.strip() if config.api_key else None,
                 request_limit=True,
                 rpm=RPM(config.rpm),
                 tpm=TPM(config.tpm),
@@ -77,7 +77,7 @@ class TaskProcessor:
             trainee_llm_client = OpenAIClient(
                 model_name=config.trainee_model,
                 base_url=config.trainee_url,
-                api_key=config.trainee_api_key or config.api_key,
+                api_key=(config.trainee_api_key or config.api_key).strip() if (config.trainee_api_key or config.api_key) else None,
                 request_limit=True,
                 rpm=RPM(config.rpm),
                 tpm=TPM(config.tpm),
@@ -91,7 +91,8 @@ class TaskProcessor:
                 trainee_llm_client=trainee_llm_client,
             )
             
-            graph_gen.clear()
+            # Bypass async_to_sync_method wrapper by calling __wrapped__ directly
+            await graph_gen.clear.__wrapped__(graph_gen)
             
             # 处理多个文件：循环处理每个文件，累积到知识图谱中
             filepaths = task.filepaths if task.filepaths else []
@@ -108,19 +109,21 @@ class TaskProcessor:
                 # 为每个文件创建读取配置
                 file_read_config = {"input_file": filepath}
                 # 对每个文件调用 insert，知识图谱会累积所有文件的内容
-                graph_gen.insert(read_config=file_read_config, split_config=graphgen_config["split"])
+                await graph_gen.insert.__wrapped__(graph_gen, read_config=file_read_config, split_config=graphgen_config["split"])
             
             logger.info(f"[TaskProcessor] 所有文件处理完成，共处理 {len(filepaths)} 个文件")
             
             if graphgen_config["if_trainee_model"]:
-                graph_gen.quiz_and_judge(quiz_and_judge_config=graphgen_config["quiz_and_judge"])
+                await graph_gen.quiz_and_judge.__wrapped__(graph_gen, quiz_and_judge_config=graphgen_config["quiz_and_judge"])
             
             # 根据任务类型执行不同的生成逻辑
             if task.task_type == "evaluation":
                 # 评测任务：只生成评测集
                 logger.info(f"[TaskProcessor] 评测任务：开始生成评测集")
-                await graph_gen.generate_evaluation(
-                    eval_config=graphgen_config.get("evaluation", {})
+                await graph_gen.generate_evaluation.__wrapped__(
+                    graph_gen,
+                    partition_config=graphgen_config["partition"],
+                    evaluation_config=graphgen_config.get("evaluation", {})
                 )
                 logger.info(f"[TaskProcessor] 评测集生成完成")
                 
@@ -133,9 +136,27 @@ class TaskProcessor:
                 if not eval_files:
                     raise ValueError("评测集生成失败：未生成任何评测数据文件")
                 
-                # 使用第一个评测文件作为输出
-                output_file = os.path.join(eval_data_dir, eval_files[0])
-                logger.info(f"[TaskProcessor] 评测数据文件: {output_file}")
+                # 使用第一个评测文件作为源文件
+                source_file = os.path.join(eval_data_dir, eval_files[0])
+                logger.info(f"[TaskProcessor] 源评测数据文件: {source_file}")
+                
+                # 复制到期望的文件名（使用task_id而不是unique_id）
+                expected_file = os.path.join(eval_data_dir, f"{task_id}_eval.json")
+                if source_file != expected_file:
+                    import shutil as sh
+                    sh.copy2(source_file, expected_file)
+                    logger.info(f"[TaskProcessor] 已复制评测文件到: {expected_file}")
+                
+                # 同时复制到永久位置（cache_folder下），避免被working_dir清理删除
+                permanent_eval_dir = os.path.join(cache_folder, "data", "evaluation")
+                os.makedirs(permanent_eval_dir, exist_ok=True)
+                permanent_eval_file = os.path.join(permanent_eval_dir, f"{task_id}_eval.json")
+                sh.copy2(expected_file, permanent_eval_file)
+                logger.info(f"[TaskProcessor] 已复制评测文件到永久位置: {permanent_eval_file}")
+                
+                # 使用永久位置的文件作为输出文件
+                output_file = permanent_eval_file
+                logger.info(f"[TaskProcessor] 最终评测数据文件: {output_file}")
                 
                 # 读取评测数据统计信息
                 try:
@@ -146,11 +167,34 @@ class TaskProcessor:
                     eval_count = len(eval_data.get('items', []))
                     logger.info(f"[TaskProcessor] 评测集包含 {eval_count} 个评测项")
                     
+                    # 获取token使用统计（与SFT任务相同）
+                    synthesizer_usage = graph_gen.synthesizer_llm_client.get_usage()
+                    trainee_usage = graph_gen.trainee_llm_client.get_usage() if graph_gen.trainee_llm_client else {"total": 0, "input": 0, "output": 0}
+                    
+                    total_tokens = synthesizer_usage["total"] + trainee_usage["total"]
+                    total_input_tokens = synthesizer_usage["input"] + trainee_usage["input"]
+                    total_output_tokens = synthesizer_usage["output"] + trainee_usage["output"]
+                    
+                    token_usage = {
+                        "synthesizer_tokens": synthesizer_usage["total"],
+                        "synthesizer_input_tokens": synthesizer_usage["input"],
+                        "synthesizer_output_tokens": synthesizer_usage["output"],
+                        "trainee_tokens": trainee_usage["total"],
+                        "trainee_input_tokens": trainee_usage["input"],
+                        "trainee_output_tokens": trainee_usage["output"],
+                        "total_tokens": total_tokens,
+                        "total_input_tokens": total_input_tokens,
+                        "total_output_tokens": total_output_tokens
+                    }
+                    
+                    logger.info(f"[TaskProcessor] Token使用统计 - 总计: {total_tokens}, 输入: {total_input_tokens}, 输出: {total_output_tokens}")
+                    
                     # 更新任务状态为完成（评测任务）
                     task_manager.update_task_status(
                         task_id,
                         TaskStatus.COMPLETED,
                         output_file=output_file,
+                        token_usage=token_usage,
                         qa_count=eval_count  # 使用评测项数量
                     )
                 except Exception as e:
@@ -183,8 +227,10 @@ class TaskProcessor:
                                     pass
                 
                 # 在生成过程中定期保存临时输出
-                await graph_gen.generate(
-                    gen_config=graphgen_config["generate"],
+                await graph_gen.generate.__wrapped__(
+                    graph_gen,
+                    partition_config=graphgen_config["partition"],
+                    generate_config=graphgen_config["generate"],
                 )
                 logger.info(f"[TaskProcessor] 训练数据生成完成")
                 
@@ -193,14 +239,15 @@ class TaskProcessor:
                 if not output_data:
                     raise ValueError("数据生成失败：未生成任何问答对。请检查 API key 是否正确，以及 LLM 服务是否可用。")
                 
-                # 保存输出文件
-                output_file = os.path.join(working_dir, "data", f"{task_id}_output.json")
-                os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                # 保存输出文件到永久位置（cache_folder下），与评测任务保持一致
+                permanent_data_dir = os.path.join(cache_folder, "data")
+                os.makedirs(permanent_data_dir, exist_ok=True)
+                output_file = os.path.join(permanent_data_dir, f"{task_id}_output.json")
                 
                 with open(output_file, 'w', encoding='utf-8') as f:
                     json.dump(output_data, f, ensure_ascii=False, indent=2)
                 
-                logger.info(f"[TaskProcessor] 输出文件已保存: {output_file}")
+                logger.info(f"[TaskProcessor] 输出文件已保存到永久位置: {output_file}")
                 
                 # 获取token使用统计
                 synthesizer_usage = graph_gen.synthesizer_llm_client.get_usage()
@@ -249,6 +296,10 @@ class TaskProcessor:
             
         except Exception as e:
             # 更新任务状态为失败
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(f"[TaskProcessor] Task failed: {e}\n{error_trace}")
+            
             task_manager.update_task_status(
                 task_id,
                 TaskStatus.FAILED,
@@ -259,48 +310,23 @@ class TaskProcessor:
                 logger.error(f"[TaskProcessor] 任务失败，日志文件: {log_file}")
         
         finally:
-            # 关闭LLM客户端，避免Event loop is closed错误
-            import asyncio
+            # 清理资源
             try:
-                # 获取当前运行的事件循环
-                loop_is_running = False
-                try:
-                    loop = asyncio.get_running_loop()
-                    # 如果有正在运行的事件循环，不能使用 run_until_complete
-                    # 而应该使用 create_task 或者跳过清理（让垃圾回收处理）
-                    # 这里选择跳过，因为在 finally 中创建 task 可能导致其他问题
-                    logger.info("[TaskProcessor] Event loop is running, skipping explicit client cleanup")
-                    loop_is_running = True
-                except RuntimeError:
-                    # 没有运行中的事件循环，可以创建新的
-                    pass
-                
-                # 只有在没有运行中的事件循环时才尝试清理
-                if not loop_is_running:
-                    # 创建新的事件循环来清理
+                if synthesizer_llm_client:
                     try:
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
-                        if synthesizer_llm_client:
-                            try:
-                                new_loop.run_until_complete(synthesizer_llm_client.aclose())
-                            except Exception as e:
-                                logger.debug(f"[TaskProcessor] Failed to close synthesizer client: {e}")
-                        if trainee_llm_client:
-                            try:
-                                new_loop.run_until_complete(trainee_llm_client.aclose())
-                            except Exception as e:
-                                logger.debug(f"[TaskProcessor] Failed to close trainee client: {e}")
-                        new_loop.close()
+                        await synthesizer_llm_client.aclose()
                     except Exception as e:
-                        logger.debug(f"[TaskProcessor] Error during client cleanup: {e}")
+                        logger.debug(f"[TaskProcessor] Failed to close synthesizer client: {e}")
+                
+                if trainee_llm_client:
+                    try:
+                        await trainee_llm_client.aclose()
+                    except Exception as e:
+                        logger.debug(f"[TaskProcessor] Failed to close trainee client: {e}")
             except Exception as e:
-                # 静默处理所有异常，因为清理失败不应影响任务状态
-                logger.debug(f"[TaskProcessor] Cleanup error: {e}")
+                logger.debug(f"[TaskProcessor] Error during client cleanup: {e}")
             
             # 清理临时工作目录（但保留日志文件）
-            # 只删除 working_dir，保留 logs 目录和日志文件
-            # 注意：不要删除整个 cache_folder，因为 logs 目录在其中
             if working_dir and os.path.exists(working_dir):
                 try:
                     shutil.rmtree(working_dir)

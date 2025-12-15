@@ -139,9 +139,9 @@
           </el-table>
         </el-card>
 
-        <!-- Token 使用情况 (仅SFT任务) -->
+        <!-- Token 使用情况 -->
         <el-descriptions
-          v-if="task.token_usage && task.task_type !== 'evaluation'"
+          v-if="task.token_usage"
           title="Token 使用情况"
           :column="3"
           border
@@ -727,13 +727,13 @@ const loadEvaluationData = async () => {
   evaluationLoading.value = true
   try {
     // 获取评测集统计
-    const statsResponse = await evaluationApi.getEvaluationStats(task.value.task_id)
+    const statsResponse = await getEvaluationStats(task.value.task_id)
     if (statsResponse.success && statsResponse.data) {
       evaluationStats.value = statsResponse.data
     }
 
     // 获取评测集数据
-    const dataResponse = await evaluationApi.getEvaluationDataset(task.value.task_id)
+    const dataResponse = await getEvaluationDataset(task.value.task_id)
     if (dataResponse.success && dataResponse.data) {
       evaluationData.value = dataResponse.data
     }

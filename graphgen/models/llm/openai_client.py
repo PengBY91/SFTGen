@@ -61,7 +61,7 @@ class OpenAIClient(BaseLLMClient):
     def __post_init__(self):
         assert self.api_key is not None, "Please provide api key to access openai api."
         self.client = AsyncOpenAI(
-            api_key=self.api_key or "dummy", base_url=self.base_url
+            api_key=self.api_key.strip() if self.api_key else "dummy", base_url=self.base_url
         )
     
     async def __aenter__(self):
@@ -85,6 +85,28 @@ class OpenAIClient(BaseLLMClient):
         except Exception:
             # 静默处理其他关闭错误
             pass
+    
+    def get_usage(self) -> Dict[str, int]:
+        """获取token使用统计
+        
+        Returns:
+            Dict包含:
+                - total: 总token数
+                - input: 输入token数
+                - output: 输出token数
+        """
+        if not self.token_usage:
+            return {"total": 0, "input": 0, "output": 0}
+        
+        total_prompt = sum(usage["prompt_tokens"] for usage in self.token_usage)
+        total_completion = sum(usage["completion_tokens"] for usage in self.token_usage)
+        total = sum(usage["total_tokens"] for usage in self.token_usage)
+        
+        return {
+            "total": total,
+            "input": total_prompt,
+            "output": total_completion
+        }
 
     def _pre_generate(self, text: str, history: List[str]) -> Dict:
         kwargs = {
