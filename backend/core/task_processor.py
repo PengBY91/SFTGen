@@ -25,7 +25,7 @@ from backend.schemas import TaskConfig
 class TaskProcessor:
     """任务处理器"""
     
-    def process_task(self, task_id: str, config: TaskConfig):
+    async def process_task(self, task_id: str, config: TaskConfig):
         """处理任务的具体逻辑"""
         cache_folder = None
         working_dir = None

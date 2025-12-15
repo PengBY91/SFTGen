@@ -134,7 +134,8 @@ class TaskService:
     def _run_task_in_thread(self, task_id: str, config: TaskConfig):
         """在线程中运行任务"""
         try:
-            self.task_processor.process_task(task_id, config)
+            import asyncio
+            asyncio.run(self.task_processor.process_task(task_id, config))
         except Exception as e:
             print(f"任务处理异常: {e}")
             task_manager.update_task_status(

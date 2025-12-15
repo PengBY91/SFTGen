@@ -69,6 +69,8 @@ class APITestRequest(BaseModel):
     base_url: str
     api_key: str
     model_name: str
+    
+    model_config = {'protected_namespaces': ()}
 
 
 class TaskType(str, Enum):
