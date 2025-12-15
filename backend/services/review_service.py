@@ -68,12 +68,19 @@ class ReviewService:
             # 读取数据
             items = []
             with open(output_file, "r", encoding="utf-8") as f:
-                # 先尝试作为 JSON 数组读取
+                # 先尝试作为 JSON 读取
                 try:
                     data = json.load(f)
-                    if isinstance(data, list):
+                    
+                    # 检查是否是评测任务的数据结构（包含 'items' 数组）
+                    if isinstance(data, dict) and 'items' in data:
+                        # 评测任务：提取 items 数组
+                        items = data['items']
+                    elif isinstance(data, list):
+                        # SFT任务：直接使用数组
                         items = data
                     else:
+                        # 单个对象
                         items = [data]
                 except json.JSONDecodeError:
                     # 如果失败，尝试作为 JSONL 读取
@@ -91,7 +98,11 @@ class ReviewService:
             # 转换为 DataItem
             data_items = []
             for idx, item in enumerate(items):
-                item_id = f"{task_id}_{idx}"
+                # 为评测任务生成特殊的 item_id（使用评测项的 id 字段）
+                if 'id' in item and item['id'].startswith('eval_'):
+                    item_id = item['id']
+                else:
+                    item_id = f"{task_id}_{idx}"
                 
                 if item_id in reviews:
                     data_items.append(reviews[item_id])

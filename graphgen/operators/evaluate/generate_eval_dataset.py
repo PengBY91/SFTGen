@@ -34,19 +34,34 @@ async def generate_eval_dataset(
     """
     logger.info("Starting evaluation dataset generation")
     
+    # Debug: log the evaluation_config to see what we're receiving
+    logger.info(f"Received evaluation_config: {evaluation_config}")
+    
     # Extract configuration
     target_eval_items = evaluation_config.get("target_eval_items", 500)
-    type_distribution = evaluation_config.get("type_distribution", {
-        "knowledge_coverage": 0.3,
-        "reasoning_ability": 0.3,
-        "factual_accuracy": 0.2,
-        "comprehensive": 0.2,
-    })
-    difficulty_distribution = evaluation_config.get("difficulty_distribution", {
-        "easy": 0.3,
-        "medium": 0.5,
-        "hard": 0.2,
-    })
+    
+    # Handle both nested (old) and flattened (new) config structures
+    type_distribution = evaluation_config.get("type_distribution")
+    if type_distribution is None:
+        # Default distribution
+        type_distribution = {
+            "knowledge_coverage": 0.3,
+            "reasoning_ability": 0.3,
+            "factual_accuracy": 0.2,
+            "comprehensive": 0.2,
+        }
+        logger.warning("type_distribution is None, using default distribution")
+    
+    difficulty_distribution = evaluation_config.get("difficulty_distribution")
+    if difficulty_distribution is None:
+        # Default distribution
+        difficulty_distribution = {
+            "easy": 0.3,
+            "medium": 0.5,
+            "hard": 0.2,
+        }
+        logger.warning("difficulty_distribution is None, using default distribution")
+    
     output_format = evaluation_config.get("output_format", "benchmark")
     
     # Average number of items generated per batch (prompts typically request 2-3 items)

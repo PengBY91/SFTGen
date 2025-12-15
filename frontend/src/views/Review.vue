@@ -70,50 +70,88 @@
         <el-table-column label="内容预览" min-width="600">
           <template #default="{ row }">
             <div class="content-preview">
-              <!-- 问题 -->
-              <div v-if="getQuestion(row.content)" class="preview-line">
-                <strong>问题：</strong>
-                <span class="text-content">{{ getQuestion(row.content) }}</span>
-              </div>
+              <!-- 评测任务：显示评测项字段 -->
+              <template v-if="isEvaluationItem(row.content)">
+                <!-- 评测类型和难度 -->
+                <div v-if="row.content.type || row.content.difficulty" class="preview-line">
+                  <el-tag v-if="row.content.type" size="small" type="primary">{{ row.content.type }}</el-tag>
+                  <el-tag v-if="row.content.difficulty" size="small" :type="getDifficultyTagType(row.content.difficulty)" style="margin-left: 5px">
+                    {{ row.content.difficulty }}
+                  </el-tag>
+                </div>
+                
+                <!-- 问题 -->
+                <div v-if="row.content.question" class="preview-line">
+                  <strong>问题：</strong>
+                  <span class="text-content">{{ row.content.question }}</span>
+                </div>
+                
+                <!-- 参考答案 -->
+                <div v-if="row.content.reference_answer" class="preview-line">
+                  <strong>参考答案：</strong>
+                  <span class="text-content">{{ row.content.reference_answer }}</span>
+                </div>
+                
+                <!-- 评估标准 -->
+                <div v-if="row.content.evaluation_criteria" class="preview-line">
+                  <strong>评估标准：</strong>
+                  <span class="text-content">{{ row.content.evaluation_criteria.scoring_rubric || '-' }}</span>
+                </div>
+                
+                <!-- 关键点 -->
+                <div v-if="row.content.evaluation_criteria?.key_points?.length" class="preview-line">
+                  <strong>关键点：</strong>
+                  <span class="text-content">{{ row.content.evaluation_criteria.key_points.join(', ') }}</span>
+                </div>
+              </template>
               
-              <!-- 推理路径（COT 和 Multi-hop） -->
-              <div v-if="(getGenerationMode(row) === 'cot' || getGenerationMode(row) === 'multi_hop') && getReasoningPath(row.content)" class="preview-line">
-                <strong>推理路径：</strong>
-                <span class="text-content reasoning-path">{{ getReasoningPath(row.content) }}</span>
-              </div>
-              
-              <!-- COT 特有：思考过程 -->
-              <div v-if="getGenerationMode(row) === 'cot' && getThinkingProcess(row.content)" class="preview-line">
-                <strong>思考过程：</strong>
-                <span class="text-content thinking-process">{{ getThinkingProcess(row.content) }}</span>
-              </div>
-              
-              <!-- COT 特有：最终答案 -->
-              <div v-if="getGenerationMode(row) === 'cot' && getFinalAnswer(row.content)" class="preview-line">
-                <strong>最终答案：</strong>
-                <span class="text-content final-answer">{{ getFinalAnswer(row.content) }}</span>
-              </div>
-              
-              <!-- COT 向后兼容：如果没有分离的字段，显示完整答案 -->
-              <div v-if="getGenerationMode(row) === 'cot' && !getThinkingProcess(row.content) && !getFinalAnswer(row.content) && getAnswer(row.content)" class="preview-line">
-                <strong>答案：</strong>
-                <span class="text-content">{{ getAnswer(row.content) }}</span>
-              </div>
-              
-              <!-- 非 COT：显示普通答案 -->
-              <div v-if="getGenerationMode(row) !== 'cot' && getAnswer(row.content)" class="preview-line">
-                <strong>答案：</strong>
-                <span class="text-content">{{ getAnswer(row.content) }}</span>
-              </div>
-              
-              <!-- 显示上下文信息 -->
-              <div v-if="row.content.context" class="context-info">
-                <el-tag size="small" type="info">图谱信息</el-tag>
-                <span class="context-text">
-                  实体数: {{ row.content.context.nodes?.length || 0 }} | 
-                  关系数: {{ row.content.context.edges?.length || 0 }}
-                </span>
-              </div>
+              <!-- SFT任务：显示SFT字段 -->
+              <template v-else>
+                <!-- 问题 -->
+                <div v-if="getQuestion(row.content)" class="preview-line">
+                  <strong>问题：</strong>
+                  <span class="text-content">{{ getQuestion(row.content) }}</span>
+                </div>
+                
+                <!-- 推理路径（COT 和 Multi-hop） -->
+                <div v-if="(getGenerationMode(row) === 'cot' || getGenerationMode(row) === 'multi_hop') && getReasoningPath(row.content)" class="preview-line">
+                  <strong>推理路径：</strong>
+                  <span class="text-content reasoning-path">{{ getReasoningPath(row.content) }}</span>
+                </div>
+                
+                <!-- COT 特有：思考过程 -->
+                <div v-if="getGenerationMode(row) === 'cot' && getThinkingProcess(row.content)" class="preview-line">
+                  <strong>思考过程：</strong>
+                  <span class="text-content thinking-process">{{ getThinkingProcess(row.content) }}</span>
+                </div>
+                
+                <!-- COT 特有：最终答案 -->
+                <div v-if="getGenerationMode(row) === 'cot' && getFinalAnswer(row.content)" class="preview-line">
+                  <strong>最终答案：</strong>
+                  <span class="text-content final-answer">{{ getFinalAnswer(row.content) }}</span>
+                </div>
+                
+                <!-- COT 向后兼容：如果没有分离的字段，显示完整答案 -->
+                <div v-if="getGenerationMode(row) === 'cot' && !getThinkingProcess(row.content) && !getFinalAnswer(row.content) && getAnswer(row.content)" class="preview-line">
+                  <strong>答案：</strong>
+                  <span class="text-content">{{ getAnswer(row.content) }}</span>
+                </div>
+                
+                <!-- 非 COT：显示普通答案 -->
+                <div v-if="getGenerationMode(row) !== 'cot' && getAnswer(row.content)" class="preview-line">
+                  <strong>答案：</strong>
+                  <span class="text-content">{{ getAnswer(row.content) }}</span>
+                </div>
+                
+                <!-- 显示上下文信息 -->
+                <div v-if="row.content.context" class="context-info">
+                  <el-tag size="small" type="info">图谱信息</el-tag>
+                  <span class="context-text">
+                    实体数: {{ row.content.context.nodes?.length || 0 }} | 
+                    关系数: {{ row.content.context.edges?.length || 0 }}
+                  </span>
+                </div>
+              </template>
             </div>
           </template>
         </el-table-column>
@@ -507,6 +545,26 @@ const getFinalAnswer = (content: DataContent): string => {
     return content.final_answer
   }
   return ''
+}
+
+// 判断是否是评测任务项
+const isEvaluationItem = (content: any): boolean => {
+  // 评测项包含 reference_answer 或 evaluation_criteria 字段
+  return content && (
+    ('reference_answer' in content) ||
+    ('evaluation_criteria' in content) ||
+    (content.id && typeof content.id === 'string' && content.id.startsWith('eval_'))
+  )
+}
+
+// 获取难度标签类型
+const getDifficultyTagType = (difficulty: string): string => {
+  const typeMap: Record<string, string> = {
+    'easy': 'success',
+    'medium': 'warning',
+    'hard': 'danger'
+  }
+  return typeMap[difficulty] || 'info'
 }
 
 

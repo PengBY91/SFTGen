@@ -431,24 +431,23 @@ const submitTask = async () => {
       chunk_size: evalConfig.value.chunk_size,
       chunk_overlap: evalConfig.value.chunk_overlap,
       partition_method: 'ece',
-      evaluation: {
-        enabled: true,
-        dataset_name: evalConfig.value.evaluation_dataset_name,
-        target_eval_items: evalConfig.value.evaluation_target_items,
-        type_distribution: {
-          knowledge_coverage: evalTypeDistribution.value.knowledge_coverage / 100,
-          reasoning_ability: evalTypeDistribution.value.reasoning_ability / 100,
-          factual_accuracy: evalTypeDistribution.value.factual_accuracy / 100,
-          comprehensive: evalTypeDistribution.value.comprehensive / 100
-        },
-        difficulty_distribution: {
-          easy: evalDifficultyDistribution.value.easy / 100,
-          medium: evalDifficultyDistribution.value.medium / 100,
-          hard: evalDifficultyDistribution.value.hard / 100
-        },
-        output_format: 'benchmark',
-        min_quality_score: 0.5
-      }
+      // 展平评测配置字段以匹配 TaskConfig schema
+      evaluation_enabled: true,
+      evaluation_dataset_name: evalConfig.value.evaluation_dataset_name,
+      evaluation_target_items: evalConfig.value.evaluation_target_items,
+      evaluation_type_distribution: {
+        knowledge_coverage: evalTypeDistribution.value.knowledge_coverage / 100,
+        reasoning_ability: evalTypeDistribution.value.reasoning_ability / 100,
+        factual_accuracy: evalTypeDistribution.value.factual_accuracy / 100,
+        comprehensive: evalTypeDistribution.value.comprehensive / 100
+      },
+      evaluation_difficulty_distribution: {
+        easy: evalDifficultyDistribution.value.easy / 100,
+        medium: evalDifficultyDistribution.value.medium / 100,
+        hard: evalDifficultyDistribution.value.hard / 100
+      },
+      evaluation_output_format: 'benchmark',
+      evaluation_min_quality_score: 0.5
     }
     
     // 启动任务

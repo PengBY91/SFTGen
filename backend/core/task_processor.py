@@ -472,17 +472,17 @@ class TaskProcessor:
                 "dataset_name": getattr(config, "evaluation_dataset_name", "Domain Knowledge Evaluation Dataset"),
                 "description": getattr(config, "evaluation_description", "Evaluation dataset for domain model assessment"),
                 "target_eval_items": getattr(config, "evaluation_target_items", 200),
-                "type_distribution": getattr(config, "evaluation_type_distribution", {
+                "type_distribution": getattr(config, "evaluation_type_distribution", None) or {
                     "knowledge_coverage": 0.3,
                     "reasoning_ability": 0.3,
                     "factual_accuracy": 0.2,
                     "comprehensive": 0.2,
-                }),
-                "difficulty_distribution": getattr(config, "evaluation_difficulty_distribution", {
+                },
+                "difficulty_distribution": getattr(config, "evaluation_difficulty_distribution", None) or {
                     "easy": 0.3,
                     "medium": 0.5,
                     "hard": 0.2,
-                }),
+                },
                 "output_format": getattr(config, "evaluation_output_format", "benchmark"),
                 "min_quality_score": getattr(config, "evaluation_min_quality_score", 0.5),
             },
