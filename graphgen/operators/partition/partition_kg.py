@@ -7,6 +7,7 @@ from graphgen.models import (
     BFSPartitioner,
     DFSPartitioner,
     ECEPartitioner,
+    HierarchicalPartitioner,
     LeidenPartitioner,
 )
 from graphgen.utils import logger
@@ -49,6 +50,14 @@ async def partition_kg(
             anchor_ids=set(method_params.get("anchor_ids", []))
             if method_params.get("anchor_ids")
             else None,
+        )
+    elif method == "hierarchical":
+        logger.info("Partitioning knowledge graph using Hierarchical method.")
+        partitioner = HierarchicalPartitioner(
+            hierarchical_relations=method_params.get("hierarchical_relations"),
+            max_depth=method_params.get("max_hierarchical_depth", 3),
+            max_siblings=method_params.get("max_siblings_per_community", 10),
+            include_attributes=method_params.get("include_attributes", True),
         )
     else:
         raise ValueError(f"Unsupported partition method: {method}")

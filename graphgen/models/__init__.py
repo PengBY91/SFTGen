@@ -5,6 +5,7 @@ from .generator import (
     AtomicQuestionGenerator,
     CoTGenerator,
     MultiHopGenerator,
+    TreeStructureGenerator,
 )
 from .kg_builder import LightRAGKGBuilder, MMKGBuilder
 from .llm.batch_llm_wrapper import BatchLLMWrapper
@@ -15,6 +16,7 @@ from .partitioner import (
     BFSPartitioner,
     DFSPartitioner,
     ECEPartitioner,
+    HierarchicalPartitioner,
     LeidenPartitioner,
 )
 from .reader import CSVReader, DOCXReader, JSONLReader, JSONReader, MarkdownReader, PDFReader, TXTReader

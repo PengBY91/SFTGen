@@ -149,6 +149,7 @@
                 <el-option label="DFS" value="dfs" />
                 <el-option label="BFS" value="bfs" />
                 <el-option label="Leiden" value="leiden" />
+                <el-option label="Hierarchical" value="hierarchical" />
               </el-select>
             </el-form-item>
 
@@ -204,6 +205,67 @@
                 <el-input-number v-model="config.leiden_random_seed" :min="0" />
               </el-form-item>
             </template>
+
+            <!-- Hierarchical 参数 -->
+            <template v-if="config.partition_method === 'hierarchical'">
+              <el-divider content-position="left">Hierarchical 参数</el-divider>
+              <el-alert
+                title="层次化分区说明"
+                type="info"
+                :closable="false"
+                style="margin-bottom: 16px"
+              >
+                <template #default>
+                  <div style="font-size: 12px; line-height: 1.6">
+                    <p>层次化分区适用于具有层次结构的知识图谱（如分类体系、本体结构）：</p>
+                    <ul style="margin: 8px 0; padding-left: 20px">
+                      <li><strong>兄弟分组</strong>：将父节点和所有子节点归为一组，适合比较类问题</li>
+                      <li><strong>链式采样</strong>：沿层次结构采样祖先→后代路径，适合继承类问题</li>
+                    </ul>
+                  </div>
+                </template>
+              </el-alert>
+
+              <el-form-item label="层次关系类型">
+                <el-select
+                  v-model="config.hierarchical_relations"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  placeholder="选择或输入关系类型"
+                >
+                  <el-option label="is_a" value="is_a" />
+                  <el-option label="subclass_of" value="subclass_of" />
+                  <el-option label="part_of" value="part_of" />
+                  <el-option label="includes" value="includes" />
+                  <el-option label="type_of" value="type_of" />
+                </el-select>
+                <span class="form-item-tip">选择知识图谱中的层次关系类型，可多选或自定义输入</span>
+              </el-form-item>
+
+              <el-form-item label="最大层次深度">
+                <el-slider
+                  v-model="config.max_hierarchical_depth"
+                  :min="1"
+                  :max="10"
+                  :step="1"
+                  show-input
+                />
+                <span class="form-item-tip">链式采样的最大深度（层级数），建议 2-5</span>
+              </el-form-item>
+
+              <el-form-item label="最大兄弟节点数">
+                <el-slider
+                  v-model="config.max_siblings_per_community"
+                  :min="2"
+                  :max="20"
+                  :step="1"
+                  show-input
+                />
+                <span class="form-item-tip">每个兄弟分组的最大节点数，建议 5-15</span>
+              </el-form-item>
+            </template>
           </el-collapse-item>
 
           <!-- 生成配置 -->
@@ -214,6 +276,7 @@
                 <el-checkbox label="multi_hop">Multi-hop - 多跳问答</el-checkbox>
                 <el-checkbox label="aggregated">Aggregated - 聚合问答</el-checkbox>
                 <el-checkbox label="cot">CoT - 思维链问答</el-checkbox>
+                <el-checkbox label="hierarchical">Hierarchical - 层次化问答</el-checkbox>
               </el-checkbox-group>
               <div class="form-item-tip">可选择多个生成模式，将同时生成所有选中模式的数据</div>
             </el-form-item>
@@ -277,6 +340,15 @@
                     :step="1"
                   />
                 </div>
+                <div class="qa-ratio-item">
+                  <span class="qa-ratio-label">Hierarchical</span>
+                  <el-input-number
+                    v-model="config.qa_ratio_hierarchical"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                  />
+                </div>
               </div>
               <span class="form-item-tip">当前占比合计：{{ ratioTotal }}%，建议接近 100%</span>
             </el-form-item>
@@ -301,6 +373,21 @@
                 :disabled="!config.use_multi_template"
               />
               <span class="form-item-tip">设置随机种子以保证可复现性（可选，留空则随机）</span>
+            </el-form-item>
+
+            <el-divider content-position="left">Hierarchical 生成配置</el-divider>
+
+            <el-form-item label="树结构格式" v-if="config.mode.includes('hierarchical')">
+              <el-radio-group v-model="config.structure_format">
+                <el-radio label="markdown">Markdown (推荐)</el-radio>
+                <el-radio label="json">JSON</el-radio>
+                <el-radio label="outline">Outline</el-radio>
+              </el-radio-group>
+              <div class="form-item-tip">
+                <p><strong>Markdown</strong>：易读性强，适合LLM理解层次结构</p>
+                <p><strong>JSON</strong>：结构化强，便于程序处理</p>
+                <p><strong>Outline</strong>：紧凑格式，适合深层结构</p>
+              </div>
             </el-form-item>
 
             <el-divider content-position="left">问答生成优化</el-divider>
@@ -472,7 +559,8 @@ const ratioTotal = computed(() => {
     Number(config.value.qa_ratio_atomic ?? 0),
     Number(config.value.qa_ratio_aggregated ?? 0),
     Number(config.value.qa_ratio_multi_hop ?? 0),
-    Number(config.value.qa_ratio_cot ?? 0)
+    Number(config.value.qa_ratio_cot ?? 0),
+    Number(config.value.qa_ratio_hierarchical ?? 0)
   ]
   const total = ratios.reduce((sum, value) => {
     const normalized = Number.isFinite(value) ? value : 0

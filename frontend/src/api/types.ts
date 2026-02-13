@@ -46,6 +46,12 @@ export interface TaskConfig {
   qa_ratio_aggregated?: number  // Aggregated占比
   qa_ratio_multi_hop?: number  // Multi-hop占比
   qa_ratio_cot?: number  // CoT占比
+  qa_ratio_hierarchical?: number  // Hierarchical占比
+  // Hierarchical partitioner and generator configuration
+  hierarchical_relations?: string[]  // 层次关系类型列表
+  structure_format?: string  // 树结构格式
+  max_hierarchical_depth?: number  // 最大层次深度
+  max_siblings_per_community?: number  // 每个社区的最大兄弟节点数
   // 去重优化
   persistent_deduplication?: boolean  // 是否启用持久化去重
   question_first?: boolean  // 是否启用先问后答流程

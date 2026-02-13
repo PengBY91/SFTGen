@@ -8,6 +8,7 @@ from graphgen.models import (
     AtomicQuestionGenerator,
     CoTGenerator,
     MultiHopGenerator,
+    TreeStructureGenerator,
 )
 from graphgen.models.llm.batch_llm_wrapper import BatchLLMWrapper
 from graphgen.templates import ATOMIC_ANSWER_PROMPT
@@ -459,6 +460,15 @@ async def generate_qas(
             (AggregatedGenerator(actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only), "aggregated"),
             (MultiHopGenerator(actual_llm_client, chinese_only=chinese_only), "multi_hop"),
             (CoTGenerator(actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only), "cot"),
+            (TreeStructureGenerator(
+                actual_llm_client,
+                structure_format=generation_config.get("structure_format", "markdown"),
+                hierarchical_relations=generation_config.get(
+                    "hierarchical_relations",
+                    ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+                ),
+                chinese_only=chinese_only,
+            ), "hierarchical"),
         ]
 
         all_results = []
@@ -491,6 +501,7 @@ async def generate_qas(
                         "aggregated": 1.5,  # aggregated模式每个batch约1-2个QA对
                         "multi_hop": 1.0,   # multi_hop模式每个batch约1个QA对
                         "cot": 1.0,         # cot模式每个batch约1个QA对
+                        "hierarchical": 1.0, # hierarchical模式每个batch约1个QA对
                     }
                     avg_qa_per_batch = estimated_qa_per_batch_mode.get(gen_mode, 1.0)
                     # 考虑去重和失败率，使用1.3倍缓冲（降低缓冲比例，更接近目标）
@@ -673,6 +684,16 @@ async def generate_qas(
         elif mode == "cot":
             generator = CoTGenerator(
                 actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only
+            )
+        elif mode == "hierarchical":
+            generator = TreeStructureGenerator(
+                actual_llm_client,
+                structure_format=generation_config.get("structure_format", "markdown"),
+                hierarchical_relations=generation_config.get(
+                    "hierarchical_relations",
+                    ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+                ),
+                chinese_only=chinese_only,
             )
         else:
             raise ValueError(f"Unsupported generation mode: {mode}")

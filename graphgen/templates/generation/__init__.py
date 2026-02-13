@@ -10,4 +10,5 @@ from .atomic_generation import (
     ATOMIC_ANSWER_PROMPT_CHINESE_ONLY,
 )
 from .cot_generation import COT_GENERATION_PROMPT
+from .hierarchical_generation import HIERARCHICAL_GENERATION_PROMPT
 from .multi_hop_generation import MULTI_HOP_GENERATION_PROMPT

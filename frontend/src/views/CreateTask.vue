@@ -163,6 +163,7 @@
               <el-option label="DFS" value="dfs" />
               <el-option label="BFS" value="bfs" />
               <el-option label="Leiden" value="leiden" />
+              <el-option label="Hierarchical" value="hierarchical" />
             </el-select>
           </el-form-item>
 
@@ -212,6 +213,44 @@
             </el-form-item>
           </template>
 
+          <!-- Hierarchical 参数 -->
+          <template v-if="taskConfig.partition_method === 'hierarchical'">
+            <el-form-item label="层次关系类型">
+              <el-select
+                v-model="taskConfig.hierarchical_relations"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                placeholder="选择或输入关系类型"
+              >
+                <el-option label="is_a" value="is_a" />
+                <el-option label="subclass_of" value="subclass_of" />
+                <el-option label="part_of" value="part_of" />
+                <el-option label="includes" value="includes" />
+                <el-option label="type_of" value="type_of" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="最大层次深度">
+              <el-slider
+                v-model="taskConfig.max_hierarchical_depth"
+                :min="1"
+                :max="10"
+                :step="1"
+                show-input
+              />
+            </el-form-item>
+            <el-form-item label="最大兄弟节点数">
+              <el-slider
+                v-model="taskConfig.max_siblings_per_community"
+                :min="2"
+                :max="20"
+                :step="1"
+                show-input
+              />
+            </el-form-item>
+          </template>
+
           <el-divider content-position="left">生成配置</el-divider>
 
           <el-form-item label="生成模式">
@@ -220,6 +259,7 @@
               <el-checkbox label="multi_hop">Multi-hop - 多跳问答</el-checkbox>
               <el-checkbox label="aggregated">Aggregated - 聚合问答</el-checkbox>
               <el-checkbox label="cot">CoT - 思维链问答</el-checkbox>
+              <el-checkbox label="hierarchical">Hierarchical - 层次化问答</el-checkbox>
             </el-checkbox-group>
             <div class="form-item-tip">可选择多个生成模式，将同时生成所有选中模式的数据</div>
           </el-form-item>
@@ -235,6 +275,15 @@
           <el-form-item label="只生成中文">
             <el-switch v-model="taskConfig.chinese_only" />
             <div class="form-item-tip">强制生成纯中文问答对，问题和答案都不包含英文（推荐用于中文训练数据）</div>
+          </el-form-item>
+
+          <el-form-item label="树结构格式" v-if="taskConfig.mode.includes('hierarchical')">
+            <el-radio-group v-model="taskConfig.structure_format">
+              <el-radio value="markdown">Markdown (推荐)</el-radio>
+              <el-radio value="json">JSON</el-radio>
+              <el-radio value="outline">Outline</el-radio>
+            </el-radio-group>
+            <div class="form-item-tip">层次化问答的树结构序列化格式</div>
           </el-form-item>
 
           <el-divider content-position="left">数量与类型控制</el-divider>
@@ -283,6 +332,15 @@
                 <span class="qa-ratio-label">CoT</span>
                 <el-input-number
                   v-model="taskConfig.qa_ratio_cot"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                />
+              </div>
+              <div class="qa-ratio-item">
+                <span class="qa-ratio-label">Hierarchical</span>
+                <el-input-number
+                  v-model="taskConfig.qa_ratio_hierarchical"
                   :min="0"
                   :max="100"
                   :step="1"
@@ -395,7 +453,8 @@ const ratioTotal = computed(() => {
     Number(taskConfig.value.qa_ratio_atomic ?? 0),
     Number(taskConfig.value.qa_ratio_aggregated ?? 0),
     Number(taskConfig.value.qa_ratio_multi_hop ?? 0),
-    Number(taskConfig.value.qa_ratio_cot ?? 0)
+    Number(taskConfig.value.qa_ratio_cot ?? 0),
+    Number(taskConfig.value.qa_ratio_hierarchical ?? 0)
   ]
   const total = ratios.reduce((sum, value) => {
     const normalized = Number.isFinite(value) ? value : 0

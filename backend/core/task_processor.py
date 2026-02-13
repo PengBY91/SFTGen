@@ -351,6 +351,13 @@ class TaskProcessor:
                 "use_lcc": config.leiden_use_lcc,
                 "random_seed": config.leiden_random_seed,
             }
+        elif method == "hierarchical":
+            partition_params = {
+                "hierarchical_relations": config.hierarchical_relations,
+                "max_hierarchical_depth": config.max_hierarchical_depth,
+                "max_siblings_per_community": config.max_siblings_per_community,
+                "include_attributes": True,
+            }
         else:  # ece
             partition_params = {
                 "max_units_per_community": config.ece_max_units,
@@ -400,7 +407,7 @@ class TaskProcessor:
                 selected_modes = {mode}
         
         # 构建 mode_ratios，未选中的模式设置为 0
-        all_mode_names = {"atomic", "aggregated", "multi_hop", "cot"}
+        all_mode_names = {"atomic", "aggregated", "multi_hop", "cot", "hierarchical"}
         mode_ratios = {}
         
         for mode_name in all_mode_names:
@@ -466,6 +473,9 @@ class TaskProcessor:
                 # 生成数量与比例
                 "target_qa_pairs": getattr(config, "qa_pair_limit", None),
                 "mode_ratios": mode_ratios,
+                # Hierarchical 配置
+                "structure_format": getattr(config, "structure_format", "markdown"),
+                "hierarchical_relations": getattr(config, "hierarchical_relations", ["is_a", "subclass_of", "part_of", "includes", "type_of"]),
             },
             "evaluation": {
                 "enabled": getattr(config, "evaluation_enabled", False),

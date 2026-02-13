@@ -53,10 +53,16 @@ class TaskConfig(BaseModel):
     cache_ttl: Optional[int] = None  # 缓存TTL（秒，None表示不过期）
     # 生成数量与比例配置
     qa_pair_limit: Optional[int] = None  # 目标生成QA数量（None表示不限制）
-    qa_ratio_atomic: float = 25.0  # Atomic 类型占比（百分比）
-    qa_ratio_aggregated: float = 25.0  # Aggregated 类型占比
-    qa_ratio_multi_hop: float = 25.0  # Multi-hop 类型占比
-    qa_ratio_cot: float = 25.0  # CoT 类型占比
+    qa_ratio_atomic: float = 20.0  # Atomic 类型占比（百分比）
+    qa_ratio_aggregated: float = 20.0  # Aggregated 类型占比
+    qa_ratio_multi_hop: float = 20.0  # Multi-hop 类型占比
+    qa_ratio_cot: float = 20.0  # CoT 类型占比
+    qa_ratio_hierarchical: float = 20.0  # Hierarchical 类型占比
+    # Hierarchical partitioner and generator configuration
+    hierarchical_relations: List[str] = ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+    structure_format: str = "markdown"  # Tree structure format: "markdown", "json", or "outline"
+    max_hierarchical_depth: int = 3  # Maximum depth for vertical chain sampling
+    max_siblings_per_community: int = 10  # Maximum siblings per community in horizontal grouping
     # 去重优化
     persistent_deduplication: bool = True  # 默认启用持久化去重
     question_first: bool = True  # 默认启用"先问后答"流程（在不支持的模式下会被忽略）

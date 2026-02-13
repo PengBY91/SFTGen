@@ -50,10 +50,16 @@ export const useConfigStore = defineStore('config', () => {
     cache_ttl: undefined,  // 默认缓存不过期
     // 生成配置
     qa_pair_limit: 200,  // 默认目标QA数量
-    qa_ratio_atomic: 25,
-    qa_ratio_aggregated: 25,
-    qa_ratio_multi_hop: 25,
-    qa_ratio_cot: 25,
+    qa_ratio_atomic: 20,
+    qa_ratio_aggregated: 20,
+    qa_ratio_multi_hop: 20,
+    qa_ratio_cot: 20,
+    qa_ratio_hierarchical: 20,
+    // Hierarchical 配置
+    hierarchical_relations: ['is_a', 'subclass_of', 'part_of', 'includes', 'type_of'],
+    structure_format: 'markdown',
+    max_hierarchical_depth: 3,
+    max_siblings_per_community: 10,
     persistent_deduplication: true,
     question_first: true,
     chinese_only: false  // 默认不限制语言
@@ -141,10 +147,16 @@ export const useConfigStore = defineStore('config', () => {
       cache_ttl: undefined,
       // 生成配置
       qa_pair_limit: 200,
-      qa_ratio_atomic: 25,
-      qa_ratio_aggregated: 25,
-      qa_ratio_multi_hop: 25,
-      qa_ratio_cot: 25,
+      qa_ratio_atomic: 20,
+      qa_ratio_aggregated: 20,
+      qa_ratio_multi_hop: 20,
+      qa_ratio_cot: 20,
+      qa_ratio_hierarchical: 20,
+      // Hierarchical 配置
+      hierarchical_relations: ['is_a', 'subclass_of', 'part_of', 'includes', 'type_of'],
+      structure_format: 'markdown',
+      max_hierarchical_depth: 3,
+      max_siblings_per_community: 10,
       persistent_deduplication: true,
       question_first: true,
       chinese_only: false  // 默认不限制语言
