@@ -235,7 +235,7 @@ class TaskProcessor:
                 logger.info(f"[TaskProcessor] 训练数据生成完成")
                 
                 # 检查生成的数据
-                output_data = graph_gen.qa_storage.get_all()
+                output_data = graph_gen.qa_storage.data
                 if not output_data:
                     raise ValueError("数据生成失败：未生成任何问答对。请检查 API key 是否正确，以及 LLM 服务是否可用。")
                 
