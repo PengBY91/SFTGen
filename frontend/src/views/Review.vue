@@ -12,11 +12,19 @@
         </div>
       </div>
       <div class="header-actions">
-            <el-select v-model="modeFilter" placeholder="筛选生成模式" clearable style="width: 150px; margin-right: 10px">
+            <!-- SFT 任务：显示生成模式筛选 -->
+            <el-select v-if="taskType === 'sft'" v-model="modeFilter" placeholder="筛选生成模式" clearable style="width: 150px; margin-right: 10px">
               <el-option label="Atomic" value="atomic" />
               <el-option label="Multi-hop" value="multi_hop" />
               <el-option label="Aggregated" value="aggregated" />
               <el-option label="CoT" value="cot" />
+            </el-select>
+            <!-- 评测任务：显示评测类型筛选 -->
+            <el-select v-else-if="taskType === 'evaluation'" v-model="modeFilter" placeholder="筛选评测类型" clearable style="width: 180px; margin-right: 10px">
+              <el-option label="知识覆盖" value="knowledge_coverage" />
+              <el-option label="推理能力" value="reasoning_ability" />
+              <el-option label="事实准确性" value="factual_accuracy" />
+              <el-option label="综合评估" value="comprehensive" />
             </el-select>
             <el-select v-model="statusFilter" placeholder="筛选审核状态" clearable style="width: 150px; margin-right: 10px">
               <el-option label="待审核" value="pending" />
@@ -353,6 +361,7 @@ const stats = ref<ReviewStats>({
 
 const statusFilter = ref('')
 const modeFilter = ref('')
+const taskType = ref<string>('sft')  // 任务类型，默认为 sft
 const selectedItems = ref<DataItem[]>([])
 const autoReviewDialogVisible = ref(false)
 const autoReviewLoading = ref(false)
@@ -462,7 +471,11 @@ const refreshData = async () => {
 
 // 获取生成模式（从多个可能的位置）
 const getGenerationMode = (row: DataItem): string => {
-  // 优先从 content.mode 获取
+  // 评测任务：从 content.type 获取评测类型
+  if (taskType.value === 'evaluation' && row.content?.type) {
+    return row.content.type
+  }
+  // SFT 任务：优先从 content.mode 获取
   if (row.content?.mode) {
     return row.content.mode
   }
@@ -837,7 +850,7 @@ const handleScroll = () => {
 }
 
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   // 从 localStorage 恢复每页数量设置
   const savedPageSize = localStorage.getItem('review_page_size')
   if (savedPageSize) {
@@ -854,6 +867,16 @@ onMounted(() => {
       mainElement.addEventListener('scroll', handleScroll)
     }
   }, 100)
+  
+  // 获取任务信息以确定任务类型
+  try {
+    const taskRes = await api.getTask(taskId)
+    if (taskRes?.success && taskRes.data) {
+      taskType.value = taskRes.data.task_type || 'sft'
+    }
+  } catch (error) {
+    console.error('[onMounted] 获取任务信息失败', error)
+  }
   
   refreshData()
 })
