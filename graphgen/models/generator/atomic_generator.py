@@ -8,6 +8,7 @@ from graphgen.templates import (
     ATOMIC_QUESTION_PROMPT,
 )
 from graphgen.utils import compute_content_hash, detect_main_language, logger
+from graphgen.utils.hierarchy_utils import HierarchySerializer
 
 
 def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
@@ -176,7 +177,14 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
 
 
 class AtomicGenerator(BaseGenerator):
-    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None, chinese_only: bool = False):
+    def __init__(
+        self,
+        llm_client,
+        use_multi_template: bool = True,
+        template_seed: Optional[int] = None,
+        chinese_only: bool = False,
+        hierarchical_relations: Optional[list[str]] = None
+    ):
         """
         Initialize AtomicGenerator with optional multi-template support.
         
@@ -184,6 +192,7 @@ class AtomicGenerator(BaseGenerator):
         :param use_multi_template: Whether to use multiple template variants for diversity
         :param template_seed: Optional seed for template selection (for reproducibility)
         :param chinese_only: Whether to generate only Chinese QA pairs
+        :param hierarchical_relations: List of relationship types to treat as hierarchical (e.g., ["is_a", "part_of"])
         """
         super().__init__(llm_client)
         self.use_multi_template = use_multi_template
@@ -192,6 +201,8 @@ class AtomicGenerator(BaseGenerator):
         if template_seed is not None:
             random.seed(template_seed)
         self._generation_mode = "atomic"
+        self.hierarchical_relations = hierarchical_relations or ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+        self.hierarchy_serializer = HierarchySerializer(self.hierarchical_relations)
 
     @staticmethod
     def _build_context(batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]) -> tuple[str, str]:
@@ -213,6 +224,10 @@ class AtomicGenerator(BaseGenerator):
         Supports multi-template sampling for diversity and Chinese-only mode.
         """
         context, language = self._build_context(batch)
+        
+        # Serialize hierarchical context
+        nodes, edges = batch
+        hierarchical_context = self.hierarchy_serializer.serialize(nodes, edges, structure_format="markdown", require_hierarchy=True)
 
         # Use Chinese-only templates if enabled
         if self.chinese_only:
@@ -236,7 +251,15 @@ class AtomicGenerator(BaseGenerator):
         else:
             selected_template = ATOMIC_GENERATION_PROMPT[language]
 
-        prompt = selected_template.format(context=context)
+        # Use safe formatting to avoid errors if the template doesn't have the placeholder
+        try:
+            # First try with both arguments
+            prompt = selected_template.format(context=context, hierarchical_context=hierarchical_context)
+        except KeyError:
+            # Fallback for templates that might not have the {hierarchical_context} placeholder yet
+            logger.warning("Template does not support {hierarchical_context}, falling back to {context} only")
+            prompt = selected_template.format(context=context)
+            
         return prompt
 
     @staticmethod

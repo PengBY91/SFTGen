@@ -68,6 +68,8 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 [Reasoning_Template:]:
 {reasoning_template}
 
+{hierarchical_context}
+
 输出：
 
 """
@@ -140,6 +142,8 @@ Input:
 [Reasoning_Template:]:
 {reasoning_template}
 
+{hierarchical_context}
+
 Output:
 """
 
@@ -191,6 +195,8 @@ COT_TEMPLATE_DESIGN_ZH = """你是一位“元推理架构师”。你的任务�
 
 [Relationships:]:
 {relationships}
+
+{hierarchical_context}
 
 输出:
 """
@@ -246,6 +252,8 @@ Input:
 
 [Relationships:]:
 {relationships}
+
+{hierarchical_context}
 
 Output:
 """
@@ -328,6 +336,8 @@ Input:
 
 [Relationships:]:
 {relationships}
+
+{hierarchical_context}
 
 Output:
 """
@@ -416,6 +426,8 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 
 [Relationships:]:
 {relationships}
+
+{hierarchical_context}
 
 输出:
 """

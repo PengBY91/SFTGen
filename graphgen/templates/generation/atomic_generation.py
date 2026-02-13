@@ -27,6 +27,8 @@ Answer: TAC4 is a key regulator of gravitropism in rice shoots, promoting the be
 
 Here is the text passage you need to generate a QA pair for:
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_ZH: str = """给定一个文本段落。你的任务是根据该文本的内容生成一个问答（QA）对。
@@ -57,6 +59,8 @@ TEMPLATE_ZH: str = """给定一个文本段落。你的任务是根据该文本�
 
 以下是你需要为其生成QA对的文本段落：
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_ZH_CHINESE_ONLY: str = """给定一个文本段落。你的任务是根据该文本的内容生成一个问答（QA）对。
@@ -93,6 +97,8 @@ TEMPLATE_ZH_CHINESE_ONLY: str = """给定一个文本段落。你的任务是根
 
 以下是你需要为其生成QA对的文本段落：
 {context}
+
+{hierarchical_context}
 """
 
 
@@ -113,6 +119,8 @@ Guidelines:
 
 Text:
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_EN_V3: str = """Extract the most important information from this text and formulate it as a question-answer pair.
@@ -131,6 +139,8 @@ Requirements:
 
 Text content:
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_ZH_V2: str = """根据以下文本，创建一个捕获关键信息的问答对。
@@ -149,6 +159,8 @@ TEMPLATE_ZH_V2: str = """根据以下文本，创建一个捕获关键信息的�
 
 文本：
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_ZH_V3: str = """从这段文本中提取最重要的信息，并将其表述为一个问答对。
@@ -167,6 +179,8 @@ TEMPLATE_ZH_V3: str = """从这段文本中提取最重要的信息，并将其�
 
 文本内容：
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_ZH_V2_CHINESE_ONLY: str = """根据以下文本，创建一个捕获关键信息的问答对。
@@ -189,6 +203,8 @@ TEMPLATE_ZH_V2_CHINESE_ONLY: str = """根据以下文本，创建一个捕获关
 
 文本：
 {context}
+
+{hierarchical_context}
 """
 
 TEMPLATE_ZH_V3_CHINESE_ONLY: str = """从这段文本中提取最重要的信息，并将其表述为一个问答对。
@@ -211,6 +227,8 @@ TEMPLATE_ZH_V3_CHINESE_ONLY: str = """从这段文本中提取最重要的信息
 
 文本内容：
 {context}
+
+{hierarchical_context}
 """
 
 ATOMIC_GENERATION_PROMPT = {
@@ -246,6 +264,8 @@ Important Guidelines:
 
 Text:
 {context}
+
+{hierarchical_context}
 """,
     "zh": """给定一段文本。请提出一个能够体现关键信息的简洁问题。
 重要要求：
@@ -257,6 +277,8 @@ Text:
 
 文本：
 {context}
+
+{hierarchical_context}
 """,
 }
 
@@ -275,6 +297,8 @@ ATOMIC_QUESTION_PROMPT_CHINESE_ONLY = {
 
 文本：
 {context}
+
+{hierarchical_context}
 """,
 }
 
@@ -292,6 +316,8 @@ Requirements:
 Text:
 {context}
 
+{hierarchical_context}
+
 Question: {question}
 """,
     "zh": """你将根据下面的文本回答给定的问题。
@@ -305,6 +331,8 @@ Question: {question}
 
 文本：
 {context}
+
+{hierarchical_context}
 
 问题：{question}
 """,
@@ -326,6 +354,9 @@ ATOMIC_ANSWER_PROMPT_CHINESE_ONLY = {
 文本：
 {context}
 
+{hierarchical_context}
+
 问题：{question}
 """,
 }
+

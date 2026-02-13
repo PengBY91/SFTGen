@@ -1,8 +1,9 @@
-from typing import Any
+from typing import Any, Optional
 
 from graphgen.bases import BaseGenerator
 from graphgen.templates import AGGREGATED_GENERATION_PROMPT
 from graphgen.utils import compute_content_hash, detect_main_language, logger
+from graphgen.utils.hierarchy_utils import HierarchySerializer
 
 
 class AggregatedGenerator(BaseGenerator):
@@ -15,17 +16,26 @@ class AggregatedGenerator(BaseGenerator):
     Can also use COMBINED mode to generate both in one step (reduces 50% of API calls).
     """
     
-    def __init__(self, llm_client, use_combined_mode: bool = False, chinese_only: bool = False):
+    def __init__(
+        self,
+        llm_client,
+        use_combined_mode: bool = False,
+        chinese_only: bool = False,
+        hierarchical_relations: Optional[list[str]] = None
+    ):
         """
         初始化 Aggregated 生成器
         
         :param llm_client: LLM客户端
         :param use_combined_mode: 是否使用合并模式（一次性生成重述文本和问题，减少50%调用）
         :param chinese_only: 是否只生成中文（强制使用中文模板）
+        :param hierarchical_relations: List of relationship types to treat as hierarchical (e.g., ["is_a", "part_of"])
         """
         super().__init__(llm_client)
         self.use_combined_mode = use_combined_mode
         self.chinese_only = chinese_only
+        self.hierarchical_relations = hierarchical_relations or ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+        self.hierarchy_serializer = HierarchySerializer(self.hierarchical_relations)
 
     def build_prompt(
         self,
@@ -55,6 +65,9 @@ class AggregatedGenerator(BaseGenerator):
         else:
             language = detect_main_language(entities_str + relations_str)
 
+        # Serialize hierarchical context
+        hierarchical_context = self.hierarchy_serializer.serialize(nodes, edges, structure_format="markdown", require_hierarchy=True)
+
         # TODO: configure add_context
         #     if add_context:
         #         original_ids = [
@@ -68,9 +81,19 @@ class AggregatedGenerator(BaseGenerator):
         #                 for index, text in enumerate(original_text)
         #             ]
         #         )
-        prompt = AGGREGATED_GENERATION_PROMPT[language]["ANSWER_REPHRASING"].format(
-            entities=entities_str, relationships=relations_str
-        )
+        
+        try:
+            # First try with hierarchical_context
+            prompt = AGGREGATED_GENERATION_PROMPT[language]["ANSWER_REPHRASING"].format(
+                entities=entities_str, relationships=relations_str, hierarchical_context=hierarchical_context
+            )
+        except KeyError:
+            # Fallback
+            logger.warning("Aggregated template does not support {hierarchical_context}, falling back")
+            prompt = AGGREGATED_GENERATION_PROMPT[language]["ANSWER_REPHRASING"].format(
+                entities=entities_str, relationships=relations_str
+            )
+            
         return prompt
 
     @staticmethod
@@ -104,8 +127,8 @@ class AggregatedGenerator(BaseGenerator):
             rephrased_text = repaired_response.strip()
         return rephrased_text.strip('"').strip("'")
 
-    @staticmethod
     def build_combined_prompt(
+        self,
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """
@@ -125,9 +148,20 @@ class AggregatedGenerator(BaseGenerator):
             ]
         )
         language = detect_main_language(entities_str + relations_str)
-        prompt = AGGREGATED_GENERATION_PROMPT[language]["AGGREGATED_COMBINED"].format(
-            entities=entities_str, relationships=relations_str
-        )
+        
+        # Serialize hierarchical context
+        hierarchical_context = self.hierarchy_serializer.serialize(nodes, edges, structure_format="markdown", require_hierarchy=True)
+        
+        try:
+            prompt = AGGREGATED_GENERATION_PROMPT[language]["AGGREGATED_COMBINED"].format(
+                entities=entities_str, relationships=relations_str, hierarchical_context=hierarchical_context
+            )
+        except KeyError:
+            logger.warning("Aggregated combined template does not support {hierarchical_context}, falling back")
+            prompt = AGGREGATED_GENERATION_PROMPT[language]["AGGREGATED_COMBINED"].format(
+                entities=entities_str, relationships=relations_str
+            )
+            
         return prompt
     
     @staticmethod

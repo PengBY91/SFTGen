@@ -44,6 +44,10 @@ class TreeStructureGenerator(BaseGenerator):
         ]
         self.chinese_only = chinese_only
         self._generation_mode = "hierarchical"
+        
+        # Initialize the shared serializer
+        from graphgen.utils.hierarchy_utils import HierarchySerializer
+        self.hierarchy_serializer = HierarchySerializer(self.hierarchical_relations)
 
     def build_prompt(
         self,
@@ -55,8 +59,13 @@ class TreeStructureGenerator(BaseGenerator):
         :param batch: Tuple of (nodes, edges)
         :return: Formatted prompt string
         """
-        # Build hierarchical structure
-        hierarchy_text = self._serialize_to_format(batch)
+        # Build hierarchical structure using shared serializer
+        nodes, edges = batch
+        hierarchy_text = self.hierarchy_serializer.serialize(
+            nodes, 
+            edges, 
+            structure_format=self.structure_format
+        )
 
         # Detect language
         language = "zh" if self.chinese_only else detect_main_language(hierarchy_text)
@@ -77,224 +86,6 @@ class TreeStructureGenerator(BaseGenerator):
         )
 
         return prompt
-
-    def _serialize_to_format(
-        self,
-        batch: Tuple[List[Tuple[str, dict]], List[Tuple[Any, Any, dict]]]
-    ) -> str:
-        """
-        Serialize batch to hierarchical structure.
-
-        :param batch: Tuple of (nodes, edges)
-        :return: Formatted hierarchy string
-        """
-        nodes, edges = batch
-
-        if not nodes:
-            return "No hierarchical structure available."
-
-        # Build directed graph
-        G = nx.DiGraph()
-        node_dict = {}
-
-        # Add nodes
-        for node_id, data in nodes:
-            G.add_node(node_id)
-            node_dict[node_id] = data
-
-        # Classify edges and build hierarchy
-        hierarchical_edge_tuples = []
-
-        for src, tgt, data in edges:
-            relation_type = data.get("relation_type", data.get("description", ""))
-
-            if relation_type in self.hierarchical_relations:
-                # src is child, tgt is parent (src is_a tgt)
-                G.add_edge(src, tgt, relation=relation_type)
-                hierarchical_edge_tuples.append((src, tgt, relation_type))
-            else:
-                # Attribute edge
-                if not G.has_node(src):
-                    G.add_node(src)
-                if not G.has_node(tgt):
-                    G.add_node(tgt)
-                # Store as node attribute
-                if src in node_dict:
-                    if "attributes" not in node_dict[src]:
-                        node_dict[src]["attributes"] = []
-                    node_dict[src]["attributes"].append({
-                        "relation": relation_type,
-                        "target": tgt,
-                        "description": data.get("description", "")
-                    })
-
-        # Detect and handle cycles
-        try:
-            cycles = list(nx.simple_cycles(G))
-            if cycles:
-                logger.warning(f"Detected {len(cycles)} cycles in hierarchy, will handle gracefully")
-                # Remove back edges to break cycles
-                for cycle in cycles:
-                    if len(cycle) >= 2:
-                        # Remove last edge in cycle
-                        if G.has_edge(cycle[-1], cycle[0]):
-                            G.remove_edge(cycle[-1], cycle[0])
-        except Exception as e:
-            logger.warning(f"Error checking cycles: {e}")
-
-        # Find roots (nodes with no incoming hierarchical edges)
-        roots = [node for node in G.nodes() if G.in_degree(node) == 0]
-
-        if not roots:
-            # If no roots found (e.g., all nodes in cycles), use first node
-            roots = [nodes[0][0]] if nodes else []
-
-        # Serialize based on format
-        if self.structure_format == "markdown":
-            return self._serialize_markdown(G, roots, node_dict)
-        elif self.structure_format == "json":
-            return self._serialize_json(G, roots, node_dict)
-        elif self.structure_format == "outline":
-            return self._serialize_outline(G, roots, node_dict)
-        else:
-            logger.warning(f"Unknown format {self.structure_format}, using markdown")
-            return self._serialize_markdown(G, roots, node_dict)
-
-    def _serialize_markdown(
-        self,
-        G: nx.DiGraph,
-        roots: List[str],
-        node_dict: dict,
-        level: int = 0
-    ) -> str:
-        """Serialize to Markdown format with headers."""
-        lines = []
-        visited = set()
-
-        def _serialize_node(node_id: str, depth: int):
-            if node_id in visited:
-                return
-            visited.add(node_id)
-
-            data = node_dict.get(node_id, {})
-            header_prefix = "#" * (depth + 1)
-
-            # Node header and description
-            description = data.get("description", "No description available")
-            lines.append(f"{header_prefix} {node_id}")
-            lines.append(f"**Description**: {description}")
-
-            # Attributes
-            attributes = data.get("attributes", [])
-            if attributes:
-                lines.append("**Attributes**:")
-                for attr in attributes:
-                    rel = attr.get("relation", "related_to")
-                    tgt = attr.get("target", "unknown")
-                    desc = attr.get("description", "")
-                    lines.append(f"- {rel}: {tgt}")
-                    if desc:
-                        lines.append(f"  - {desc}")
-
-            lines.append("")
-
-            # Children
-            children = list(G.successors(node_id))
-            for child in children:
-                _serialize_node(child, depth + 1)
-
-        for root in roots:
-            _serialize_node(root, 0)
-
-        return "\n".join(lines)
-
-    def _serialize_json(
-        self,
-        G: nx.DiGraph,
-        roots: List[str],
-        node_dict: dict
-    ) -> str:
-        """Serialize to JSON format."""
-        visited = set()
-
-        def _build_tree(node_id: str) -> dict:
-            if node_id in visited:
-                return {"name": node_id, "_cyclic": True}
-            visited.add(node_id)
-
-            data = node_dict.get(node_id, {})
-
-            node_tree = {
-                "name": node_id,
-                "description": data.get("description", "No description available"),
-            }
-
-            # Add attributes
-            attributes = data.get("attributes", [])
-            if attributes:
-                node_tree["attributes"] = [
-                    {
-                        "relation": attr.get("relation", "related_to"),
-                        "target": attr.get("target", "unknown"),
-                        "description": attr.get("description", "")
-                    }
-                    for attr in attributes
-                ]
-
-            # Add children
-            children = list(G.successors(node_id))
-            if children:
-                node_tree["children"] = [_build_tree(child) for child in children]
-
-            return node_tree
-
-        trees = [_build_tree(root) for root in roots]
-        result = {"hierarchy": trees} if len(trees) > 1 else trees[0] if trees else {}
-
-        return json.dumps(result, indent=2, ensure_ascii=False)
-
-    def _serialize_outline(
-        self,
-        G: nx.DiGraph,
-        roots: List[str],
-        node_dict: dict,
-        indent: str = "  "
-    ) -> str:
-        """Serialize to outline format with indentation."""
-        lines = []
-        visited = set()
-
-        def _serialize_node(node_id: str, depth: int):
-            if node_id in visited:
-                return
-            visited.add(node_id)
-
-            data = node_dict.get(node_id, {})
-            prefix = indent * depth
-
-            # Node name
-            lines.append(f"{prefix}- {node_id}")
-
-            # Description
-            description = data.get("description", "No description available")
-            lines.append(f"{prefix}  Description: {description}")
-
-            # Attributes
-            attributes = data.get("attributes", [])
-            for attr in attributes:
-                rel = attr.get("relation", "related_to")
-                tgt = attr.get("target", "unknown")
-                lines.append(f"{prefix}  - {rel}: {tgt}")
-
-            # Children
-            children = list(G.successors(node_id))
-            for child in children:
-                _serialize_node(child, depth + 1)
-
-        for root in roots:
-            _serialize_node(root, 0)
-
-        return "\n".join(lines)
 
     @staticmethod
     def parse_response(response: str) -> dict:

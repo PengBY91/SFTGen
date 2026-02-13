@@ -60,6 +60,7 @@ To generate a version of the text that is rephrased and conveys the same meaning
 ################
 {relationships}
 
+{hierarchical_context}
 """
 
 ANSWER_REPHRASING_CONTEXT_ZH: str = """---角色---
@@ -121,6 +122,7 @@ ANSWER_REPHRASING_CONTEXT_ZH: str = """---角色---
 ################
 {relationships}
 
+{hierarchical_context}
 """
 
 ANSWER_REPHRASING_EN: str = """---Role---
@@ -179,6 +181,7 @@ To generate a version of the text that is rephrased and conveys the same meaning
 ################
 {relationships}
 
+{hierarchical_context}
 """
 
 ANSWER_REPHRASING_ZH: str = """---角色---
@@ -235,6 +238,7 @@ ANSWER_REPHRASING_ZH: str = """---角色---
 ################
 {relationships}
 
+{hierarchical_context}
 """
 
 REQUIREMENT_ZH = """
@@ -339,6 +343,8 @@ Important:
 -RELATIONSHIPS-
 ################
 {relationships}
+
+{hierarchical_context}
 """
 
 AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的实体和关系生成逻辑结构清晰且连贯的文本重述版本，然后基于重述文本生成相关问题。
@@ -410,6 +416,8 @@ AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的�
 -关系-
 ################
 {relationships}
+
+{hierarchical_context}
 """
 
 AGGREGATED_GENERATION_PROMPT = {

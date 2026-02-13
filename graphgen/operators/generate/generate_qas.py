@@ -674,25 +674,29 @@ async def generate_qas(
                 use_multi_template=use_multi_template,
                 template_seed=template_seed,
                 chinese_only=chinese_only,
+                hierarchical_relations=hierarchical_relations
             )
         elif mode == "aggregated":
             generator = AggregatedGenerator(
-                actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only
+                actual_llm_client,
+                use_combined_mode=use_combined_mode,
+                chinese_only=chinese_only,
+                hierarchical_relations=hierarchical_relations
             )
         elif mode == "multi_hop":
             generator = MultiHopGenerator(actual_llm_client, chinese_only=chinese_only)
         elif mode == "cot":
             generator = CoTGenerator(
-                actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only
+                actual_llm_client,
+                use_combined_mode=use_combined_mode,
+                chinese_only=chinese_only,
+                hierarchical_relations=hierarchical_relations
             )
         elif mode == "hierarchical":
             generator = TreeStructureGenerator(
                 actual_llm_client,
                 structure_format=generation_config.get("structure_format", "markdown"),
-                hierarchical_relations=generation_config.get(
-                    "hierarchical_relations",
-                    ["is_a", "subclass_of", "part_of", "includes", "type_of"]
-                ),
+                hierarchical_relations=hierarchical_relations,
                 chinese_only=chinese_only,
             )
         else:

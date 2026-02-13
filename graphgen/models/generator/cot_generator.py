@@ -1,22 +1,32 @@
-from typing import Any
+from typing import Any, Optional
 
 from graphgen.bases import BaseGenerator
 from graphgen.templates import COT_GENERATION_PROMPT
 from graphgen.utils import compute_content_hash, detect_main_language, logger
+from graphgen.utils.hierarchy_utils import HierarchySerializer
 
 
 class CoTGenerator(BaseGenerator):
-    def __init__(self, llm_client, use_combined_mode: bool = False, chinese_only: bool = False):
+    def __init__(
+        self,
+        llm_client,
+        use_combined_mode: bool = False,
+        chinese_only: bool = False,
+        hierarchical_relations: Optional[list[str]] = None
+    ):
         """
         初始化 CoT 生成器
         
         :param llm_client: LLM客户端
         :param use_combined_mode: 是否使用合并模式（一次性生成问题和答案，减少50%调用）
         :param chinese_only: 是否只生成中文（强制使用中文模板）
+        :param hierarchical_relations: List of relationship types to treat as hierarchical (e.g., ["is_a", "part_of"])
         """
         super().__init__(llm_client)
         self.use_combined_mode = use_combined_mode
         self.chinese_only = chinese_only
+        self.hierarchical_relations = hierarchical_relations or ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+        self.hierarchy_serializer = HierarchySerializer(self.hierarchical_relations)
     
     def build_prompt(
         self,
@@ -45,9 +55,19 @@ class CoTGenerator(BaseGenerator):
             language = "zh"
         else:
             language = detect_main_language(entities_str + relationships_str)
-        prompt = COT_GENERATION_PROMPT[language]["COT_TEMPLATE_DESIGN"].format(
-            entities=entities_str, relationships=relationships_str
-        )
+            
+        # Serialize hierarchical context
+        hierarchical_context = self.hierarchy_serializer.serialize(nodes, edges, structure_format="markdown", require_hierarchy=True)
+        
+        try:
+            prompt = COT_GENERATION_PROMPT[language]["COT_TEMPLATE_DESIGN"].format(
+                entities=entities_str, relationships=relationships_str, hierarchical_context=hierarchical_context
+            )
+        except KeyError:
+            logger.warning("CoT template design does not support {hierarchical_context}, falling back")
+            prompt = COT_GENERATION_PROMPT[language]["COT_TEMPLATE_DESIGN"].format(
+                entities=entities_str, relationships=relationships_str
+            )
         return prompt
 
     def build_combined_prompt(
@@ -75,9 +95,19 @@ class CoTGenerator(BaseGenerator):
             language = "zh"
         else:
             language = detect_main_language(entities_str + relationships_str)
-        prompt = COT_GENERATION_PROMPT[language]["COT_COMBINED"].format(
-            entities=entities_str, relationships=relationships_str
-        )
+            
+        # Serialize hierarchical context
+        hierarchical_context = self.hierarchy_serializer.serialize(nodes, edges, structure_format="markdown", require_hierarchy=True)
+        
+        try:
+            prompt = COT_GENERATION_PROMPT[language]["COT_COMBINED"].format(
+                entities=entities_str, relationships=relationships_str, hierarchical_context=hierarchical_context
+            )
+        except KeyError:
+            logger.warning("CoT combined template does not support {hierarchical_context}, falling back")
+            prompt = COT_GENERATION_PROMPT[language]["COT_COMBINED"].format(
+                entities=entities_str, relationships=relationships_str
+            )
         return prompt
     
     @staticmethod
@@ -296,12 +326,26 @@ class CoTGenerator(BaseGenerator):
             language = "zh"
         else:
             language = detect_main_language(entities_str + relationships_str)
-        prompt = COT_GENERATION_PROMPT[language]["COT_GENERATION"].format(
-            entities=entities_str,
-            relationships=relationships_str,
-            question=question,
-            reasoning_template=reasoning_path,
-        )
+            
+        # Serialize hierarchical context
+        hierarchical_context = self.hierarchy_serializer.serialize(nodes, edges, structure_format="markdown", require_hierarchy=True)
+        
+        try:
+            prompt = COT_GENERATION_PROMPT[language]["COT_GENERATION"].format(
+                entities=entities_str,
+                relationships=relationships_str,
+                question=question,
+                reasoning_template=reasoning_path,
+                hierarchical_context=hierarchical_context,
+            )
+        except KeyError:
+            logger.warning("CoT generation template does not support {hierarchical_context}, falling back")
+            prompt = COT_GENERATION_PROMPT[language]["COT_GENERATION"].format(
+                entities=entities_str,
+                relationships=relationships_str,
+                question=question,
+                reasoning_template=reasoning_path,
+            )
         return prompt
 
     @staticmethod
