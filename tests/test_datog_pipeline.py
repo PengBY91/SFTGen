@@ -203,7 +203,7 @@ class TestLLMCritic:
                 "reason": "Well-formed QA pair",
                 "suggestions": [],
             })
-            mock_llm.query = AsyncMock(return_value=critic_response)
+            mock_llm.generate_answer = AsyncMock(return_value=critic_response)
 
             critic = LLMCritic(llm_client=mock_llm)
             qa = {"question": "What is credit risk?", "answer": "It is the risk of default."}
@@ -224,7 +224,7 @@ class TestLLMCritic:
                 "reason": "Answer is factually incorrect",
                 "suggestions": ["Check the context"],
             })
-            mock_llm.query = AsyncMock(return_value=critic_response)
+            mock_llm.generate_answer = AsyncMock(return_value=critic_response)
 
             critic = LLMCritic(llm_client=mock_llm)
             result = await critic.validate(

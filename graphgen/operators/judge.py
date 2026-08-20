@@ -51,15 +51,15 @@ async def judge_statement(  # pylint: disable=too-many-statements
                 descriptions = await rephrase_storage.get_by_id(description)
                 assert descriptions is not None
 
-                judgements = []
-                gts = [gt for _, gt in descriptions]
-                for description, gt in descriptions:
-                    judgement = await trainee_llm_client.generate_topk_per_token(
-                        STATEMENT_JUDGEMENT_PROMPT["TEMPLATE"].format(
-                            statement=description
-                        )
+                # 同一条边的多条改写陈述并发判定（旧实现逐条串行 await）
+                judgement_results = await asyncio.gather(*(
+                    trainee_llm_client.generate_topk_per_token(
+                        STATEMENT_JUDGEMENT_PROMPT["TEMPLATE"].format(statement=desc)
                     )
-                    judgements.append(judgement[0].top_candidates)
+                    for desc, _ in descriptions
+                ))
+                judgements = [j[0].top_candidates for j in judgement_results]
+                gts = [gt for _, gt in descriptions]
 
                 loss = yes_no_loss_entropy(judgements, gts)
 
@@ -111,15 +111,15 @@ async def judge_statement(  # pylint: disable=too-many-statements
                 descriptions = await rephrase_storage.get_by_id(description)
                 assert descriptions is not None
 
-                judgements = []
-                gts = [gt for _, gt in descriptions]
-                for description, gt in descriptions:
-                    judgement = await trainee_llm_client.generate_topk_per_token(
-                        STATEMENT_JUDGEMENT_PROMPT["TEMPLATE"].format(
-                            statement=description
-                        )
+                # 同一个节点的多条改写陈述并发判定（旧实现逐条串行 await）
+                judgement_results = await asyncio.gather(*(
+                    trainee_llm_client.generate_topk_per_token(
+                        STATEMENT_JUDGEMENT_PROMPT["TEMPLATE"].format(statement=desc)
                     )
-                    judgements.append(judgement[0].top_candidates)
+                    for desc, _ in descriptions
+                ))
+                judgements = [j[0].top_candidates for j in judgement_results]
+                gts = [gt for _, gt in descriptions]
 
                 loss = yes_no_loss_entropy(judgements, gts)
 

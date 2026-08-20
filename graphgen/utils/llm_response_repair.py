@@ -173,15 +173,18 @@ def repair_kg_extraction_format(text: str) -> str:
     
     # 1. 标准化分隔符
     # 如果 LLM 使用了其他分隔符，尝试替换
-    # 常见错误: 使用 | 而不是 <|>
-    # 但要避免替换引号内的 |
-    text = re.sub(r'(?<!")(\|)(?!")', '<|>', text)
-    
-    # 2. 修复全角标点
-    text = text.replace('，', ',').replace('。', '.')
+    # 常见错误: 使用单独的 | 而不是 <|>
+    # 仅替换两侧有空白的独立 "|"（分隔符误用的典型形态），
+    # 避免误伤描述内容中的 "|"（如 "A|B 方案"）
+    text = re.sub(r'(?<!\S)\|(?!\S)', '<|>', text)
+
+    # 2. 修复引号
     text = text.replace('"', '"').replace('"', '"')
     text = text.replace(''', "'").replace(''', "'")
-    
+
+    # 注意：不再把全角 "，""。" 全局替换为半角 ——
+    # 它们不是抽取格式的结构性字符，全局替换会破坏中文描述内容
+
     # 3. 修复括号问题
     # 确保每个记录都有完整的括号
     # 移除多余的空格
@@ -197,40 +200,44 @@ def repair_kg_extraction_format(text: str) -> str:
 def repair_qa_pair_format(text: str) -> str:
     """
     修复问答对格式
-    
-    确保输出包含清晰的问题和答案标记
+
+    确保输出包含清晰的问题和答案标记。
+    标记归一化按内容主语言进行（旧实现一律转中文，
+    导致英文 QA 内容配中文标记，并影响下游语言判定）。
     """
     if not text:
         return text
-    
-    # 1. 标准化问答标记
-    # 将各种变体统一为标准格式
-    
-    # 问题标记变体（更全面的匹配）
-    # 支持: Question:, 问题：, Q:, 问：等
-    text = re.sub(r'^(?:问题|Question|Q)[：:]\s*', '问题：', text, flags=re.MULTILINE)
-    text = re.sub(r'^(?:问)[：:]\s*', '问题：', text, flags=re.MULTILINE)
-    # 处理可能的编号
-    text = re.sub(r'^\d+\.\s*(?:问题|Question|Q)[：:]\s*', '问题：', text, flags=re.MULTILINE)
-    
-    # 答案标记变体
-    text = re.sub(r'^(?:答案|Answer|A)[：:]\s*', '答案：', text, flags=re.MULTILINE)
-    text = re.sub(r'^(?:答)[：:]\s*', '答案：', text, flags=re.MULTILINE)
-    text = re.sub(r'^\d+\.\s*(?:答案|Answer|A)[：:]\s*', '答案：', text, flags=re.MULTILINE)
-    
-    # 2. 如果同时存在中英文标记，统一为中文
-    if '问题：' in text and 'Question:' in text:
-        text = text.replace('Question:', '问题：')
-        text = text.replace('Answer:', '答案：')
-    
-    # 3. 移除多余的标点和空格
-    text = re.sub(r'[：:]{2,}', '：', text)
-    
-    # 4. 标准化冒号（全角转半角后再转回中文冒号）
-    # 确保一致性
-    text = re.sub(r'问题\s*:\s*', '问题：', text)
-    text = re.sub(r'答案\s*:\s*', '答案：', text)
-    
+
+    from graphgen.utils.detect_lang import detect_main_language
+    lang = detect_main_language(text)
+
+    if lang == "zh":
+        q_marker, a_marker = "问题：", "答案："
+        text = re.sub(r'^(?:问题|Question|Q|问)[：:]\s*', q_marker, text, flags=re.MULTILINE)
+        text = re.sub(r'^\d+\.\s*(?:问题|Question|Q)[：:]\s*', q_marker, text, flags=re.MULTILINE)
+        text = re.sub(r'^(?:答案|Answer|A|答)[：:]\s*', a_marker, text, flags=re.MULTILINE)
+        text = re.sub(r'^\d+\.\s*(?:答案|Answer|A)[：:]\s*', a_marker, text, flags=re.MULTILINE)
+        if 'Question:' in text:
+            text = text.replace('Question:', q_marker)
+        if 'Answer:' in text:
+            text = text.replace('Answer:', a_marker)
+        # 标准化半角冒号（仅限标记后）
+        text = re.sub(r'问题\s*:\s*', q_marker, text)
+        text = re.sub(r'答案\s*:\s*', a_marker, text)
+    else:
+        q_marker, a_marker = "Question:", "Answer:"
+        text = re.sub(r'^(?:问题|Question|Q|问)[：:]\s*', q_marker + ' ', text, flags=re.MULTILINE)
+        text = re.sub(r'^\d+\.\s*(?:问题|Question|Q)[：:]\s*', q_marker + ' ', text, flags=re.MULTILINE)
+        text = re.sub(r'^(?:答案|Answer|A|答)[：:]\s*', a_marker + ' ', text, flags=re.MULTILINE)
+        text = re.sub(r'^\d+\.\s*(?:答案|Answer|A)[：:]\s*', a_marker + ' ', text, flags=re.MULTILINE)
+        if '问题：' in text:
+            text = text.replace('问题：', q_marker + ' ')
+        if '答案：' in text:
+            text = text.replace('答案：', a_marker + ' ')
+
+    # 移除多余的标点和空格
+    text = re.sub(r'[：:]{2,}', '：' if lang == "zh" else ':', text)
+
     return text
 
 

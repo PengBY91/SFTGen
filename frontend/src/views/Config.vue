@@ -20,11 +20,11 @@
             </el-form-item>
 
             <el-form-item label="Synthesizer Base URL">
-              <el-input v-model="config.synthesizer_url" placeholder="https://api.siliconflow.cn/v1" />
+              <el-input v-model="config.synthesizer_url" placeholder="自动使用服务端默认" />
             </el-form-item>
 
             <el-form-item label="Synthesizer Model">
-              <el-input v-model="config.synthesizer_model" placeholder="Qwen/Qwen2.5-7B-Instruct" />
+              <el-input v-model="config.synthesizer_model" placeholder="自动使用服务端默认" />
             </el-form-item>
 
             <el-form-item label="Synthesizer API Key">
@@ -48,11 +48,11 @@
 
             <template v-if="config.if_trainee_model">
               <el-form-item label="Trainee Base URL">
-                <el-input v-model="config.trainee_url" placeholder="https://api.siliconflow.cn/v1" />
+                <el-input v-model="config.trainee_url" placeholder="自动使用服务端默认" />
               </el-form-item>
 
               <el-form-item label="Trainee Model">
-                <el-input v-model="config.trainee_model" placeholder="Qwen/Qwen2.5-7B-Instruct" />
+                <el-input v-model="config.trainee_model" placeholder="自动使用服务端默认" />
               </el-form-item>
 
               <el-form-item label="Trainee API Key">

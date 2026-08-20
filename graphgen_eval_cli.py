@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import sys
 import time
 from importlib.resources import files
 
@@ -34,6 +35,39 @@ def save_config(config_path, global_config):
         yaml.dump(
             global_config, config_file, default_flow_style=False, allow_unicode=True
         )
+
+
+def run_datog_metrics(args) -> bool:
+    """Compute DA-ToG coverage/distribution metrics from a results file."""
+    if not args.datog_taxonomy or not args.datog_results:
+        logger.error(
+            "--datog-taxonomy and --datog-results are required for DA-ToG metrics"
+        )
+        return False
+    try:
+        tree = TaxonomyTree.load(args.datog_taxonomy)
+    except Exception as e:
+        logger.error("Failed to load taxonomy tree: %s", e)
+        return False
+
+    metrics = DAToGMetrics(tree)
+    try:
+        report = metrics.generate_report(args.datog_results)
+    except Exception as e:
+        logger.error("Failed to compute DA-ToG metrics: %s", e)
+        return False
+
+    output_path = (
+        args.datog_output
+        or args.datog_results.rsplit(".json", 1)[0] + "_metrics.json"
+    )
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    logger.info("DA-ToG metrics saved to %s", output_path)
+    logger.info(
+        "Overall intent coverage: %.1f%%", report["coverage"]["overall_ratio"] * 100
+    )
+    return True
 
 
 def main():
@@ -89,8 +123,25 @@ def main():
         os.path.join(output_path, f"{unique_id}_eval.log"),
     )
 
+    # LLM/API 配置：优先使用 YAML 中的 llm/apis 段，未配置时回退环境变量
+    from graphgen.configs.llm_config import (
+        apply_apis_to_environ,
+        build_llm_clients,
+        load_llm_config,
+    )
+
+    llm_config = load_llm_config(config)
+    apply_apis_to_environ(llm_config.apis)
+    tokenizer_instance, synthesizer_client, trainee_client = build_llm_clients(llm_config)
+
     # Initialize GraphGen
-    graph_gen = GraphGen(unique_id=unique_id, working_dir=working_dir)
+    graph_gen = GraphGen(
+        unique_id=unique_id,
+        working_dir=working_dir,
+        tokenizer_instance=tokenizer_instance,
+        synthesizer_llm_client=synthesizer_client,
+        trainee_llm_client=trainee_client,
+    )
 
     # Step 1: Build knowledge graph (unless skipped)
     if not args.skip_kg_build:
@@ -114,8 +165,8 @@ def main():
         evaluation_config=config["evaluation"],
     )
 
-    # DA-ToG 指标计算模式
-    if hasattr(args, 'datog_taxonomy'):
+    # DA-ToG 指标计算模式（仅在显式传入 --datog-taxonomy 时启用）
+    if args.datog_taxonomy:
         success = run_datog_metrics(args)
         sys.exit(0 if success else 1)
 

@@ -64,6 +64,10 @@ class TaskProcessor:
             graph_gen.clear()
             
             # 设置 LLM 客户端
+            # 默认附加请求参数（关闭混合推理模型的思考），与 llm_config 服务端默认一致
+            from graphgen.configs.llm_config import default_request_params
+
+            _default_request_params = default_request_params()
             tokenizer_instance = Tokenizer(config.get("tokenizer", "cl100k_base"))
             synthesizer_llm_client = OpenAIClient(
                 model_name=env.get("SYNTHESIZER_MODEL", ""),
@@ -73,8 +77,9 @@ class TaskProcessor:
                 rpm=RPM(env.get("RPM", 1000)),
                 tpm=TPM(env.get("TPM", 50000)),
                 tokenizer=tokenizer_instance,
+                extra_request_params=_default_request_params,
             )
-            
+
             trainee_llm_client = OpenAIClient(
                 model_name=env.get("TRAINEE_MODEL", ""),
                 base_url=env.get("TRAINEE_BASE_URL", ""),
@@ -83,6 +88,7 @@ class TaskProcessor:
                 rpm=RPM(env.get("RPM", 1000)),
                 tpm=TPM(env.get("TPM", 50000)),
                 tokenizer=tokenizer_instance,
+                extra_request_params=_default_request_params,
             )
             
             graph_gen = GraphGen(

@@ -40,7 +40,7 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
 
 3. **通用要求**：
    - 使用中文，采用口语化、日常思考的表达方式
-   - 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富内容
+   - 在遵循推理路径的基础上，可以结合上下文中已有的事实与关联概念来丰富内容，不得引入上下文无法支持的事实
    - 像在向他人解释你的完整思考过程一样自然流畅
    - **重要**：虽然输入信息来自知识图谱，但输出时要用自己的话来表达，不要暴露图谱的结构信息，让回答看起来像是基于一般知识的自然回答
    - **重要**：所有输出内容（问题、推理路径、思考过程、最终答案）必须完全使用中文，不能包含英文单词或字母
@@ -115,7 +115,7 @@ only the final answer.
 
 3. **General Requirements**:
    - Use English with a conversational, everyday thinking style
-   - While following the reasoning path, enrich the content with relevant background knowledge, context, or related concepts
+   - While following the reasoning path, enrich the content using facts and related concepts already present in the context; do not invent facts beyond it
    - Ensure the entire response flows naturally as if explaining your complete thought process to someone
    - **Important**: Although the input information comes from a knowledge graph, express the output in your own words without exposing the graph structure, making the answer appear as a natural response based on general knowledge
 
@@ -291,7 +291,7 @@ Chain-of-Thought (CoT) means that when answering a complex question, the interme
    - Show the reasoning and analysis in your thought process (e.g., "This suggests...", "It's likely that...", "If... then...").
    - Do not use ordered lists or numbering; maintain natural paragraph flow.
    - The thinking process should be comprehensive and detailed, providing sufficient depth and detail.
-   - While following the reasoning path, enrich the thinking with relevant background knowledge, context, or related concepts when appropriate.
+   - While following the reasoning path, enrich the thinking with connections between facts already present in the knowledge; do not invent facts beyond it.
    - Include relevant details, examples, implications, or broader connections to make the thinking more informative and valuable.
    - Ensure each reasoning step is fully developed, as if naturally explaining your thought process to someone.
 
@@ -379,7 +379,7 @@ CoT（Chain-of-Thought，思维链）指在回答复杂问题时，把中间推�
    - 展现思考过程中的推理和分析（如"这表明..."、"很可能..."、"如果...那么..."）。
    - 不要使用有序列表或编号，保持段落式的自然流动。
    - 思考过程应当全面且详细，提供足够的深度和细节。
-   - 在遵循推理路径的基础上，可以利用相关背景知识、上下文或相关概念来丰富思考。
+   - 在遵循推理路径的基础上，可以通过上下文中已有事实之间的联系来丰富思考，不得引入上下文无法支持的事实。
    - 在适当的时候包含相关细节、例子、影响或更广泛的联系，使思考更具信息量和价值。
    - 确保每一步推理都充分展开，像在向他人解释你的思考过程一样自然流畅。
    - **重要**：思考过程必须完全使用中文，不能包含英文单词或字母

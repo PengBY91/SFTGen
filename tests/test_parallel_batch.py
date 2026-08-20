@@ -8,7 +8,10 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# batch_process_parallel 位于 scripts/ 目录
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from batch_process_parallel import ParallelBatchProcessor, ModelConfig
 
@@ -22,13 +25,13 @@ def test_parallel_processing():
     # 配置多个模型
     model_configs = [
         ModelConfig(
-            api_key=os.getenv("SYNTHESIZER_API_KEY", "sk-wFHN2ySjUYxCx3LrWAkJEMB11FMxYDvF6DHdye9yVDwIH2no"),
+            api_key=os.getenv("SYNTHESIZER_API_KEY", ""),
             synthesizer_url="https://api.huiyan-ai.cn/v1",
             synthesizer_model="gpt-4.1-mini-2025-04-14",
             model_id="model_1"
         ),
         ModelConfig(
-            api_key=os.getenv("SYNTHESIZER_API_KEY", "sk-wFHN2ySjUYxCx3LrWAkJEMB11FMxYDvF6DHdye9yVDwIH2no"),
+            api_key=os.getenv("SYNTHESIZER_API_KEY", ""),
             synthesizer_url="https://api.huiyan-ai.cn/v1",
             synthesizer_model="gpt-4.1-mini-2025-04-14",
             model_id="model_2"

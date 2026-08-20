@@ -3,7 +3,7 @@ API 端点定义
 """
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from backend.schemas import (
     TaskConfig,
@@ -224,6 +224,33 @@ async def load_config():
     """加载配置"""
     result = config_service.load_config()
     return result
+
+
+@router.get("/config/llm-defaults")
+async def get_llm_defaults(current_user: User = Depends(get_current_user)):
+    """获取服务端默认 LLM 配置（与 graphgen/configs/llm_config.py 及 .env 一致）。
+
+    前端配置页用它在未保存过配置时填充默认 model/base_url/api_key。
+    """
+    from graphgen.configs.llm_config import load_llm_config
+
+    llm = load_llm_config()
+    return JSONResponse(
+        content={
+            "success": True,
+            "data": {
+                "synthesizer_model": llm.synthesizer.model,
+                "synthesizer_url": llm.synthesizer.base_url,
+                "api_key": llm.synthesizer.api_key,
+                "trainee_model": llm.trainee.model,
+                "trainee_url": llm.trainee.base_url,
+                "trainee_api_key": llm.trainee.api_key,
+                "rpm": llm.synthesizer.rpm,
+                "tpm": llm.synthesizer.tpm,
+                "tokenizer": llm.tokenizer_model,
+            },
+        }
+    )
 
 
 # ==================== 审核相关端点 ====================

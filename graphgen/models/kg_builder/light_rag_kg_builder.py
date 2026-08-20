@@ -121,7 +121,9 @@ class LightRAGKGBuilder(BaseKGBuilder):
         edges = defaultdict(list)
 
         for record in records:
-            match = re.search(r"\((.*)\)", record)
+            # 非贪婪匹配：贪婪的 \((.*)\) 在描述里含多个括号时会
+            # 从第一个 "(" 吃到最后一个 ")"，导致解析错位
+            match = re.search(r"\((.*?)\)", record, re.DOTALL)
             if not match:
                 continue
             inner = match.group(1)
@@ -141,9 +143,10 @@ class LightRAGKGBuilder(BaseKGBuilder):
                 edges[key].append(relation)
 
         result = (dict(nodes), dict(edges))
-        
-        # Cache the result if enabled
-        if self.enable_cache:
+
+        # Cache the result if enabled — 但空结果不缓存：
+        # 解析失败产生的空结果一旦入缓存，重跑也只会拿到空结果（缓存投毒）
+        if self.enable_cache and (nodes or edges):
             chunk_hash = compute_content_hash(content, prefix="extract-")
             await self.cache_storage.upsert({
                 chunk_hash: {
@@ -153,7 +156,12 @@ class LightRAGKGBuilder(BaseKGBuilder):
                 }
             })
             logger.debug("Cached extraction result for chunk %s", chunk_id)
-        
+        elif self.enable_cache and not (nodes or edges):
+            logger.warning(
+                "Empty extraction for chunk %s (records=%d), not caching",
+                chunk_id, len(records),
+            )
+
         return result
 
     async def merge_nodes(

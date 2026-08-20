@@ -99,15 +99,13 @@ def _extract_question_and_answer(response: str) -> Tuple[Optional[str], Optional
                     # Remove trailing markers or extra content
                     question = question.strip('"').strip("'").strip()
                     answer = answer.strip('"').strip("'").strip()
-                    
-                    # Remove newlines and extra whitespace, but keep meaningful content
-                    if "\n" in answer:
-                        # Take first paragraph or until next major marker
-                        answer_lines = answer.split("\n")
-                        answer = answer_lines[0].strip()
-                        # If first line is very short, try to get more
-                        if len(answer) < 20 and len(answer_lines) > 1:
-                            answer = " ".join(answer_lines[:2]).strip()
+
+                    # 保留完整多行答案（模板要求 3-5 句/100-200 词；
+                    # 旧实现截断到第一行，直接抵消了模板的丰富度要求）。
+                    # 仅规范化空白：合并多余空行。
+                    answer = "\n".join(
+                        line.rstrip() for line in answer.splitlines()
+                    ).strip()
                     
                     if question and not question.startswith("答案") and not question.startswith("Answer"):
                         if answer:
@@ -392,8 +390,8 @@ class AtomicQuestionGenerator(AtomicGenerator):
     Generator that only produces questions (used for two-phase generation).
     """
 
-    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None, chinese_only: bool = False):
-        super().__init__(llm_client, use_multi_template, template_seed, chinese_only)
+    def __init__(self, llm_client, use_multi_template: bool = True, template_seed: Optional[int] = None, chinese_only: bool = False, hierarchical_relations: Optional[list[str]] = None):
+        super().__init__(llm_client, use_multi_template, template_seed, chinese_only, hierarchical_relations)
         self._generation_mode = "atomic_question"
 
     def build_prompt(
@@ -401,14 +399,24 @@ class AtomicQuestionGenerator(AtomicGenerator):
         batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         context, language = self._build_context(batch)
-        
+
+        # Serialize hierarchical context (inherited from AtomicGenerator)
+        nodes, edges = batch
+        hierarchical_context = self.hierarchy_serializer.serialize(
+            nodes, edges, structure_format="markdown", require_hierarchy=True
+        )
+
         # Use Chinese-only templates if enabled
         if self.chinese_only:
             from graphgen.templates import ATOMIC_QUESTION_PROMPT_CHINESE_ONLY
             template = ATOMIC_QUESTION_PROMPT_CHINESE_ONLY.get("zh", ATOMIC_QUESTION_PROMPT["zh"])
         else:
             template = ATOMIC_QUESTION_PROMPT.get(language, ATOMIC_QUESTION_PROMPT["en"])
-        return template.format(context=context)
+        try:
+            return template.format(context=context, hierarchical_context=hierarchical_context)
+        except KeyError:
+            logger.warning("Template does not support {hierarchical_context}, falling back to {context} only")
+            return template.format(context=context)
 
     @staticmethod
     def parse_response(response: str) -> dict:

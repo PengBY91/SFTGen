@@ -27,6 +27,42 @@ def batch_chunks(chunks: List[Chunk], batch_size: int) -> List[List[Chunk]]:
     return batches
 
 
+def batch_chunks_by_budget(
+    chunks: List[Chunk],
+    merge_size: int,
+    max_batch_chars: int = 12000,
+) -> List[List[Chunk]]:
+    """按语言分组 + 字符预算分批。
+
+    - 语言分组：避免同一批混合中英文（旧实现整批用第一个 chunk 的语言模板）；
+    - 字符预算：限制合并 prompt 的输入规模，降低输出超长被截断的风险。
+    """
+    groups = {"zh": [], "en": [], "other": []}
+    for c in chunks:
+        lang = detect_main_language(c.content)
+        groups.setdefault(lang if lang in ("zh", "en") else "other", []).append(c)
+
+    batches: List[List[Chunk]] = []
+    for group_chunks in groups.values():
+        if not group_chunks:
+            continue
+        current: List[Chunk] = []
+        current_chars = 0
+        for c in group_chunks:
+            c_chars = len(c.content)
+            if current and (
+                len(current) >= merge_size
+                or current_chars + c_chars > max_batch_chars
+            ):
+                batches.append(current)
+                current, current_chars = [], 0
+            current.append(c)
+            current_chars += c_chars
+        if current:
+            batches.append(current)
+    return batches
+
+
 async def build_text_kg_with_prompt_merging(
     llm_client: OpenAIClient,
     kg_instance: BaseGraphStorage,
@@ -39,6 +75,8 @@ async def build_text_kg_with_prompt_merging(
     max_wait_time: float = 0.5,
     enable_prompt_merging: bool = True,
     prompt_merge_size: int = 5,
+    max_batch_chars: int = 12000,
+    merged_max_tokens: int = 8192,
 ):
     """
     优化版本的KG构建，支持Prompt合并
@@ -82,6 +120,8 @@ async def build_text_kg_with_prompt_merging(
             cache_storage,
             enable_cache,
             progress_bar,
+            max_batch_chars=max_batch_chars,
+            merged_max_tokens=merged_max_tokens,
         )
     else:
         # 原始模式：每个chunk单独抽取
@@ -132,26 +172,30 @@ async def extract_with_prompt_merging(
     cache_storage: Optional[BaseKVStorage],
     enable_cache: bool,
     progress_bar: Optional[Any] = None,
+    max_batch_chars: int = 12000,
+    merged_max_tokens: int = 8192,
 ) -> List:
     """
     使用Prompt合并的抽取方法
-    
+
     将多个chunks合并成一个prompt进行抽取，显著减少LLM调用次数
-    
+
     :param kg_builder: KG构建器
     :param chunks: chunk列表
     :param merge_size: 每次合并的chunk数量
     :param cache_storage: 缓存存储
     :param enable_cache: 是否启用缓存
     :param progress_bar: 进度条
+    :param max_batch_chars: 单个合并批次的字符预算（控制输入/输出规模）
+    :param merged_max_tokens: 合并抽取调用的输出 token 上限（避免截断）
     :return: 抽取结果列表
     """
-    # 将chunks分批
-    chunk_batches = batch_chunks(chunks, merge_size)
-    
+    # 按语言分组 + 字符预算分批（旧的定长分批不感知语言与规模）
+    chunk_batches = batch_chunks_by_budget(chunks, merge_size, max_batch_chars)
+
     logger.info(
-        "[Prompt Merging] Split %d chunks into %d batches (merge_size=%d)",
-        len(chunks), len(chunk_batches), merge_size
+        "[Prompt Merging] Split %d chunks into %d batches (merge_size=%d, max_batch_chars=%d)",
+        len(chunks), len(chunk_batches), merge_size, max_batch_chars
     )
     
     async def extract_merged_batch(chunk_batch: List[Chunk]):
@@ -174,17 +218,19 @@ async def extract_with_prompt_merging(
         
         # 构建合并prompt
         merged_prompt = build_merged_extraction_prompt(chunk_batch)
-        # 移除过于频繁的debug日志
-        # logger.debug(
-        #     "Built merged prompt for %d chunks, prompt length: %d",
-        #     len(chunk_batch), len(merged_prompt)
-        # )
-        
-        # 调用LLM（一次调用处理多个chunks）
+
+        # 调用LLM（一次调用处理多个chunks）。
+        # 合并批次的输出规模与 chunk 数成正比，使用更高的输出上限避免截断
+        # （默认 4096 下 5 个 chunk 的实体/关系输出很容易超限，尾部静默丢失）。
+        merged_extra = {"max_tokens": merged_max_tokens}
         if kg_builder.batch_manager:
-            response = await kg_builder.batch_manager.add_request(merged_prompt)
+            response = await kg_builder.batch_manager.add_request(
+                merged_prompt, extra_params=merged_extra
+            )
         else:
-            response = await kg_builder.llm_client.generate_answer(merged_prompt)
+            response = await kg_builder.llm_client.generate_answer(
+                merged_prompt, **merged_extra
+            )
         
         # 只在有响应时记录摘要信息
         if response:
@@ -206,16 +252,14 @@ async def extract_with_prompt_merging(
             len(chunk_batch), total_nodes, total_edges
         )
         
-        # 缓存结果
-        if enable_cache and cache_storage:
+        # 缓存结果（空结果不缓存，避免解析失败被固化）
+        if enable_cache and cache_storage and any(n or e for n, e in results):
             await cache_storage.upsert({
                 batch_hash: {
                     "results": results,
                     "chunk_ids": [c.id for c in chunk_batch]
                 }
             })
-            # 移除过于频繁的debug日志
-            # logger.debug("Cached merged extraction result for %d chunks", len(chunk_batch))
         
         return results
     
@@ -356,45 +400,23 @@ async def parse_merged_extraction_response(
         [f"Section{idx}: {len(lines)} lines" for idx, lines in text_sections.items()]
     )
     
-    # 如果没有找到标记，将整个响应分配给所有chunks（fallback）
+    # 如果没有找到标记，退回逐 chunk 独立抽取
+    # （旧实现把整份响应解析一次后复制给全部 chunks，导致同一批实体/关系
+    #   被记为多个 chunk 的来源，污染 source_id 与实体类型频次统计）
     if not text_sections_list:
         logger.warning(
             "Failed to split merged response by text markers even after repair, "
-            "falling back to duplicate extraction for all %d chunks. "
+            "falling back to individual extraction for all %d chunks. "
             "This might indicate that the LLM did not follow the format correctly.",
             len(chunk_batch)
         )
         logger.debug("Response markers expected: %s", text_markers_zh[:3])
         logger.debug("Original response preview: %s", response[:500])
-        logger.debug("Repaired response preview: %s", repaired_response[:500])
-        
-        # Fallback策略：将整个响应作为单个文本处理
-        # 然后将结果复制给所有chunks
-        nodes, edges = await parse_single_extraction(repaired_response, chunk_batch[0].id)
-        
-        logger.info(
-            "Fallback extraction result: %d nodes, %d edges (will be assigned to all %d chunks)",
-            len(nodes), len(edges), len(chunk_batch)
-        )
-        
-        # 为每个chunk创建相同的结果副本，但使用各自的chunk_id
+
         results = []
         for chunk in chunk_batch:
-            # 创建副本并更新source_id
-            chunk_nodes = {}
-            for node_name, node_list in nodes.items():
-                chunk_nodes[node_name] = [
-                    {**node, "source_id": chunk.id} for node in node_list
-                ]
-            
-            chunk_edges = {}
-            for edge_key, edge_list in edges.items():
-                chunk_edges[edge_key] = [
-                    {**edge, "source_id": chunk.id} for edge in edge_list
-                ]
-            
-            results.append((chunk_nodes, chunk_edges))
-        
+            nodes, edges = await kg_builder.extract(chunk)
+            results.append((nodes, edges))
         return results
     
     # 为每个chunk解析其对应的section（使用await）
@@ -420,14 +442,15 @@ async def parse_merged_extraction_response(
                     idx, chunk.id, len(nodes), len(edges)
                 )
         else:
-            # 如果没有找到对应section，记录警告但不返回空结果
+            # 该 chunk 缺少对应 section：退回该 chunk 独立重抽
+            # （旧实现把完整响应当作该 chunk 的结果，造成跨 chunk 重复）
             fallback_count += 1
             if fallback_count <= 3:  # 只记录前3个警告
                 logger.warning(
-                    "No section found for chunk %d (%s), using full response as fallback",
+                    "No section found for chunk %d (%s), falling back to individual extraction",
                     idx, chunk.id
                 )
-            nodes, edges = await parse_single_extraction(response, chunk.id)
+            nodes, edges = await kg_builder.extract(chunk)
         
         results.append((nodes, edges))
     
@@ -474,7 +497,8 @@ async def parse_single_extraction(text: str, chunk_id: str):
     neither_count = 0
     
     for record_idx, record in enumerate(records):
-        match = re.search(r"\((.*)\)", record)
+        # 非贪婪匹配：描述含多个括号时贪婪正则会解析错位
+        match = re.search(r"\((.*?)\)", record, re.DOTALL)
         if not match:
             no_match_count += 1
             # 只记录前几个失败的，或者每100个记录一次

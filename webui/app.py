@@ -45,6 +45,10 @@ def init_graph_gen(config: dict, env: dict) -> GraphGen:
     os.environ.update({k: str(v) for k, v in env.items()})
 
     tokenizer_instance = Tokenizer(config.get("tokenizer", "cl100k_base"))
+    # 默认附加请求参数（关闭混合推理模型的思考），与 llm_config 服务端默认一致
+    from graphgen.configs.llm_config import default_request_params
+
+    _default_request_params = default_request_params()
     synthesizer_llm_client = OpenAIClient(
         model_name=env.get("SYNTHESIZER_MODEL", ""),
         base_url=env.get("SYNTHESIZER_BASE_URL", ""),
@@ -53,6 +57,7 @@ def init_graph_gen(config: dict, env: dict) -> GraphGen:
         rpm=RPM(env.get("RPM", 1000)),
         tpm=TPM(env.get("TPM", 50000)),
         tokenizer=tokenizer_instance,
+        extra_request_params=_default_request_params,
     )
     trainee_llm_client = OpenAIClient(
         model_name=env.get("TRAINEE_MODEL", ""),
@@ -62,6 +67,7 @@ def init_graph_gen(config: dict, env: dict) -> GraphGen:
         rpm=RPM(env.get("RPM", 1000)),
         tpm=TPM(env.get("TPM", 50000)),
         tokenizer=tokenizer_instance,
+        extra_request_params=_default_request_params,
     )
 
     graph_gen = GraphGen(

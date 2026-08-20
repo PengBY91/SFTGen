@@ -19,12 +19,9 @@ For each pair of related entities, extract the following information:
 - relationship_summary: explanation as to why you think the source entity and the target entity are related to each other
 Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_summary>)
 
-3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
-Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+3. Return output in English as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
 
-4. Return output in English as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
-
-5. When finished, output {completion_delimiter}
+4. When finished, output {completion_delimiter}
 
 ################
 -Examples-
@@ -50,7 +47,7 @@ Output:
 ("relationship"{tuple_delimiter}"Trajan"{tuple_delimiter}"Roman Empire"{tuple_delimiter}"Trajan was one of the emperors who governed during the empire's prosperous period."){record_delimiter}
 ("relationship"{tuple_delimiter}"Hadrian"{tuple_delimiter}"Roman Empire"{tuple_delimiter}"Hadrian was one of the emperors who managed the empire's administration effectively."){record_delimiter}
 ("relationship"{tuple_delimiter}"Antonines"{tuple_delimiter}"Roman Empire"{tuple_delimiter}"The Antonines were emperors who helped maintain the empire's prosperity through their governance."){record_delimiter}
-("content_keywords"{tuple_delimiter}"Roman governance, imperial prosperity, law and order, civilized society"){completion_delimiter}
+{completion_delimiter}
 
 -Example 2-
 Text:
@@ -68,7 +65,7 @@ Output:
 ("relationship"{tuple_delimiter}"OsDT11"{tuple_delimiter}"RFP"{tuple_delimiter}"OsDT11 was fused to RFP to study its cellular localization."){record_delimiter}
 ("relationship"{tuple_delimiter}"Agrobacterium tumefaciens"{tuple_delimiter}"NB epidermal cells"{tuple_delimiter}"Agrobacterium tumefaciens was used to transfer genetic material into NB epidermal cells through a transient assay."){record_delimiter}
 ("relationship"{tuple_delimiter}"OsDT11"{tuple_delimiter}"NB epidermal cells"{tuple_delimiter}"OsDT11's subcellular localization was studied in NB epidermal cells, showing cell wall targeting."){record_delimiter}
-("content_keywords"{tuple_delimiter}"protein localization, gene expression, cellular biology, molecular techniques"){completion_delimiter}
+{completion_delimiter}
 
 ################
 -Real Data-
@@ -100,12 +97,9 @@ TEMPLATE_ZH: str = """你是一个NLP专家，擅长分析文本提取命名实�
    - relationship_summary：解释为什么你认为源实体和目标实体彼此相关
    将每个关系格式化为("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_summary>)
 
-3. 识别总结整个文本的主要概念、主题或话题的高级关键词。这些应该捕捉文档中存在的总体思想。
-   将内容级关键词格式化为("content_keywords"{tuple_delimiter}<high_level_keywords>)
+3. 以中文返回步骤1和2中识别出的所有实体和关系的输出列表。使用**{record_delimiter}**作为列表分隔符。
 
-4. 以中文返回步骤1和2中识别出的所有实体和关系的输出列表。使用**{record_delimiter}**作为列表分隔符。
-
-5. 完成后，输出{completion_delimiter}
+4. 完成后，输出{completion_delimiter}
 
 ################
 -示例-
@@ -134,7 +128,7 @@ TEMPLATE_ZH: str = """你是一个NLP专家，擅长分析文本提取命名实�
 ("relationship"{tuple_delimiter}"做工的人"{tuple_delimiter}"短衣帮"{tuple_delimiter}"做工的人属于短衣帮，通常经济条件有限。"){record_delimiter}
 ("relationship"{tuple_delimiter}"做工的人"{tuple_delimiter}"穿长衫的"{tuple_delimiter}"做工的人与穿长衫的形成对比，反映了社会阶层的差异。"){record_delimiter}
 ("relationship"{tuple_delimiter}"穿长衫的"{tuple_delimiter}"鲁镇的酒店"{tuple_delimiter}"穿长衫的顾客通常会进入鲁镇酒店的房间慢慢喝酒吃菜，享受更高级的服务。"){record_delimiter}
-("content_keywords"{tuple_delimiter}"社会分层, 经济差距, 服务, 生活成本, 历史背景"){completion_delimiter}
+{completion_delimiter}
 
 -示例 2-
 文本：
@@ -166,7 +160,7 @@ TEMPLATE_ZH: str = """你是一个NLP专家，擅长分析文本提取命名实�
 ("relationship"{tuple_delimiter}"铅山县"{tuple_delimiter}"稳产、优质、增效"{tuple_delimiter}"铅山县的粮食生产目标是稳产、优质、增效，这些目标指导了黄华占的示范种植。"){record_delimiter}
 ("relationship"{tuple_delimiter}"铅山县"{tuple_delimiter}"优质稻推广"{tuple_delimiter}"铅山县实施了优质稻推广计划，黄华占是该计划的一部分。"){record_delimiter}
 ("relationship"{tuple_delimiter}"杂交水稻技术"{tuple_delimiter}"北涨看长粒香、南涨看黄华占"{tuple_delimiter}"杂交水稻技术的发展使得黄华占等优质稻品种在市场中受到关注。"){record_delimiter}
-("content_keywords"{tuple_delimiter}"黄华占, 水稻种植, 高产栽培技术, 优质稻推广, 地区适应性, 市场趋势, 技术影响"){completion_delimiter}
+{completion_delimiter}
 
 -真实数据-
 实体类型：{entity_types}
@@ -203,6 +197,6 @@ KG_EXTRACTION_PROMPT: dict = {
         "record_delimiter": "##",
         "completion_delimiter": "<|COMPLETE|>",
         "entity_types": "concept, date, location, keyword, organization, person, event, work, nature, artificial, \
-science, technology, mission, gene",
+science, technology, mission, gene, food",
     },
 }

@@ -44,6 +44,11 @@ class GraphGen:
     progress_bar: Optional[Any] = None
 
     def __post_init__(self):
+        # 默认附加请求参数（如关闭混合推理模型的思考），与 llm_config 服务端默认一致
+        from graphgen.configs.llm_config import default_request_params
+
+        _default_request_params = default_request_params()
+
         self.tokenizer_instance: Tokenizer = self.tokenizer_instance or Tokenizer(
             model_name=os.getenv("TOKENIZER_MODEL")
         )
@@ -55,6 +60,7 @@ class GraphGen:
                 api_key=os.getenv("SYNTHESIZER_API_KEY"),
                 base_url=os.getenv("SYNTHESIZER_BASE_URL"),
                 tokenizer=self.tokenizer_instance,
+                extra_request_params=_default_request_params,
             )
         )
 
@@ -63,6 +69,7 @@ class GraphGen:
             api_key=os.getenv("TRAINEE_API_KEY"),
             base_url=os.getenv("TRAINEE_BASE_URL"),
             tokenizer=self.tokenizer_instance,
+            extra_request_params=_default_request_params,
         )
 
         self.full_docs_storage: JsonKVStorage = JsonKVStorage(
@@ -291,8 +298,11 @@ class GraphGen:
                             for key in list(search_data.keys())
                         ]
                     )
-                # TODO: fix insert after search
-                await self.insert()
+                # TODO: fix insert after search (needs read/split configs)
+                logger.warning(
+                    "[Search] Re-inserting search results is not yet supported; "
+                    "search results stored only."
+                )
 
     @async_to_sync_method
     async def quiz_and_judge(self, quiz_and_judge_config: Dict):

@@ -86,7 +86,8 @@ class BatchRequestManager:
         future = asyncio.Future()
         request_index = self.request_counter
         self.request_counter += 1
-        
+
+        should_process = False
         async with self.queue_lock:
             request = BatchRequest(
                 prompt=prompt,
@@ -97,14 +98,25 @@ class BatchRequestManager:
             )
             self.request_queue.append(request)
             self.pending_futures[request_index] = future
-            
-            # 如果队列达到batch_size，立即触发处理
+
+            # 如果队列达到batch_size，标记需要立即处理
             if len(self.request_queue) >= self.batch_size:
-                await self._process_batch()
-            elif self.batch_task is None or self.batch_task.done():
-                # 启动定时任务
-                self.batch_task = asyncio.create_task(self._batch_timer())
-        
+                should_process = True
+
+        # 注意 1：批次处理必须在锁外执行。
+        # 旧实现在持有 queue_lock 期间 await 整个批次的 LLM 调用，
+        # 导致全局在飞请求数被压到 ≤ batch_size，且最慢请求拖住下一批（convoy 效应）。
+        #
+        # 注意 2：timer 不检查/复用旧 batch_task 的状态。
+        # set_result 会先唤醒等待者（它可能立刻发起新请求），而旧 timer
+        # 此时尚未标记 done —— 若依赖 batch_task.done() 判断是否需要新 timer，
+        # 新请求会漏排（旧 timer 已在收尾、不会再取新请求），造成永久挂起。
+        # 多余的 timer 只会空跑一次 _take_batch，无副作用。
+        if should_process:
+            await self._process_batch()
+        else:
+            self.batch_task = asyncio.create_task(self._batch_timer())
+
         # 等待结果
         return await future
     
@@ -118,31 +130,36 @@ class BatchRequestManager:
     async def _batch_timer(self):
         """定时器，在max_wait_time后处理队列"""
         await asyncio.sleep(self.max_wait_time)
+        await self._process_batch()
+
+    async def _take_batch(self) -> List[BatchRequest]:
+        """从队列中原子地取出一批请求（锁内完成，尽快释放）"""
         async with self.queue_lock:
-            if self.request_queue:
-                await self._process_batch()
-    
-    async def _process_batch(self):
-        """处理当前队列中的所有请求"""
-        if not self.request_queue:
-            return
-        
-        # 取出当前批次
-        batch = self.request_queue[:self.batch_size]
-        self.request_queue = self.request_queue[self.batch_size:]
-        
+            if not self.request_queue:
+                return []
+            batch = self.request_queue[: self.batch_size]
+            del self.request_queue[: self.batch_size]
+            return batch
+
+    async def _process_batch(self) -> List[BatchRequest]:
+        """处理当前队列中的一批请求。
+
+        取批次在锁内完成，实际的 LLM 调用在锁外并发执行，
+        多个 _process_batch 可以同时运行而互不阻塞。
+        :return: 本次取出的批次（可能为空列表）
+        """
+        batch = await self._take_batch()
+        if not batch:
+            return []
+
         # 记录批量处理
         logger.debug("Processing batch of %d requests", len(batch))
-        
+
         # 并发处理批次中的请求
-        tasks = []
-        for request in batch:
-            task = self._process_single_request(request)
-            tasks.append(task)
-        
-        # 等待所有请求完成
+        tasks = [self._process_single_request(request) for request in batch]
         await asyncio.gather(*tasks, return_exceptions=True)
         logger.debug("Completed batch of %d requests", len(batch))
+        return batch
     
     async def _process_single_request(self, request: BatchRequest):
         """处理单个请求"""
@@ -186,10 +203,10 @@ class BatchRequestManager:
     
     async def flush(self):
         """刷新队列，处理所有剩余的请求"""
-        async with self.queue_lock:
-            while self.request_queue:
-                await self._process_batch()
-        
+        # 取批次与处理分离：持续取空队列（处理过程不持锁）
+        while await self._process_batch():
+            pass
+
         # 等待所有future完成
         if self.pending_futures:
             await asyncio.gather(*self.pending_futures.values(), return_exceptions=True)

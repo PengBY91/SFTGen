@@ -4,7 +4,7 @@ import asyncio
 from graphgen.models import HierarchicalPartitioner, TreeStructureGenerator
 
 
-async def test_integration():
+async def _run_integration():
     """Test complete hierarchical pipeline."""
 
     print("=" * 70)
@@ -100,7 +100,9 @@ async def test_integration():
             structure_format=fmt,
             hierarchical_relations=["is_a"]
         )
-        hierarchy_text = generator._serialize_to_format(batch)
+        hierarchy_text = generator.hierarchy_serializer.serialize(
+            batch[0], batch[1], structure_format=fmt
+        )
         lines = hierarchy_text.split('\n')[:5]
         print(f"\n  {fmt.upper()} format (first 5 lines):")
         for line in lines:
@@ -175,5 +177,10 @@ Answer: Eagle is a type of Bird, specifically a bird of prey. It inherits the ge
     print("=" * 70)
 
 
+def test_integration():
+    """pytest 入口：包装异步集成测试。"""
+    asyncio.run(_run_integration())
+
+
 if __name__ == "__main__":
-    asyncio.run(test_integration())
+    asyncio.run(_run_integration())

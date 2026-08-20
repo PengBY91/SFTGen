@@ -23,6 +23,7 @@ class BaseLLMClient(abc.ABC):
         top_p: float = 0.95,
         top_k: int = 50,
         tokenizer: Optional[BaseTokenizer] = None,
+        extra_request_params: Optional[dict] = None,
         **kwargs: Any,
     ):
         self.system_prompt = system_prompt
@@ -32,6 +33,9 @@ class BaseLLMClient(abc.ABC):
         self.top_p = top_p
         self.top_k = top_k
         self.tokenizer = tokenizer
+        # 附加到每次请求的提供商特有参数（如 DeepSeek 的 reasoning_effort），
+        # 用于控制推理强度等 SDK 类型签名之外的能力
+        self.extra_request_params: dict = dict(extra_request_params or {})
 
         for k, v in kwargs.items():
             setattr(self, k, v)

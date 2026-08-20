@@ -10,7 +10,7 @@ To generate a version of the text that is rephrased and conveys the same meaning
 3. Ensuring temporal and sequential consistency
 4. Creating smooth transitions between ideas using conjunctions and appropriate linking words like "firstly," "however," "therefore," etc.
 5. Providing comprehensive and detailed explanations (aim for 200-400 words or 5-10 sentences)
-6. Enriching the content with relevant background knowledge, context, or related concepts when appropriate
+6. Elaborating on details present in the given knowledge when appropriate (never inventing facts beyond it)
 7. Including relevant details, examples, implications, or broader connections to enhance understanding
 
 ---Instructions---
@@ -32,9 +32,9 @@ To generate a version of the text that is rephrased and conveys the same meaning
    - Proper context and background
    - Coherent narrative structure
    - Comprehensive detail and depth (200-400 words or 5-10 sentences)
-   - Integration of relevant background knowledge or related concepts when appropriate
+   - Integration of related concepts already present in the knowledge when appropriate
 
-4. Enrich the text by:
+4. Enrich the text (using only facts from the given knowledge) by:
    - Adding relevant details, examples, or implications
    - Providing broader context or connections to related topics
    - Explaining underlying mechanisms, processes, or relationships in more detail
@@ -74,7 +74,7 @@ ANSWER_REPHRASING_CONTEXT_ZH: str = """---角色---
 3. 确保时间和顺序的一致性
 4. 使用连词和适当的连接词(如"首先"、"然而"、"因此"等)创造流畅的过渡
 5. 提供全面且详细的解释
-6. 在适当的时候利用相关背景知识、上下文或相关概念来丰富内容
+6. 在适当的时候基于给定知识中的细节来丰富内容，不得编造知识之外的事实
 7. 包含相关细节、例子、影响或更广泛的联系，以增强理解
 
 ---说明---
@@ -94,7 +94,7 @@ ANSWER_REPHRASING_CONTEXT_ZH: str = """---角色---
     - 适当的上下文和背景
     - 连贯的叙述结构
     - 全面详细的深度（200-400字或5-10句话）
-    - 在适当的时候整合相关背景知识或相关概念
+    - 在适当的时候整合给定知识中已有的相关概念
 
 4. 通过以下方式丰富文本：
     - 添加相关细节、例子或影响
@@ -136,7 +136,7 @@ To generate a version of the text that is rephrased and conveys the same meaning
 3. Ensuring temporal and sequential consistency
 4. Creating smooth transitions between ideas using conjunctions and appropriate linking words like "firstly," "however," "therefore," etc.
 5. Providing comprehensive and detailed explanations
-6. Enriching the content with relevant background knowledge, context, or related concepts when appropriate
+6. Elaborating on details present in the given knowledge when appropriate (never inventing facts beyond it)
 7. Including relevant details, examples, implications, or broader connections to enhance understanding
 
 ---Instructions---
@@ -158,9 +158,9 @@ To generate a version of the text that is rephrased and conveys the same meaning
    - Proper context and background
    - Coherent narrative structure
    - Comprehensive detail and depth (200-400 words or 5-10 sentences)
-   - Integration of relevant background knowledge or related concepts when appropriate
+   - Integration of related concepts already present in the knowledge when appropriate
 
-4. Enrich the text by:
+4. Enrich the text (using only facts from the given knowledge) by:
    - Adding relevant details, examples, or implications
    - Providing broader context or connections to related topics
    - Explaining underlying mechanisms, processes, or relationships in more detail
@@ -195,7 +195,7 @@ ANSWER_REPHRASING_ZH: str = """---角色---
 3. 确保时间和顺序的一致性
 4. 使用连词和适当的连接词(如"首先"、"然而"、"因此"等)创造流畅的过渡
 5. 提供全面且详细的解释
-6. 在适当的时候利用相关背景知识、上下文或相关概念来丰富内容
+6. 在适当的时候基于给定知识中的细节来丰富内容，不得编造知识之外的事实
 7. 包含相关细节、例子、影响或更广泛的联系，以增强理解
 
 ---说明---
@@ -215,7 +215,7 @@ ANSWER_REPHRASING_ZH: str = """---角色---
     - 适当的上下文和背景
     - 连贯的叙述结构
     - 全面详细的深度
-    - 在适当的时候整合相关背景知识或相关概念
+    - 在适当的时候整合给定知识中已有的相关概念
 
 4. 通过以下方式丰富文本：
     - 添加相关细节、例子或影响
@@ -283,7 +283,7 @@ AGGREGATED_COMBINED_EN = """You are an NLP expert responsible for generating a l
    - Ensuring temporal and sequential consistency
    - Creating smooth transitions between ideas using conjunctions and appropriate linking words
    - Providing comprehensive and detailed explanations
-   - Enriching the content with relevant background knowledge, context, or related concepts when appropriate
+   - Elaborating on details present in the given knowledge when appropriate (never inventing facts beyond it)
    - Including relevant details, examples, implications, or broader connections to enhance understanding
 
 2. Generate a relevant question that corresponds to the rephrased text (which serves as the answer).
@@ -307,7 +307,7 @@ AGGREGATED_COMBINED_EN = """You are an NLP expert responsible for generating a l
    - Proper context and background
    - Coherent narrative structure
    - Comprehensive detail and depth
-   - Integration of relevant background knowledge or related concepts when appropriate
+   - Integration of related concepts already present in the knowledge when appropriate
 
 4. Enrich the rephrased text by:
    - Adding relevant details, examples, or implications
@@ -356,7 +356,7 @@ AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的�
    - 确保时间和顺序的一致性
    - 使用连词和适当的连接词创造流畅的过渡
    - 提供全面且详细的解释
-   - 在适当的时候利用相关背景知识、上下文或相关概念来丰富内容
+   - 在适当的时候基于给定知识中的细节来丰富内容，不得编造知识之外的事实
    - 包含相关细节、例子、影响或更广泛的联系，以增强理解
 
 2. 生成一个与重述文本（作为答案）对应的问题。
@@ -380,7 +380,7 @@ AGGREGATED_COMBINED_ZH = """你是一位NLP专家，负责根据下面提供的�
    - 适当的上下文和背景
    - 连贯的叙述结构
    - 全面详细的深度
-   - 在适当的时候整合相关背景知识或相关概念
+   - 在适当的时候整合给定知识中已有的相关概念
 
 4. 通过以下方式丰富重述文本：
    - 添加相关细节、例子或影响

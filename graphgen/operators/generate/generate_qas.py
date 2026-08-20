@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Any, Optional, Dict
 
 from graphgen.bases import BaseLLMClient
@@ -14,6 +15,7 @@ from graphgen.models import (
 from graphgen.models.llm.batch_llm_wrapper import BatchLLMWrapper
 from graphgen.templates import ATOMIC_ANSWER_PROMPT
 from graphgen.utils import compute_content_hash, detect_main_language, logger, run_concurrent
+from graphgen.utils.hierarchy_utils import HierarchySerializer
 
 
 def _extract_question_from_formatted_result(result: dict[str, Any]) -> str:
@@ -139,27 +141,19 @@ def _parse_answer_from_response(response: str) -> str:
                 parts = response_clean.split(marker, 1)
                 if len(parts) > 1:
                     answer = parts[1].strip()
-                    
+
                     # 移除引号
                     answer = answer.strip('"').strip("'").strip()
-                    
+
                     # 移除后续的问题标记或其他标记
                     for q_marker in ["问题：", "Question:", "Q:", "问："]:
                         if q_marker in answer:
                             answer = answer.split(q_marker, 1)[0].strip()
-                    
-                    # 处理多行答案：取第一段或前两段（如果第一段太短）
-                    if "\n" in answer:
-                        lines = [line.strip() for line in answer.split("\n") if line.strip()]
-                        if lines:
-                            # 如果第一行足够长，只用第一行
-                            if len(lines[0]) >= 20:
-                                answer = lines[0]
-                            # 否则取前两行
-                            elif len(lines) > 1:
-                                answer = "\n".join(lines[:2])
-                            else:
-                                answer = lines[0]
+
+                    # 保留完整多行答案：模板要求答案包含 3-5 句/100-200 词，
+                    # 旧实现截断到前 1-2 行，与模板要求直接冲突。
+                    # 仅规范化空白（合并连续空行）。
+                    answer = re.sub(r"\n{3,}", "\n\n", answer).strip()
                     
                     if answer and len(answer.strip()) > 0:
                         logger.debug(
@@ -242,10 +236,70 @@ def _parse_answer_from_response(response: str) -> str:
     return ""
 
 
+# 归一化用全角→半角/删除字符表
+_PUNCT_TRANSLATION = str.maketrans({
+    "？": "?", "！": "!", "，": ",", "。": ".", "：": ":", "；": ";",
+    "（": "(", "）": ")", "、": ",", "　": " ",
+    "“": '"', "”": '"', "‘": "'", "’": "'",
+})
+
+
+def _normalize_question_for_dedup(question: str) -> str:
+    """归一化问题文本用于去重：仅在大小写/标点/空白上差异的问题视为同一问题。"""
+    q = question.strip().lower().translate(_PUNCT_TRANSLATION)
+    q = re.sub(r"\s+", " ", q)
+    # 去掉标点后比较核心文字内容
+    return re.sub(r"[?!,.:;()'\"\s]", "", q)
+
+
 def _build_question_hash(question: str, mode: Optional[str] = None) -> str:
     """Build a question hash that is scoped by mode to avoid cross-mode collisions."""
-    key = f"{(mode or '').strip()}::{question.strip()}"
+    normalized = _normalize_question_for_dedup(question) or question.strip()
+    key = f"{(mode or '').strip()}::{normalized}"
     return compute_content_hash(key)
+
+
+def _build_hierarchical_context(
+    context_block: dict[str, Any],
+    hierarchical_relations: Optional[list[str]] = None,
+) -> str:
+    """Rebuild hierarchical context text from stored context metadata (nodes/edges dicts)."""
+    if not isinstance(context_block, dict):
+        return ""
+    nodes = [
+        (
+            n.get("name", ""),
+            {
+                "description": n.get("description", ""),
+                "entity_type": n.get("entity_type", ""),
+                "chunk_id": n.get("chunk_id", ""),
+            },
+        )
+        for n in context_block.get("nodes", [])
+        if isinstance(n, dict)
+    ]
+    edges = [
+        (
+            e.get("source", ""),
+            e.get("target", ""),
+            {
+                "description": e.get("description", ""),
+                "relation_type": e.get("relation_type", ""),
+            },
+        )
+        for e in context_block.get("edges", [])
+        if isinstance(e, dict)
+    ]
+    if not edges:
+        return ""
+    try:
+        serializer = HierarchySerializer(hierarchical_relations)
+        return serializer.serialize(
+            nodes, edges, structure_format="markdown", require_hierarchy=True
+        )
+    except Exception as exc:
+        logger.debug("Failed to rebuild hierarchical context: %s", exc)
+        return ""
 
 
 def deduplicate_formatted_items(
@@ -272,6 +326,108 @@ def deduplicate_formatted_items(
     return deduplicated
 
 
+def _extract_answer_from_formatted_result(result: dict[str, Any]) -> str:
+    """Extract answer text from different output formats."""
+    if not isinstance(result, dict):
+        return ""
+    if "output" in result:
+        return result.get("output", "")
+    if "conversations" in result:
+        for msg in result.get("conversations", []):
+            if msg.get("from") == "gpt":
+                return msg.get("value", "")
+    if "messages" in result:
+        for msg in result.get("messages", []):
+            if msg.get("role") == "assistant":
+                return msg.get("content", "")
+    return result.get("answer", "")
+
+
+# 问题文本开头的元前导语（LLM 有时输出"根据答案内容，可以生成如下问题：**问题：**..."之类）
+_QUESTION_PREAMBLE_PATTERNS = [
+    re.compile(r"^(?:根据|基于|按照)[^\n]{0,60}?(?:生成|提出|设计|构造|给出|如下)[^\n]{0,20}[：:]?\s*\n*", re.IGNORECASE),
+    re.compile(r"^以下[是为][^\n]{0,30}[：:]\s*\n*"),
+    re.compile(r"^\*\*问题[：:]\*\*\s*", re.IGNORECASE),
+    re.compile(r"^\*\*[Qq]uestion[：:]\*\*\s*"),
+    re.compile(r"^问题[：:]\s*"),
+    re.compile(r"^(?:Question|Q)[：:]\s*", re.IGNORECASE),
+]
+
+
+def _clean_question_text(question: str) -> str:
+    """剥离问题开头的元前导语与标记，返回干净的问题文本。"""
+    q = question.strip()
+    changed = True
+    while changed:
+        changed = False
+        for pattern in _QUESTION_PREAMBLE_PATTERNS:
+            new_q = pattern.sub("", q, count=1).strip()
+            if new_q != q:
+                q = new_q
+                changed = True
+    return q
+
+
+def _clean_formatted_questions(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """对格式化结果中的问题文本统一清洗（原地修改并返回）。"""
+    cleaned = 0
+    for result in items:
+        if not isinstance(result, dict):
+            continue
+        if "instruction" in result:
+            new_q = _clean_question_text(result["instruction"])
+            if new_q != result["instruction"]:
+                result["instruction"] = new_q
+                cleaned += 1
+        elif "conversations" in result:
+            for msg in result.get("conversations", []):
+                if msg.get("from") == "human":
+                    new_q = _clean_question_text(msg.get("value", ""))
+                    if new_q != msg.get("value", ""):
+                        msg["value"] = new_q
+                        cleaned += 1
+                    break
+        elif "messages" in result:
+            for msg in result.get("messages", []):
+                if msg.get("role") == "user":
+                    new_q = _clean_question_text(msg.get("content", ""))
+                    if new_q != msg.get("content", ""):
+                        msg["content"] = new_q
+                        cleaned += 1
+                    break
+    if cleaned:
+        logger.info("Question cleanup: stripped meta-preamble from %d questions", cleaned)
+    return items
+
+
+def apply_basic_quality_filter(
+    items: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """基础质量过滤（零 LLM 成本）：剔除空问题/空答案、答案与问题相同的条目。
+
+    :return: (过滤后列表, 各规则剔除计数)
+    """
+    kept: list[dict[str, Any]] = []
+    removed = {"empty_question": 0, "empty_answer": 0, "identical_qa": 0}
+    for result in items:
+        question = _extract_question_from_formatted_result(result).strip()
+        answer = _extract_answer_from_formatted_result(result).strip()
+        if not question or len(question) < 2:
+            removed["empty_question"] += 1
+            continue
+        if not answer:
+            removed["empty_answer"] += 1
+            continue
+        if question == answer:
+            removed["identical_qa"] += 1
+            continue
+        kept.append(result)
+    total_removed = sum(removed.values())
+    if total_removed:
+        logger.info("Quality filter removed %d items: %s", total_removed, removed)
+    return kept, removed
+
+
 async def generate_qas(
     llm_client: BaseLLMClient,
     batches: list[
@@ -296,6 +452,11 @@ async def generate_qas(
     :return: QA pairs
     """
     mode = generation_config["mode"]
+    data_format = generation_config["data_format"]
+    hierarchical_relations = generation_config.get(
+        "hierarchical_relations",
+        ["is_a", "subclass_of", "part_of", "includes", "type_of"],
+    )
     logger.debug("[Generation] mode: %s, batches: %d", mode, len(batches))
     
     def limit_results(items: list[dict[str, Any]], limit: Optional[int]) -> list[dict[str, Any]]:
@@ -455,42 +616,60 @@ async def generate_qas(
     use_combined_mode = generation_config.get("use_combined_mode", False)
     
     if mode == "all":
-        # 创建所有四种生成器的列表，并记录对应的 mode
+        # 创建所有生成器的列表，并记录对应的 mode
+        # 注意：各 generator 构造签名不同，统一在此处按各自签名传参
         generators = [
-            (AtomicGenerator(actual_llm_client, use_multi_template=use_multi_template, template_seed=template_seed, chinese_only=chinese_only), "atomic"),
-            (AggregatedGenerator(actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only), "aggregated"),
-            (MultiHopGenerator(actual_llm_client, chinese_only=chinese_only), "multi_hop"),
-            (CoTGenerator(actual_llm_client, use_combined_mode=use_combined_mode, chinese_only=chinese_only), "cot"),
-            (TreeStructureGenerator(
-                actual_llm_client,
-                structure_format=generation_config.get("structure_format", "markdown"),
-                hierarchical_relations=generation_config.get(
-                    "hierarchical_relations",
-                    ["is_a", "subclass_of", "part_of", "includes", "type_of"]
+            (
+                AtomicGenerator(
+                    actual_llm_client,
+                    use_multi_template=use_multi_template,
+                    template_seed=template_seed,
+                    chinese_only=chinese_only,
+                    hierarchical_relations=hierarchical_relations,
                 ),
-                chinese_only=chinese_only,
-            ), "hierarchical"),
+                "atomic",
+            ),
+            (
+                AggregatedGenerator(
+                    actual_llm_client,
+                    use_combined_mode=use_combined_mode,
+                    chinese_only=chinese_only,
+                    hierarchical_relations=hierarchical_relations,
+                ),
+                "aggregated",
+            ),
+            (MultiHopGenerator(actual_llm_client, chinese_only=chinese_only), "multi_hop"),
+            (
+                CoTGenerator(
+                    actual_llm_client,
+                    use_combined_mode=use_combined_mode,
+                    chinese_only=chinese_only,
+                    hierarchical_relations=hierarchical_relations,
+                ),
+                "cot",
+            ),
+            (
+                TreeStructureGenerator(
+                    actual_llm_client,
+                    structure_format=generation_config.get("structure_format", "markdown"),
+                    hierarchical_relations=hierarchical_relations,
+                    chinese_only=chinese_only,
+                ),
+                "hierarchical",
+            ),
+            (
+                DAToGGenerator(
+                    actual_llm_client,
+                    data_format=data_format,
+                    default_dimension=generation_config.get(
+                        "default_dimension", "concept_explanation"
+                    ),
+                ),
+                "datog",
+            ),
         ]
 
         all_results = []
-        data_format = generation_config["data_format"]
-
-        generators = [
-            (AtomicGenerator(actual_llm_client, data_format=data_format), "atomic"),
-            (AggregatedGenerator(actual_llm_client, data_format=data_format), "aggregated"),
-            (MultiHopGenerator(actual_llm_client, data_format=data_format), "multi_hop"),
-            (CoTGenerator(actual_llm_client, data_format=data_format), "cot"),
-            (TreeStructureGenerator(
-                actual_llm_client,
-                structure_format=generation_config.get("structure_format", "markdown"),
-                hierarchical_relations=generation_config.get(
-                    "hierarchical_relations",
-                    ["is_a", "subclass_of", "part_of", "includes", "type_of"]
-                ),
-                chinese_only=chinese_only,
-            ), "hierarchical"),
-            (DAToGGenerator(actual_llm_client, data_format=data_format, default_dimension=generation_config.get("default_dimension", "concept_explanation")), "datog"),
-        ]
         
         # 计算每个模式的目标QA数量
         mode_names = [gen_mode for _, gen_mode in generators]
@@ -653,6 +832,11 @@ async def generate_qas(
                     "[Generation] After deduplication: %d -> %d results",
                     original_before_dedup, len(all_results)
                 )
+
+        # 基础质量过滤（空问题/空答案/答案与问题相同）
+        if generation_config.get("enable_quality_filter", True):
+            all_results, _filter_stats = apply_basic_quality_filter(all_results)
+            all_results = _clean_formatted_questions(all_results)
 
         # 统计各模式的数量（不应用限制，允许超过目标）
         if target_qa_pairs:
@@ -836,11 +1020,21 @@ async def generate_qas(
                             language, ATOMIC_ANSWER_PROMPT["en"]
                         )
                     
-                    # 3. 构建 prompt
-                    prompt = template.format(
-                        context=context_text,
-                        question=entry["question"],
+                    # 3. 构建 prompt（附带层级上下文，模板中的 {hierarchical_context} 占位符）
+                    hierarchical_context = _build_hierarchical_context(
+                        entry.get("context", {}), hierarchical_relations
                     )
+                    try:
+                        prompt = template.format(
+                            context=context_text,
+                            question=entry["question"],
+                            hierarchical_context=hierarchical_context,
+                        )
+                    except KeyError:
+                        prompt = template.format(
+                            context=context_text,
+                            question=entry["question"],
+                        )
                     
                     # 4. 调用 LLM 生成答案
                     response = await actual_llm_client.generate_answer(prompt)
@@ -1053,7 +1247,6 @@ async def generate_qas(
             )
 
         # format
-        data_format = generation_config["data_format"]
         logger.debug("Output data format: %s", data_format)
 
         results = generator.format_generation_results(
@@ -1081,6 +1274,11 @@ async def generate_qas(
                 session_seen_hashes,
                 persistent_question_hashes if persistent_deduplication else None,
             )
+
+        # 基础质量过滤（空问题/空答案/答案与问题相同）
+        if generation_config.get("enable_quality_filter", True):
+            results, _filter_stats = apply_basic_quality_filter(results)
+            results = _clean_formatted_questions(results)
 
         # 记录最终结果（不应用限制，允许超过目标）
         if target_qa_pairs:

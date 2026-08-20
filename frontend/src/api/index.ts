@@ -117,6 +117,11 @@ export const api = {
     return request.get<TaskResponse<TaskConfig>>('/config/load')
   },
 
+  // 获取服务端默认 LLM 配置（与 llm_config.py / .env 一致）
+  getLLMDefaults() {
+    return request.get<TaskResponse<Partial<TaskConfig>>>('/config/llm-defaults')
+  },
+
   // ==================== 审核相关 ====================
 
   // 获取任务的审核数据

@@ -54,6 +54,7 @@ class BatchLLMWrapper(BaseLLMClient):
             top_p=llm_client.top_p,
             top_k=llm_client.top_k,
             tokenizer=llm_client.tokenizer,
+            extra_request_params=getattr(llm_client, "extra_request_params", None),
         )
         self.llm_client = llm_client
         self.enable_batching = enable_batching

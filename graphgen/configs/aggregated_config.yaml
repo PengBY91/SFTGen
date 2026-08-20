@@ -1,3 +1,31 @@
+# LLM 与其他 API 配置（可选；未配置时回退到环境变量/.env）
+# ${VAR} 引用环境变量，密钥无需写进配置文件。
+# 优先级：命令行参数 > 本文件 > 环境变量 > 内置默认值
+llm:
+  synthesizer:
+    model: ${SYNTHESIZER_MODEL}
+    base_url: ${SYNTHESIZER_BASE_URL}
+    api_key: ${SYNTHESIZER_API_KEY}
+    rpm: 1000   # 每分钟请求数上限
+    tpm: 50000  # 每分钟 token 数上限
+    temperature: 0.0
+    max_tokens: 4096
+  trainee:
+    enabled: false  # quiz_and_judge.enabled 时需要
+    model: ${TRAINEE_MODEL}
+    base_url: ${TRAINEE_BASE_URL}
+    api_key: ${TRAINEE_API_KEY}
+  tokenizer:
+    model: cl100k_base
+
+# 其他 API（搜索等），值会写入对应环境变量供各模块读取
+apis: {}
+#  google_search:
+#    api_key: ${GOOGLE_SEARCH_API_KEY}
+#    cx: ${GOOGLE_SEARCH_CX}
+#  bing_search:
+#    api_key: ${BING_SEARCH_API_KEY}
+
 read:
   input_file: resources/input_examples/jsonl_demo.jsonl # input file path, support json, jsonl, txt, pdf. See resources/input_examples for examples
 split:

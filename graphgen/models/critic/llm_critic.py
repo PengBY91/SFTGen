@@ -105,7 +105,7 @@ class LLMCritic(BaseCritic):
 
         for attempt in range(self.max_retries):
             try:
-                response = await self.llm_client.query(prompt)
+                response = await self.llm_client.generate_answer(prompt)
                 return self._parse_critic_response(response)
             except Exception as e:
                 logger.warning(
@@ -113,9 +113,11 @@ class LLMCritic(BaseCritic):
                     attempt + 1, self.max_retries, e,
                 )
 
-        # All retries failed, pass by default to avoid blocking pipeline
+        # All retries failed, pass by default to avoid blocking pipeline.
+        # Note: score must be >= min_score, otherwise the caller's
+        # `score < min_critic_score` check would reject what we meant to pass.
         return CriticResult(
-            passed=True, score=0.5,
+            passed=True, score=self.min_score,
             reason="Critic validation failed after retries, passing by default",
         )
 
@@ -140,7 +142,7 @@ class LLMCritic(BaseCritic):
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning("Failed to parse critic response: %s", str(e))
             return CriticResult(
-                passed=True, score=0.5,
+                passed=True, score=self.min_score,
                 reason=f"Failed to parse critic response: {str(e)[:100]}",
             )
 

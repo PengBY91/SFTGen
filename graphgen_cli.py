@@ -25,6 +25,9 @@ from graphgen.models.llm.limitter import RPM, TPM
 from graphgen.utils import set_logger
 from webui.utils import cleanup_workspace, setup_workspace
 
+# 尽早加载 .env,确保 create_parser() 中的 os.getenv 能读到配置
+load_dotenv()
+
 # DA-ToG imports
 from graphgen.datog_pipeline import DAToGPipeline
 from graphgen.models.taxonomy.taxonomy_tree import TaxonomyTree
@@ -75,6 +78,13 @@ class GraphGenCLI:
         set_logger(log_file, if_stream=True)
         os.environ.update({k: str(v) for k, v in env.items()})
 
+        # 提供商特有请求参数（如混合推理模型关闭思考），与 llm 配置保持一致
+        from graphgen.configs.llm_config import load_llm_config
+
+        llm_defaults = load_llm_config()
+        synth_request_params = llm_defaults.synthesizer.request_params
+        trainee_request_params = llm_defaults.trainee.request_params
+
         # 创建 tokenizer 和 LLM 客户端
         tokenizer_instance = Tokenizer(config.get("tokenizer", "cl100k_base"))
         synthesizer_llm_client = OpenAIClient(
@@ -85,6 +95,7 @@ class GraphGenCLI:
             rpm=RPM(env.get("RPM", 1000)),
             tpm=TPM(env.get("TPM", 50000)),
             tokenizer=tokenizer_instance,
+            extra_request_params=synth_request_params,
         )
 
         trainee_llm_client = OpenAIClient(
@@ -95,6 +106,7 @@ class GraphGenCLI:
             rpm=RPM(env.get("RPM", 1000)),
             tpm=TPM(env.get("TPM", 50000)),
             tokenizer=tokenizer_instance,
+            extra_request_params=trainee_request_params,
         )
 
         # 创建 KGE-Gen 实例（传递 synthesizer_llm_client 和 trainee_llm_client）
@@ -142,7 +154,7 @@ class GraphGenCLI:
                 content = item.get("content", "")
             else:
                 content = item
-            token_count += len(tokenizer.encode_string(content))
+            token_count += len(tokenizer.encode(content))
 
         estimated_usage = token_count * 50  # 估算使用量
         return token_count, estimated_usage
@@ -781,6 +793,9 @@ class GraphGenCLI:
         }
 
         # Setup LLM client
+        from graphgen.configs.llm_config import load_llm_config
+
+        _llm_defaults = load_llm_config()
         tokenizer_instance = Tokenizer(config_data.get("tokenizer", "cl100k_base"))
         llm_client = OpenAIClient(
             model_name=env.get("SYNTHESIZER_MODEL", ""),
@@ -790,31 +805,33 @@ class GraphGenCLI:
             rpm=RPM(env.get("RPM", 1000)),
             tpm=TPM(env.get("TPM", 50000)),
             tokenizer=tokenizer_instance,
+            extra_request_params=_llm_defaults.synthesizer.request_params,
         )
 
         # Build or load KG
         graph_storage = None
-        if args.input_file:
-            print(f"📖 从输入文件构建知识图谱: {args.input_file}")
+        if args.datog_input:
+            print(f"📖 从输入文件构建知识图谱: {args.datog_input}")
             graph_gen = GraphGen(working_dir=working_dir, tokenizer_instance=tokenizer_instance, synthesizer_llm_client=llm_client)
             graph_gen.clear()
-            read_config = {"input_file": args.input_file}
+            read_config = {"input_file": args.datog_input}
             split_config = {
                 "chunk_size": 1024,
                 "chunk_overlap": 50,
             }
             graph_gen.insert(read_config=read_config, split_config=split_config)
-            graph_storage = graph_gen.qa_storage
+            graph_storage = graph_gen.graph_storage
             print("✅ 知识图谱构建完成")
-        elif args.kg_path:
-            print(f"📖 从文件加载知识图谱: {args.kg_path}")
+        elif args.datog_kg:
+            print(f"📖 从文件加载知识图谱: {args.datog_kg}")
             graph_storage = NetworkXStorage()
             try:
-                graph_storage.load(args.kg_path)
-            except:
-                pass
+                graph_storage.load(args.datog_kg)
+            except Exception as e:
+                print(f"❌ 加载知识图谱失败: {e}")
+                return False
         else:
-            print("❌ 错误: 需要提供 --input-file 或 --kg-path")
+            print("❌ 错误: 需要提供 --datog-input 或 --datog-kg")
             return False
 
         # Load taxonomy
@@ -842,8 +859,8 @@ class GraphGenCLI:
             results = asyncio.run(pipeline.run(target_count=target_count, batch_size=batch_size))
 
             # Determine output file
-            if args.output_file:
-                output_file = args.output_file
+            if args.datog_output:
+                output_file = args.datog_output
             else:
                 base_name = os.path.splitext(os.path.basename(args.datog_config))[0]
                 output_file = f"{base_name}_datog_output.json"
@@ -897,39 +914,42 @@ def create_parser():
 
   # 自定义参数
   python graphgen_cli.py -i input.txt -k your_api_key --chunk-size 2048 --max-depth 3
+
+  # DA-ToG 管线（从文档构建知识图谱）
+  python graphgen_cli.py --datog-config graphgen/configs/datog/cybersecurity/datog_config.yaml --datog-input input.txt
+
+  # DA-ToG 管线（加载已有知识图谱，无需 -i）
+  python graphgen_cli.py --datog-config cfg.yaml --datog-kg kg.json
         """
     )
 
     # 输入参数组 - 互斥选择
-    input_group = parser.add_mutually_exclusive_group(required=True)
+    # 不强制必填：DA-ToG 模式可改用 --datog-input / --datog-kg，main() 中做分校验
+    input_group = parser.add_mutually_exclusive_group(required=False)
     input_group.add_argument("-i", "--input-file", help="单个输入文件路径 (.txt, .json, .jsonl, .csv)")
     input_group.add_argument("-b", "--batch-files", nargs='+', help="批量处理多个文件路径")
     input_group.add_argument("-l", "--file-list", help="包含文件路径列表的文本文件")
     
     # 其他必需参数
-    parser.add_argument("-k", "--api-key", 
-                      default=os.getenv("SYNTHESIZER_API_KEY", "sk-wFHN2ySjUYxCx3LrWAkJEMB11FMxYDvF6DHdye9yVDwIH2no"), 
-                      help="SiliconFlow API Key (默认从环境变量 SYNTHESIZER_API_KEY 读取)")
+    parser.add_argument("-k", "--api-key", default=None,
+                      help="API Key (优先级: 命令行 > --config YAML > 环境变量/.env)")
     parser.add_argument("-o", "--output-file", help="单个文件的输出路径 (批量处理时忽略)")
+    parser.add_argument("-c", "--config",
+                      help="配置文件路径 (YAML)。可在 llm/apis 段设置 LLM 与其他 API,如 graphgen/configs/aggregated_config.yaml")
 
-    # 模型配置
+    # 模型配置（默认值为 None，由 _resolve_model_args 按 CLI > YAML > 环境变量 > 默认值 解析）
     model_group = parser.add_argument_group("模型配置")
     model_group.add_argument("--use-trainee-model", action="store_true", help="使用 Trainee 模型")
-    model_group.add_argument("--synthesizer-url", 
-                           default=os.getenv("SYNTHESIZER_BASE_URL", "https://api.huiyan-ai.cn/v1"), 
-                           help="Synthesizer API URL (默认从环境变量 SYNTHESIZER_BASE_URL 读取)")
-    model_group.add_argument("--synthesizer-model", 
-                           default=os.getenv("SYNTHESIZER_MODEL", "gpt-4.1-mini-2025-04-14"), 
-                           help="Synthesizer 模型名称 (默认从环境变量 SYNTHESIZER_MODEL 读取)")
-    model_group.add_argument("--trainee-url", 
-                           default=os.getenv("TRAINEE_BASE_URL", "https://api.siliconflow.cn/v1"), 
-                           help="Trainee API URL (默认从环境变量 TRAINEE_BASE_URL 读取)")
-    model_group.add_argument("--trainee-model", 
-                           default=os.getenv("TRAINEE_MODEL", "Qwen/Qwen2.5-7B-Instruct"), 
-                           help="Trainee 模型名称 (默认从环境变量 TRAINEE_MODEL 读取)")
-    model_group.add_argument("--trainee-api-key", 
-                           default=os.getenv("TRAINEE_API_KEY", ""), 
-                           help="Trainee 模型的 API Key (默认从环境变量 TRAINEE_API_KEY 读取)")
+    model_group.add_argument("--synthesizer-url", default=None,
+                           help="Synthesizer API URL")
+    model_group.add_argument("--synthesizer-model", default=None,
+                           help="Synthesizer 模型名称")
+    model_group.add_argument("--trainee-url", default=None,
+                           help="Trainee API URL")
+    model_group.add_argument("--trainee-model", default=None,
+                           help="Trainee 模型名称")
+    model_group.add_argument("--trainee-api-key", default=None,
+                           help="Trainee 模型的 API Key")
 
     # 生成配置
     gen_group = parser.add_argument_group("生成配置")
@@ -939,9 +959,8 @@ def create_parser():
     gen_group.add_argument("--chunk-overlap", type=int, 
                           default=int(os.getenv("CHUNK_OVERLAP", "100")), 
                           help="文本块重叠大小 (默认从环境变量 CHUNK_OVERLAP 读取)")
-    gen_group.add_argument("--tokenizer", 
-                          default=os.getenv("TOKENIZER", "cl100k_base"), 
-                          help="Tokenizer 名称 (默认从环境变量 TOKENIZER 读取)")
+    gen_group.add_argument("--tokenizer", default=None,
+                          help="Tokenizer 名称")
     gen_group.add_argument("--output-data-type", choices=["atomic", "multi_hop", "aggregated", "cot", "all"], 
                           default=os.getenv("OUTPUT_DATA_TYPE", "aggregated"), 
                           help="输出数据类型 (默认从环境变量 OUTPUT_DATA_TYPE 读取)")
@@ -987,12 +1006,10 @@ def create_parser():
 
     # 限制配置
     limit_group = parser.add_argument_group("限制配置")
-    limit_group.add_argument("--rpm", type=int, 
-                           default=int(os.getenv("RPM", "1000")), 
-                           help="每分钟请求数 (默认从环境变量 RPM 读取)")
-    limit_group.add_argument("--tpm", type=int, 
-                           default=int(os.getenv("TPM", "50000")), 
-                           help="每分钟 token 数 (默认从环境变量 TPM 读取)")
+    limit_group.add_argument("--rpm", type=int, default=None,
+                           help="每分钟请求数")
+    limit_group.add_argument("--tpm", type=int, default=None,
+                           help="每分钟 token 数")
 
     # DA-ToG 模式参数组
     datog_group = parser.add_argument_group("DA-ToG 模式")
@@ -1005,6 +1022,68 @@ def create_parser():
     parser.add_argument("--test-connection", action="store_true", help="仅测试 API 连接")
 
     return parser
+
+
+def _resolve_model_args(args) -> bool:
+    """按 命令行 > --config YAML > 环境变量(.env) > 内置默认值 解析模型参数。
+
+    解析结果同时写回 os.environ，保证 run_datog 等按环境变量读取的路径一致。
+    :return: 配置文件是否存在且加载成功
+    """
+    yaml_config = None
+    if getattr(args, "config", None):
+        if not os.path.exists(args.config):
+            print(f"❌ 错误: 配置文件不存在: {args.config}")
+            return False
+        with open(args.config, "r", encoding="utf-8") as f:
+            yaml_config = yaml.safe_load(f) or {}
+
+    from graphgen.configs.llm_config import (
+        apply_apis_to_environ,
+        load_llm_config,
+    )
+
+    llm = load_llm_config(yaml_config)
+    apply_apis_to_environ(llm.apis)
+
+    synth, trainee = llm.synthesizer, llm.trainee
+    if args.api_key is None:
+        args.api_key = synth.api_key
+    if args.synthesizer_url is None:
+        args.synthesizer_url = synth.base_url
+    if args.synthesizer_model is None:
+        args.synthesizer_model = synth.model
+    if args.trainee_url is None:
+        args.trainee_url = trainee.base_url
+    if args.trainee_model is None:
+        args.trainee_model = trainee.model
+    if args.trainee_api_key is None:
+        args.trainee_api_key = trainee.api_key
+    if args.rpm is None:
+        args.rpm = synth.rpm
+    if args.tpm is None:
+        args.tpm = synth.tpm
+    if args.tokenizer is None:
+        args.tokenizer = llm.tokenizer_model
+
+    # trainee 未单独配置 key 时沿用主 key（保留历史行为）
+    if args.use_trainee_model and not args.trainee_api_key:
+        args.trainee_api_key = args.api_key
+
+    # 写回环境变量，供 DA-ToG 等路径读取
+    resolved_env = {
+        "SYNTHESIZER_MODEL": str(args.synthesizer_model or ""),
+        "SYNTHESIZER_BASE_URL": str(args.synthesizer_url or ""),
+        "SYNTHESIZER_API_KEY": str(args.api_key or ""),
+        "TRAINEE_MODEL": str(args.trainee_model or ""),
+        "TRAINEE_BASE_URL": str(args.trainee_url or ""),
+        "TRAINEE_API_KEY": str(args.trainee_api_key or ""),
+        "RPM": str(args.rpm),
+        "TPM": str(args.tpm),
+        "TOKENIZER_MODEL": str(args.tokenizer or "cl100k_base"),
+    }
+    os.environ.update(resolved_env)
+    return True
 
 
 def load_file_list(file_list_path: str) -> list:
@@ -1022,6 +1101,10 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
+    # 解析模型参数（命令行 > --config YAML > 环境变量 > 默认值）
+    if not _resolve_model_args(args):
+        sys.exit(1)
+
     # 验证 API Key
     if not args.api_key:
         print("❌ 错误: 未提供 API Key")
@@ -1031,9 +1114,26 @@ def main():
         print("3. .env 文件: SYNTHESIZER_API_KEY=your_api_key")
         sys.exit(1)
 
+    # DA-ToG 模式检查（独立入口：--datog-input 构建图谱，或 --datog-kg 加载已有图谱）
+    if args.datog_config:
+        args.datog_input = args.datog_input or args.input_file
+        args.datog_output = args.datog_output or args.output_file
+        if not args.datog_input and not args.datog_kg:
+            print("❌ 错误: DA-ToG 模式需要提供 --datog-input（从文档构建图谱）或 --datog-kg（加载已有图谱）")
+            sys.exit(1)
+        if args.datog_input and not os.path.exists(args.datog_input):
+            print(f"❌ 错误: DA-ToG 输入文件不存在: {args.datog_input}")
+            sys.exit(1)
+        if args.datog_kg and not os.path.exists(args.datog_kg):
+            print(f"❌ 错误: 知识图谱文件不存在: {args.datog_kg}")
+            sys.exit(1)
+        cli = GraphGenCLI()
+        success = cli.run_datog(args)
+        sys.exit(0 if success else 1)
+
     # 确定输入文件列表
     input_files = []
-    
+
     if args.input_file:
         # 单个文件处理
         input_files = [args.input_file]
@@ -1043,11 +1143,11 @@ def main():
     elif args.file_list:
         # 从文件列表加载
         input_files = load_file_list(args.file_list)
-    
+
     # 验证输入文件
     valid_extensions = ['.txt', '.json', '.jsonl', '.csv']
     invalid_files = []
-    
+
     for file_path in input_files:
         if not os.path.exists(file_path):
             print(f"❌ 输入文件不存在: {file_path}")
@@ -1055,40 +1155,35 @@ def main():
         elif not any(file_path.endswith(ext) for ext in valid_extensions):
             print(f"❌ 不支持的文件类型: {file_path}")
             invalid_files.append(file_path)
-    
+
     if invalid_files:
         print(f"❌ 发现 {len(invalid_files)} 个无效文件，程序退出")
         sys.exit(1)
 
-    # 如果使用 trainee 模型但没有提供 trainee api key，使用主 api key
-    if args.use_trainee_model and not args.trainee_api_key:
-        args.trainee_api_key = args.api_key
-
-    # DA-ToG 模式检查
-    if hasattr(args, 'datog_config') and args.datog_config:
-        cli = GraphGenCLI()
-        # 设置 datog 参数
-        args.datog_input = getattr(args, 'datog_input', None) or args.input_file
-        args.datog_kg = getattr(args, 'datog_kg', None)
-        args.datog_output = getattr(args, 'datog_output', None) or args.output_file
-        success = cli.run_datog(args)
-        sys.exit(0 if success else 1)
-
     cli = GraphGenCLI()
 
-    # 如果只是测试连接
+    # 如果只是测试连接（无需输入文件）
     if args.test_connection:
         print("🔗 测试 API 连接...")
         success = cli.test_api_connection(args.synthesizer_url, args.api_key, args.synthesizer_model)
         if args.use_trainee_model:
             success &= cli.test_api_connection(args.trainee_url, args.trainee_api_key, args.trainee_model)
-        
+
         if success:
             print("✅ 所有 API 连接测试通过")
             sys.exit(0)
         else:
             print("❌ API 连接测试失败")
             sys.exit(1)
+
+    if not input_files:
+        print("❌ 错误: 未提供输入文件")
+        print("请通过以下方式之一提供输入文件:")
+        print("1. 单个文件: -i input.txt")
+        print("2. 多个文件: -b file1.txt file2.json")
+        print("3. 文件列表: -l file_list.txt")
+        print("4. DA-ToG 模式: --datog-config 配合 --datog-input 或 --datog-kg")
+        sys.exit(1)
 
     # 判断是单个文件还是批量处理
     if len(input_files) == 1:

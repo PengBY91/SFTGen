@@ -5,7 +5,7 @@ from graphgen.models import HierarchicalPartitioner
 from graphgen.bases.datatypes import Community
 
 
-async def test_hierarchical_partitioner():
+async def _run_hierarchical_partitioner():
     """Test basic functionality of HierarchicalPartitioner."""
 
     # Create a mock graph storage
@@ -56,5 +56,10 @@ async def test_hierarchical_partitioner():
     print("\n✅ All tests passed!")
 
 
+def test_hierarchical_partitioner():
+    """pytest 入口：包装异步测试。"""
+    asyncio.run(_run_hierarchical_partitioner())
+
+
 if __name__ == "__main__":
-    asyncio.run(test_hierarchical_partitioner())
+    asyncio.run(_run_hierarchical_partitioner())

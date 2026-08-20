@@ -40,7 +40,11 @@ class TaskProcessor:
             
             # 更新任务状态为处理中
             task_manager.update_task_status(task_id, TaskStatus.PROCESSING)
-            
+
+            # LLM 连接字段为空时回退到服务端默认配置（graphgen/configs/llm_config.py / .env），
+            # 保证前端用默认值直接创建的任务也能跑
+            self._fill_empty_llm_fields(config)
+
             # 初始化配置
             graphgen_config = self._build_config(config, task.filepaths)
             env = self._build_env(config)
@@ -64,6 +68,13 @@ class TaskProcessor:
             os.environ.update({k: str(v) for k, v in env.items()})
             
             # 初始化 KGE-Gen
+            llm_defaults = getattr(self, "_llm_defaults", None)
+            synth_request_params = (
+                llm_defaults.synthesizer.request_params if llm_defaults else None
+            )
+            trainee_request_params = (
+                llm_defaults.trainee.request_params if llm_defaults else None
+            )
             tokenizer_instance = Tokenizer(config.tokenizer)
             synthesizer_llm_client = OpenAIClient(
                 model_name=config.synthesizer_model,
@@ -73,6 +84,7 @@ class TaskProcessor:
                 rpm=RPM(config.rpm),
                 tpm=TPM(config.tpm),
                 tokenizer=tokenizer_instance,
+                extra_request_params=synth_request_params,
             )
             trainee_llm_client = OpenAIClient(
                 model_name=config.trainee_model,
@@ -82,6 +94,7 @@ class TaskProcessor:
                 rpm=RPM(config.rpm),
                 tpm=TPM(config.tpm),
                 tokenizer=tokenizer_instance,
+                extra_request_params=trainee_request_params,
             )
             
             graph_gen = GraphGen(
@@ -338,6 +351,33 @@ class TaskProcessor:
             if log_file:
                 logger.info(f"[TaskProcessor] 日志文件已保存: {log_file}")
     
+    def _fill_empty_llm_fields(self, config: TaskConfig) -> None:
+        """用服务端默认 LLM 配置补全任务配置中的空字段（就地修改）。"""
+        try:
+            from graphgen.configs.llm_config import load_llm_config
+
+            defaults = load_llm_config()
+            # 缓存默认值，供后续构建 client 时使用（如 request_params）
+            self._llm_defaults = defaults
+            synth = defaults.synthesizer
+            trainee = defaults.trainee
+
+            if not (config.synthesizer_model or "").strip():
+                config.synthesizer_model = synth.model
+            if not (config.synthesizer_url or "").strip():
+                config.synthesizer_url = synth.base_url
+            if not (config.api_key or "").strip():
+                config.api_key = synth.api_key
+            if not (config.trainee_model or "").strip():
+                config.trainee_model = trainee.model
+            if not (config.trainee_url or "").strip():
+                config.trainee_url = trainee.base_url
+            if not (config.trainee_api_key or "").strip():
+                config.trainee_api_key = trainee.api_key
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warning("[TaskProcessor] 填充默认 LLM 配置失败: %s", e)
+            self._llm_defaults = None
+
     def _build_config(self, config: TaskConfig, filepaths: list) -> Dict[str, Any]:
         """构建配置字典"""
         method = config.partition_method

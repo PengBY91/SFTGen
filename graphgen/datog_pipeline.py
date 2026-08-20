@@ -9,6 +9,7 @@ Assembles the three DA-ToG layers:
 And orchestrates end-to-end SFT data synthesis.
 """
 
+import asyncio
 import logging
 import os
 from typing import Any, Dict, List, Optional
@@ -53,6 +54,7 @@ class DAToGPipeline:
         serialization_format: str = "natural_language",
         min_critic_score: float = 0.6,
         seed: Optional[int] = None,
+        max_concurrent_intents: int = 8,
     ):
         self.taxonomy_tree = taxonomy_tree
         self.graph_adapter = graph_adapter
@@ -64,7 +66,8 @@ class DAToGPipeline:
         self.max_nodes_per_subgraph = max_nodes_per_subgraph
         self.serialization_format = serialization_format
         self.min_critic_score = min_critic_score
-        
+        self.max_concurrent_intents = max_concurrent_intents
+
         # Initialize generator
         self.generator = DAToGGenerator(llm_client)
 
@@ -181,21 +184,29 @@ class DAToGPipeline:
                 break
 
             # Step 2: For each intent, retrieve subgraph + generate QA
-            for intent_node in intents:
-                if len(all_qa_pairs) >= target_count:
-                    break
+            # （旧实现逐个 intent 串行 await，每个 intent 还有 1-2 次 LLM 调用；
+            #   改为有界并发，吞吐随并发度提升）
+            semaphore = asyncio.Semaphore(self.max_concurrent_intents)
 
-                try:
-                    qa_pair = await self._generate_for_intent(intent_node)
-                    if qa_pair:
-                        all_qa_pairs.append(qa_pair)
-                except Exception as e:
-                    logger.warning(
-                        "Failed to generate for intent '%s': %s",
-                        intent_node.name, e,
-                    )
+            async def _process_intent(intent_node):
+                async with semaphore:
+                    try:
+                        return await self._generate_for_intent(intent_node)
+                    except Exception as e:  # pylint: disable=broad-except
+                        logger.warning(
+                            "Failed to generate for intent '%s': %s",
+                            intent_node.name, e,
+                        )
+                        return None
 
-                iteration += 1
+            batch_results = await asyncio.gather(
+                *(_process_intent(node) for node in intents)
+            )
+            for qa_pair in batch_results:
+                if qa_pair and len(all_qa_pairs) < target_count:
+                    all_qa_pairs.append(qa_pair)
+
+            iteration += len(intents)
 
         logger.info(
             "DA-ToG pipeline complete: generated %d/%d QA pairs, "

@@ -14,7 +14,7 @@ Important:
 
 ---Answer Requirements---
 1. The answer should be comprehensive and detailed (aim for 3-5 sentences or 100-200 words).
-2. While primarily based on the provided text, you may enrich the answer with relevant background knowledge, context, or related concepts that help explain the topic more thoroughly.
+2. While primarily based on the provided text, you may elaborate on and reorganize the facts from the provided text to explain the topic more thoroughly. Do NOT introduce facts that the provided text cannot support.
 3. Include relevant details, examples, or implications when appropriate to make the answer more informative and valuable.
 4. Ensure the answer is well-structured, coherent, and provides sufficient depth for understanding the topic.
 
@@ -46,7 +46,7 @@ TEMPLATE_ZH: str = """给定一个文本段落。你的任务是根据该文本�
 
 ---答案要求---
 1. 答案应当全面且详细。
-2. 虽然主要基于提供的文本，但你可以利用相关的背景知识、上下文或相关概念来丰富答案，使解释更加透彻。
+2. 虽然主要基于提供的文本，但你可以在文本事实的基础上展开阐述与组织，使解释更加透彻；不得引入文本无法支持的事实。
 3. 在适当的时候包含相关细节、例子或影响，使答案更具信息量和价值。
 4. 确保答案结构清晰、连贯，并提供足够的深度以便理解主题。
 
@@ -83,7 +83,7 @@ TEMPLATE_ZH_CHINESE_ONLY: str = """给定一个文本段落。你的任务是根
 
 ---答案要求---
 1. 答案应当全面且详细。
-2. 虽然主要基于提供的文本，但你可以利用相关的背景知识、上下文或相关概念来丰富答案，使解释更加透彻。
+2. 虽然主要基于提供的文本，但你可以在文本事实的基础上展开阐述与组织，使解释更加透彻；不得引入文本无法支持的事实。
 3. 在适当的时候包含相关细节、例子或影响，使答案更具信息量和价值。
 4. 确保答案结构清晰、连贯，并提供足够的深度以便理解主题。
 5. 答案必须使用中文表述。
@@ -112,7 +112,7 @@ Answer: [your comprehensive answer]
 
 Guidelines:
 - The question should be clear and specific
-- The answer must be factual and primarily based on the text, but you may enrich it with relevant background knowledge
+- The answer must be factual and strictly based on the text; you may only elaborate on facts present in the text
 - Focus on important details or relationships mentioned
 - The answer should be comprehensive, providing sufficient detail and context
 - Include relevant examples, implications, or related concepts when appropriate to enhance understanding
@@ -133,7 +133,7 @@ Answer: [your answer]
 Requirements:
 - Question should test understanding of the main content
 - Answer should be detailed, comprehensive, and accurate (aim for 3-5 sentences or 100-200 words)
-- While based on the text, enrich the answer with relevant background knowledge, context, or related concepts
+- Based on the text, elaborate on the facts and relationships it contains
 - Include relevant details, examples, or implications to make the answer more informative and valuable
 - Ensure the QA pair is informative and provides sufficient depth
 
@@ -152,7 +152,7 @@ TEMPLATE_ZH_V2: str = """根据以下文本，创建一个捕获关键信息的�
 
 要求：
 - 问题应清晰具体
-- 答案必须基于文本事实，但可以利用相关背景知识丰富答案
+- 答案必须严格基于文本事实，只能在文本已有事实的范围内展开阐述
 - 关注文本中提到的重要细节或关系
 - 答案应当全面，提供足够的细节和上下文
 - 在适当的时候包含相关例子、影响或相关概念，以增强理解
@@ -173,7 +173,7 @@ TEMPLATE_ZH_V3: str = """从这段文本中提取最重要的信息，并将其�
 要求：
 - 问题应测试对主要内容的理解
 - 答案应详细、全面且准确
-- 虽然基于文本，但可以利用相关背景知识、上下文或相关概念来丰富答案
+- 基于文本，可以就文本包含的事实与关系展开详细阐述
 - 包含相关细节、例子或影响，使答案更具信息量和价值
 - 确保问答对具有信息量并提供足够的深度
 
@@ -195,7 +195,7 @@ TEMPLATE_ZH_V2_CHINESE_ONLY: str = """根据以下文本，创建一个捕获关
 
 要求：
 - 问题应清晰具体
-- 答案必须基于文本事实，但可以利用相关背景知识丰富答案
+- 答案必须严格基于文本事实，只能在文本已有事实的范围内展开阐述
 - 关注文本中提到的重要细节或关系
 - 答案应当全面，提供足够的细节和上下文
 - 在适当的时候包含相关例子、影响或相关概念，以增强理解
@@ -220,7 +220,7 @@ TEMPLATE_ZH_V3_CHINESE_ONLY: str = """从这段文本中提取最重要的信息
 要求：
 - 问题应测试对主要内容的理解
 - 答案应详细、全面且准确
-- 虽然基于文本，但可以利用相关背景知识、上下文或相关概念来丰富答案
+- 基于文本，可以就文本包含的事实与关系展开详细阐述
 - 包含相关细节、例子或影响，使答案更具信息量和价值
 - 确保问答对具有信息量并提供足够的深度
 - 问题和答案必须完全使用中文
@@ -305,7 +305,7 @@ ATOMIC_QUESTION_PROMPT_CHINESE_ONLY = {
 # Answer-only prompts for two-stage generation
 ATOMIC_ANSWER_PROMPT = {
     "en": """You are given a question that should be answered based on the following text.
-While primarily based on the provided text, you may enrich your answer with relevant background knowledge, context, or related concepts to provide a more comprehensive response.
+While primarily based on the provided text, you may elaborate on and organize the facts from the text to provide a more comprehensive response. Do NOT introduce facts beyond the text.
 
 Requirements:
 - Start with `Answer:` followed by a comprehensive answer (3-5 sentences or 100-200 words)
@@ -321,7 +321,7 @@ Text:
 Question: {question}
 """,
     "zh": """你将根据下面的文本回答给定的问题。
-虽然主要基于提供的文本，但你可以利用相关背景知识、上下文或相关概念来丰富答案，提供更全面的回答。
+你可以在文本事实的基础上展开阐述与组织，提供更全面的回答；不得引入文本之外的事实。
 
 要求：
 - 以"答案："开头，后跟全面的答案（3-5句话或100-200字）
@@ -342,7 +342,7 @@ Question: {question}
 ATOMIC_ANSWER_PROMPT_CHINESE_ONLY = {
     "zh": """你将根据下面的文本回答给定的问题。
 【重要】答案必须完全使用中文，不能包含任何英文单词或字母（除非是专有名词、缩写或无法翻译的术语）。
-虽然主要基于提供的文本，但你可以利用相关背景知识、上下文或相关概念来丰富答案，提供更全面的回答。
+你可以在文本事实的基础上展开阐述与组织，提供更全面的回答；不得引入文本之外的事实。
 
 要求：
 - 以"答案："开头，后跟全面的答案（3-5句话或100-200字）

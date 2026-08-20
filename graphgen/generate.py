@@ -66,7 +66,30 @@ def main():
         os.path.join(working_dir, f"{unique_id}_{mode}.log"),
     )
 
-    graph_gen = GraphGen(unique_id=unique_id, working_dir=working_dir)
+    # LLM/API 配置：优先使用 YAML 中的 llm/apis 段，未配置时回退环境变量
+    from graphgen.configs.llm_config import (
+        apply_apis_to_environ,
+        build_llm_clients,
+        load_llm_config,
+    )
+
+    llm_config = load_llm_config(config)
+    apply_apis_to_environ(llm_config.apis)
+    tokenizer_instance, synthesizer_client, trainee_client = build_llm_clients(llm_config)
+    logger.info(
+        "LLM config: synthesizer=%s, trainee=%s, tokenizer=%s",
+        llm_config.synthesizer.redacted(),
+        llm_config.trainee.redacted() if trainee_client else None,
+        llm_config.tokenizer_model,
+    )
+
+    graph_gen = GraphGen(
+        unique_id=unique_id,
+        working_dir=working_dir,
+        tokenizer_instance=tokenizer_instance,
+        synthesizer_llm_client=synthesizer_client,
+        trainee_llm_client=trainee_client,
+    )
 
     graph_gen.insert(read_config=config["read"], split_config=config["split"])
 

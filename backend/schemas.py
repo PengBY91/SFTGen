@@ -10,13 +10,15 @@ from datetime import datetime
 
 class TaskConfig(BaseModel):
     """任务配置模型"""
+    # LLM 连接字段默认为空 = 使用服务端默认配置（graphgen/configs/llm_config.py / .env），
+    # TaskProcessor 会在执行前自动补全
     if_trainee_model: bool = False
     tokenizer: str = "cl100k_base"
-    synthesizer_url: str = "https://api.siliconflow.cn/v1"
-    synthesizer_model: str = "Qwen/Qwen2.5-7B-Instruct"
-    trainee_url: str = "https://api.siliconflow.cn/v1"
-    trainee_model: str = "Qwen/Qwen2.5-7B-Instruct"
-    api_key: str
+    synthesizer_url: str = ""
+    synthesizer_model: str = ""
+    trainee_url: str = ""
+    trainee_model: str = ""
+    api_key: str = ""
     trainee_api_key: Optional[str] = None
     chunk_size: int = 1024
     chunk_overlap: int = 100

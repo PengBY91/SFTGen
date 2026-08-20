@@ -3,6 +3,14 @@
 from graphgen.models import TreeStructureGenerator
 
 
+def _serialize(generator, batch):
+    """按当前 API 通过共享的 HierarchySerializer 序列化 batch。"""
+    nodes, edges = batch
+    return generator.hierarchy_serializer.serialize(
+        nodes, edges, structure_format=generator.structure_format
+    )
+
+
 def test_tree_generator_serialization():
     """Test tree serialization formats."""
 
@@ -32,7 +40,7 @@ def test_tree_generator_serialization():
         structure_format="markdown",
         hierarchical_relations=["is_a"]
     )
-    md_output = gen_md._serialize_to_format(batch)
+    md_output = _serialize(gen_md, batch)
     print(md_output[:500])
     assert "# Animal" in md_output or "# Mammal" in md_output, "Markdown should contain headers"
     print("\n✓ Markdown serialization works")
@@ -46,7 +54,7 @@ def test_tree_generator_serialization():
         structure_format="json",
         hierarchical_relations=["is_a"]
     )
-    json_output = gen_json._serialize_to_format(batch)
+    json_output = _serialize(gen_json, batch)
     print(json_output[:500])
     assert '"name"' in json_output, "JSON should contain 'name' field"
     assert '"children"' in json_output or '"description"' in json_output, "JSON should contain hierarchy"
@@ -61,7 +69,7 @@ def test_tree_generator_serialization():
         structure_format="outline",
         hierarchical_relations=["is_a"]
     )
-    outline_output = gen_outline._serialize_to_format(batch)
+    outline_output = _serialize(gen_outline, batch)
     print(outline_output[:500])
     assert "- " in outline_output, "Outline should contain list markers"
     print("\n✓ Outline serialization works")

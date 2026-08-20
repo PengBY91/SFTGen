@@ -108,7 +108,19 @@ class OpenAIClient(BaseLLMClient):
             "output": total_completion
         }
 
-    def _pre_generate(self, text: str, history: List[str]) -> Dict:
+    # generate_answer 中允许被 per-call extra 覆盖的 OpenAI 请求参数
+    _OVERRIDABLE_PARAMS = (
+        "temperature",
+        "top_p",
+        "max_tokens",
+        "seed",
+        "presence_penalty",
+        "frequency_penalty",
+        "stop",
+        "reasoning_effort",
+    )
+
+    def _pre_generate(self, text: str, history: List[str], extra: Optional[Dict] = None) -> Dict:
         kwargs = {
             "temperature": self.temperature,
             "top_p": self.top_p,
@@ -118,6 +130,16 @@ class OpenAIClient(BaseLLMClient):
             kwargs["seed"] = self.seed
         if self.json_mode:
             kwargs["response_format"] = {"type": "json_object"}
+
+        # 提供商特有参数（如 DeepSeek 的 thinking / enable_thinking）：
+        # OpenAI SDK 不认识这些顶层参数，必须经 extra_body 透传到请求体
+        extra_body = dict(self.extra_request_params) if self.extra_request_params else None
+
+        # 合并 per-call 覆盖参数（旧实现接受了 **extra 但从未生效）
+        if extra:
+            for key, value in extra.items():
+                if key in self._OVERRIDABLE_PARAMS and value is not None:
+                    kwargs[key] = value
 
         messages = []
         if self.system_prompt:
@@ -129,6 +151,8 @@ class OpenAIClient(BaseLLMClient):
             messages = history + messages
 
         kwargs["messages"] = messages
+        if extra_body:
+            kwargs["extra_body"] = extra_body
         return kwargs
 
     @retry(
@@ -144,13 +168,21 @@ class OpenAIClient(BaseLLMClient):
         history: Optional[List[str]] = None,
         **extra: Any,
     ) -> List[Token]:
-        kwargs = self._pre_generate(text, history)
+        kwargs = self._pre_generate(text, history, extra)
         if self.topk_per_token > 0:
             kwargs["logprobs"] = True
             kwargs["top_logprobs"] = self.topk_per_token
 
         # Limit max_tokens to 1 to avoid long completions
         kwargs["max_tokens"] = 1
+
+        if self.request_limit:
+            # 判分调用同样受 RPM/TPM 约束（max_tokens=1，输出侧可忽略）
+            prompt_tokens = sum(
+                len(self.tokenizer.encode(m["content"])) for m in kwargs["messages"]
+            )
+            await self.rpm.wait(silent=True)
+            await self.tpm.wait(prompt_tokens + 1, silent=True)
 
         completion = await self.client.chat.completions.create(  # pylint: disable=E1125
             model=self.model_name, **kwargs
@@ -173,14 +205,18 @@ class OpenAIClient(BaseLLMClient):
         history: Optional[List[str]] = None,
         **extra: Any,
     ) -> str:
-        kwargs = self._pre_generate(text, history)
-
-        prompt_tokens = 0
-        for message in kwargs["messages"]:
-            prompt_tokens += len(self.tokenizer.encode(message["content"]))
-        estimated_tokens = prompt_tokens + kwargs["max_tokens"]
+        kwargs = self._pre_generate(text, history, extra)
 
         if self.request_limit:
+            # 令牌数仅在需要限流时估算（同步 encode 会阻塞事件循环，能省则省）。
+            # 输出侧按最近实际 completion 的 1.2 倍预留，避免按 max_tokens(4096)
+            # 虚高估算导致 TPM 远早于实际耗尽（旧实现实测等效限速只有 ~9 请求/分钟）。
+            prompt_tokens = sum(
+                len(self.tokenizer.encode(m["content"])) for m in kwargs["messages"]
+            )
+            estimated_tokens = prompt_tokens + self._estimate_output_tokens(
+                kwargs.get("max_tokens", self.max_tokens)
+            )
             await self.rpm.wait(silent=True)
             await self.tpm.wait(estimated_tokens, silent=True)
 
@@ -196,6 +232,20 @@ class OpenAIClient(BaseLLMClient):
                 }
             )
         return self.filter_think_tags(completion.choices[0].message.content)
+
+    # 输出 token 预留估算的初始值与样本数阈值
+    _DEFAULT_OUTPUT_RESERVE = 2048
+    _OUTPUT_SAMPLE_MIN = 4
+
+    def _estimate_output_tokens(self, max_tokens: int) -> int:
+        """根据近期真实 completion 用量自适应地估计输出预留。"""
+        completions = [u["completion_tokens"] for u in self.token_usage[-20:]]
+        if len(completions) >= self._OUTPUT_SAMPLE_MIN:
+            avg = sum(completions) / len(completions)
+            reserve = int(avg * 1.2) + 64
+        else:
+            reserve = self._DEFAULT_OUTPUT_RESERVE
+        return min(reserve, max_tokens)
 
     async def generate_inputs_prob(
         self, text: str, history: Optional[List[str]] = None, **extra: Any
