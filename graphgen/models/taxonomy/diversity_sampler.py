@@ -51,15 +51,21 @@ class DiversitySampler:
         k = min(k, self.tree.size)
 
         if strategy == "uniform_branch":
-            return self.uniform_branch_sampling(k)
+            result = self.uniform_branch_sampling(k)
         elif strategy == "depth_weighted":
             weight_factor = kwargs.get("weight_factor", 2.0)
-            return self.depth_weighted_sampling(k, weight_factor=weight_factor)
+            result = self.depth_weighted_sampling(k, weight_factor=weight_factor)
         elif strategy == "coverage":
-            return self.coverage_tracking_sampling(k)
+            result = self.coverage_tracking_sampling(k)
         else:
             logger.warning("Unknown strategy '%s', falling back to coverage", strategy)
-            return self.coverage_tracking_sampling(k)
+            result = self.coverage_tracking_sampling(k)
+
+        # 统一记录采样历史：原实现仅 coverage 策略记录，
+        # 其他策略下 coverage_ratio 恒为 0.0，与实际采样情况不符
+        for node in result:
+            self._coverage_history.add(node.id)
+        return result
 
     def uniform_branch_sampling(self, k: int) -> List[TaxonomyNode]:
         """

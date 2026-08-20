@@ -824,9 +824,11 @@ class GraphGenCLI:
             print("✅ 知识图谱构建完成")
         elif args.datog_kg:
             print(f"📖 从文件加载知识图谱: {args.datog_kg}")
-            graph_storage = NetworkXStorage()
+            graph_storage = NetworkXStorage(working_dir=working_dir, namespace="datog_kg")
             try:
-                graph_storage.load(args.datog_kg)
+                if not graph_storage.load(args.datog_kg):
+                    print(f"❌ 知识图谱文件不存在或无法解析: {args.datog_kg}")
+                    return False
             except Exception as e:
                 print(f"❌ 加载知识图谱失败: {e}")
                 return False

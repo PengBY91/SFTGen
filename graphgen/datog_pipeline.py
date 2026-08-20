@@ -62,6 +62,8 @@ class DAToGPipeline:
         self.critic = critic
         self.sampler = DiversitySampler(taxonomy_tree, seed=seed)
         self.sampling_strategy = sampling_strategy
+        # 最近一次 run() 产出的 QA 对，供 get_statistics() 计算产出覆盖
+        self.last_results: List[Dict[str, Any]] = []
         self.max_hops = max_hops
         self.max_nodes_per_subgraph = max_nodes_per_subgraph
         self.serialization_format = serialization_format
@@ -208,13 +210,32 @@ class DAToGPipeline:
 
             iteration += len(intents)
 
+        self.last_results = all_qa_pairs
+        coverage, covered_intents, total_intents = self._intent_coverage(all_qa_pairs)
         logger.info(
             "DA-ToG pipeline complete: generated %d/%d QA pairs, "
-            "coverage=%.1f%%",
+            "intent coverage=%.1f%% (%d/%d intents)",
             len(all_qa_pairs), target_count,
-            self.sampler.coverage_ratio * 100,
+            coverage * 100, covered_intents, total_intents,
         )
         return all_qa_pairs
+
+    def _intent_coverage(
+        self, qa_pairs: List[Dict[str, Any]]
+    ) -> tuple:
+        """产出 QA 的意图覆盖率（与 DAToGMetrics.calculate_coverage 的 overall_ratio 同口径）。
+
+        :return: (覆盖率, 覆盖意图数, 意图总数)
+        """
+        covered_ids = {
+            qa.get("metadata", {}).get("intent_id")
+            for qa in qa_pairs
+            if qa.get("metadata", {}).get("intent_id")
+        }
+        all_node_ids = {n.id for n in self.taxonomy_tree.get_all_nodes()}
+        covered = len(covered_ids & all_node_ids)
+        total = len(all_node_ids)
+        return (covered / total if total else 0.0), covered, total
 
     async def _generate_for_intent(
         self,
@@ -284,12 +305,20 @@ class DAToGPipeline:
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get pipeline statistics."""
+        coverage, covered, total = self._intent_coverage(self.last_results)
         return {
             "taxonomy": self.taxonomy_tree.get_statistics(),
             "coverage": {
-                "overall": self.sampler.coverage_ratio,
-                "by_dimension": self.sampler.get_coverage_by_dimension(),
-                "by_depth": self.sampler.get_coverage_by_depth(),
-                "uncovered_nodes": self.sampler.uncovered_count,
+                # 产出 QA 覆盖的意图比例（与 DAToGMetrics 同口径）
+                "overall": coverage,
+                "covered_intents": covered,
+                "total_intents": total,
+                # 采样器视角（已采样节点）
+                "sampling": {
+                    "overall": self.sampler.coverage_ratio,
+                    "by_dimension": self.sampler.get_coverage_by_dimension(),
+                    "by_depth": self.sampler.get_coverage_by_depth(),
+                    "uncovered_nodes": self.sampler.uncovered_count,
+                },
             },
         }

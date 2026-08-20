@@ -25,6 +25,8 @@ wheels/
 
 data/
 
+test_output/
+
 # Virtual Environment
 venv/
 env/

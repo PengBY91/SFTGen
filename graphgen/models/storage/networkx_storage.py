@@ -109,6 +109,17 @@ class NetworkXStorage(BaseGraphStorage):
     async def index_done_callback(self):
         NetworkXStorage.write_nx_graph(self._graph, self._graphml_xml_file)
 
+    def load(self, file_path: str) -> bool:
+        """从指定 GraphML 文件加载图并替换当前图（同步，供 CLI --datog-kg 等加载已有 KG）。
+
+        :return: 文件存在并成功加载返回 True
+        """
+        graph = NetworkXStorage.load_nx_graph(file_path)
+        if graph is None:
+            return False
+        self._graph = graph
+        return True
+
     async def has_node(self, node_id: str) -> bool:
         return self._graph.has_node(node_id)
 
@@ -138,8 +149,10 @@ class NetworkXStorage(BaseGraphStorage):
     async def get_node_edges(
         self, source_node_id: str
     ) -> Union[list[tuple[str, str]], None]:
+        # 返回 (source, target) 二元组，与声明一致；边数据请用 get_edge() 获取
+        # （曾误带 data=True 返回三元组，导致 networkx_adapter._bfs_expand 解包失败）
         if self._graph.has_node(source_node_id):
-            return list(self._graph.edges(source_node_id, data=True))
+            return list(self._graph.edges(source_node_id))
         return None
 
     async def get_graph(self) -> nx.Graph:
