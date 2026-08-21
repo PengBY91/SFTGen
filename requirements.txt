@@ -26,6 +26,7 @@ passlib[bcrypt]
 pydantic[email]
 trafilatura
 transformers
+# 可选：读取 Word 文档（.docx）时需要，缺失时仅 docx 阅读器不可用，不影响导入
 python-docx
 
 leidenalg

@@ -274,6 +274,7 @@ export interface DAToGTaxonomy {
   path: string
   domain: string
   created_at?: string
+  builtin?: boolean
 }
 
 export interface TaxonomyNode {

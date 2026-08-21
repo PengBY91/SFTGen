@@ -17,6 +17,7 @@
             <div class="taxonomy-name">
               <el-icon><Grid /></el-icon>
               <span>{{ row.name }}</span>
+              <el-tag v-if="row.builtin" size="small" type="warning">内置示例</el-tag>
             </div>
           </template>
         </el-table-column>
@@ -40,11 +41,11 @@
                 <el-icon><View /></el-icon>
                 查看
               </el-button>
-              <el-button size="small" type="primary" @click="handleEdit(row)">
+              <el-button size="small" type="primary" :disabled="row.builtin" @click="handleEdit(row)">
                 <el-icon><Edit /></el-icon>
                 编辑
               </el-button>
-              <el-button size="small" type="danger" @click="handleDelete(row)">
+              <el-button size="small" type="danger" :disabled="row.builtin" @click="handleDelete(row)">
                 <el-icon><Delete /></el-icon>
                 删除
               </el-button>

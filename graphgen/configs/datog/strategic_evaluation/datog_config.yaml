@@ -1,0 +1,20 @@
+# 战略评估咨询领域 DA-ToG 配置
+# 领域特点：法定程序类、方法论类知识为主，规则/流程密集；
+# 树较大（43 节点 / 35 叶子），用 coverage 策略保证分支覆盖面。
+datog:
+  taxonomy:
+    path: graphgen/configs/datog/strategic_evaluation/taxonomy.json
+    sampling_strategy: coverage
+  graph:
+    adapter: networkx
+    max_hops: 2
+    max_nodes_per_subgraph: 20
+    serialization_format: natural_language
+  critic:
+    # 程序性、规则性问答对事实准确性要求高，用 llm 评审器把关
+    type: llm
+    min_score: 0.7
+  generation:
+    target_qa_pairs: 50
+    batch_size: 10
+    data_format: Alpaca

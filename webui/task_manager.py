@@ -237,6 +237,9 @@ class TaskManager:
                 
                 if error_message:
                     task.error_message = error_message
+                elif status == TaskStatus.COMPLETED:
+                    # 任务成功完成时清除历史错误信息，避免残留的旧错误误导详情页
+                    task.error_message = None
                 if output_file:
                     task.output_file = output_file
                 if token_usage:

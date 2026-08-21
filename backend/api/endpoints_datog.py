@@ -158,30 +158,45 @@ async def save_taxonomy_tree(
 async def list_taxonomy_trees(
     current_user: User = Depends(get_current_user),
 ):
-    """获取用户的所有 DA-ToG 意图树"""
+    """获取用户的所有 DA-ToG 意图树（含仓库内置领域示例）"""
     user_taxonomies_dir = PROJECT_ROOT / "data/taxonomies" / current_user.username
 
-    if not user_taxonomies_dir.exists():
-        return JSONResponse(content={
-            "success": True,
-            "taxonomies": [],
-            "message": "暂无意图树"
-        })
-
     taxonomies = []
-    for file_path in user_taxonomies_dir.glob("*.json"):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                taxonomy_data = json.load(f)
-            taxonomies.append({
-                "id": file_path.stem,
-                "name": file_path.stem,
-                "path": str(file_path),
-                "domain": taxonomy_data.get("domain", ""),
-                "created_at": None,
-            })
-        except Exception:
-            pass
+
+    # 内置领域示例（graphgen/configs/datog/<domain>/taxonomy.json），只读展示
+    builtin_dir = PROJECT_ROOT / "graphgen" / "configs" / "datog"
+    if builtin_dir.exists():
+        for file_path in sorted(builtin_dir.glob("*/taxonomy.json")):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    taxonomy_data = json.load(f)
+                taxonomies.append({
+                    "id": f"builtin_{file_path.parent.name}",
+                    "name": taxonomy_data.get("name", "") or file_path.parent.name,
+                    "path": str(file_path),
+                    "domain": taxonomy_data.get("domain", "") or file_path.parent.name,
+                    "created_at": None,
+                    "builtin": True,
+                })
+            except Exception:
+                pass
+
+    # 用户自建意图树
+    if user_taxonomies_dir.exists():
+        for file_path in sorted(user_taxonomies_dir.glob("*.json")):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    taxonomy_data = json.load(f)
+                taxonomies.append({
+                    "id": file_path.stem,
+                    "name": file_path.stem,
+                    "path": str(file_path),
+                    "domain": taxonomy_data.get("domain", ""),
+                    "created_at": None,
+                    "builtin": False,
+                })
+            except Exception:
+                pass
 
     return JSONResponse(content={
         "success": True,
@@ -238,9 +253,15 @@ async def get_taxonomy_tree(
     current_user: User = Depends(get_current_user),
 ):
     """获取单个 DA-ToG 意图树详情"""
-    # Find the taxonomy file
-    user_taxonomies_dir = PROJECT_ROOT / "data/taxonomies" / current_user.username
-    taxonomy_path = user_taxonomies_dir / f"{taxonomy_id}.json"
+    # builtin_ 前缀指向仓库内置领域示例，其余在用户目录查找
+    if taxonomy_id.startswith("builtin_"):
+        taxonomy_path = (
+            PROJECT_ROOT / "graphgen" / "configs" / "datog"
+            / taxonomy_id[len("builtin_"):] / "taxonomy.json"
+        )
+    else:
+        user_taxonomies_dir = PROJECT_ROOT / "data/taxonomies" / current_user.username
+        taxonomy_path = user_taxonomies_dir / f"{taxonomy_id}.json"
 
     if not taxonomy_path.exists():
         raise HTTPException(status_code=404, detail=f"未找到意图树 {taxonomy_id}")
@@ -282,6 +303,8 @@ async def update_taxonomy_tree(
     current_user: User = Depends(require_admin),
 ):
     """更新 DA-ToG 意图树"""
+    if taxonomy_id.startswith("builtin_"):
+        raise HTTPException(status_code=400, detail="内置领域示例为只读，不可编辑")
     # Find and load the taxonomy
     user_taxonomies_dir = PROJECT_ROOT / "data/taxonomies" / current_user.username
     taxonomy_path = user_taxonomies_dir / f"{taxonomy_id}.json"
@@ -304,6 +327,8 @@ async def delete_taxonomy_tree(
     current_user: User = Depends(require_admin),
 ):
     """删除 DA-ToG 意图树"""
+    if taxonomy_id.startswith("builtin_"):
+        raise HTTPException(status_code=400, detail="内置领域示例为只读，不可删除")
     # Find and delete the taxonomy file
     user_taxonomies_dir = PROJECT_ROOT / "data/taxonomies" / current_user.username
     taxonomy_path = user_taxonomies_dir / f"{taxonomy_id}.json"

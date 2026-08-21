@@ -4,11 +4,10 @@ from graphgen.bases.base_reader import BaseReader
 
 try:
     from docx import Document
+
+    _DOCX_AVAILABLE = True
 except ImportError:
-    raise ImportError(
-        "python-docx is required for reading Word documents. "
-        "Please install it using: pip install python-docx"
-    )
+    _DOCX_AVAILABLE = False
 
 
 class DOCXReader(BaseReader):
@@ -114,6 +113,11 @@ class DOCXReader(BaseReader):
         :param file_path: Path to the .docx file.
         :return: List containing a single dictionary with the document content.
         """
+        if not _DOCX_AVAILABLE:
+            raise ImportError(
+                "python-docx is required for reading Word documents. "
+                "Please install it using: pip install python-docx"
+            )
         try:
             doc = Document(file_path)
             text_parts = []

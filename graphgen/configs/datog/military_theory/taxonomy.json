@@ -1,0 +1,273 @@
+{
+  "name": "Military Theory Taxonomy",
+  "domain": "military_theory",
+  "description": "军事理论领域意图树：覆盖军事思想、战争指导理论、作战理论、国防建设与动员、军事技术与现代战争五大分支",
+  "nodes": [
+    {
+      "id": "mil_001",
+      "name": "军事思想",
+      "description": "关于战争与军队基本问题的理性认识，包括军事哲学层次与经典军事理论流派。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "mil_001_1",
+          "name": "战争观与方法论",
+          "description": "战争的本质、根源、与政治经济的关系等根本观点，及研究战争的辩证方法。",
+          "cognitive_dimension": "concept_explanation",
+          "children": [
+            {
+              "id": "mil_001_1_1",
+              "name": "战争与政治的关系",
+              "description": "克劳塞维茨战争是政治继续的命题及其在现代混合战争条件下的适用与局限。",
+              "cognitive_dimension": "relational_reasoning"
+            },
+            {
+              "id": "mil_001_1_2",
+              "name": "战争制胜机理",
+              "description": "从火力、机动力、信息力到认知力的制胜要素演化及其作用机理。",
+              "cognitive_dimension": "relational_reasoning"
+            }
+          ]
+        },
+        {
+          "id": "mil_001_2",
+          "name": "克劳塞维茨《战争论》",
+          "description": "绝对战争与现实战争、战争迷雾与摩擦、重心、进攻顶点等核心概念体系。",
+          "cognitive_dimension": "concept_explanation",
+          "children": [
+            {
+              "id": "mil_001_2_1",
+              "name": "摩擦与战争迷雾",
+              "description": "战争中不确定性、阻力的来源及其对指挥决策和作战计划的影响。",
+              "cognitive_dimension": "anomaly_diagnosis"
+            },
+            {
+              "id": "mil_001_2_2",
+              "name": "重心与进攻顶点",
+              "description": "识别敌方力量重心的方法及进攻作战力量衰减到顶点时机的判断。",
+              "cognitive_dimension": "relational_reasoning"
+            }
+          ]
+        },
+        {
+          "id": "mil_001_3",
+          "name": "孙子兵法理论体系",
+          "description": "先胜、全胜、速胜思想，知己知彼的知行框架，虚实、奇正、势等范畴的运用。",
+          "cognitive_dimension": "concept_explanation",
+          "children": [
+            {
+              "id": "mil_001_3_1",
+              "name": "虚实与奇正运用",
+              "description": "避实击虚、以正合以奇胜的兵力运用原则及其在非对称作战中的体现。",
+              "cognitive_dimension": "relational_reasoning"
+            }
+          ]
+        },
+        {
+          "id": "mil_001_4",
+          "name": "间接路线战略",
+          "description": "利德尔·哈特主张的间接路线：避开正面、打击弱点、瓦解敌方平衡的战略思想。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "mil_001_5",
+          "name": "人民战争思想",
+          "description": "动员和依靠人民群众进行战争的指导思想及其在信息化时代的发展形态。",
+          "cognitive_dimension": "concept_explanation"
+        }
+      ]
+    },
+    {
+      "id": "mil_002",
+      "name": "战争指导与战略学",
+      "description": "战略层次上的战争准备与实施指导理论。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "mil_002_1",
+          "name": "军事战略构成要素",
+          "description": "战略目的、战略方针、战略力量、战略手段等要素及其相互关系。",
+          "cognitive_dimension": "concept_explanation"
+        },
+        {
+          "id": "mil_002_2",
+          "name": "威慑理论",
+          "description": "核威慑与常规威慑的形成条件、可信度构成（能力、决心、沟通）与失灵情形。",
+          "cognitive_dimension": "relational_reasoning",
+          "children": [
+            {
+              "id": "mil_002_2_1",
+              "name": "威慑失灵诊断",
+              "description": "从能力不足、决心误判、信号传递失败三条路径分析威慑为何失效。",
+              "cognitive_dimension": "anomaly_diagnosis"
+            }
+          ]
+        },
+        {
+          "id": "mil_002_3",
+          "name": "有限战争与 escalation 控制",
+          "description": "有限战争理论中战争边界设定、升级阶梯与危机管控机制的运用。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "mil_002_4",
+          "name": "联盟战略",
+          "description": "联盟的形成逻辑、 burdensharing 分担机制与联盟内聚力的影响因素。",
+          "cognitive_dimension": "relational_reasoning"
+        }
+      ]
+    },
+    {
+      "id": "mil_003",
+      "name": "作战理论",
+      "description": "战役战术层次的作战组织与实施理论。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "mil_003_1",
+          "name": "联合作战",
+          "description": "多军兵种联合作战的指挥体系、力量编成、行动计划与协同机制。",
+          "cognitive_dimension": "procedural_knowledge",
+          "children": [
+            {
+              "id": "mil_003_1_1",
+              "name": "联合任务部队编成",
+              "description": "按任务需要跨军种编组任务部队的原则、指挥关系确立与权责划分。",
+              "cognitive_dimension": "procedural_knowledge"
+            },
+            {
+              "id": "mil_003_1_2",
+              "name": "联合火力协同",
+              "description": "多军种火力单元的目标分配、时域空域协同与火力冲突消解方法。",
+              "cognitive_dimension": "procedural_knowledge"
+            }
+          ]
+        },
+        {
+          "id": "mil_003_2",
+          "name": "机动作战",
+          "description": "以运动、速度、突然性达成决定性优势的机动作战原则与历史战例运用。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "mil_003_3",
+          "name": "合同战斗原则",
+          "description": "集中兵力、出敌不意、统一指挥等合同战斗基本原则的内涵与运用条件。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "mil_003_4",
+          "name": "信息作战与电子战",
+          "description": "电磁频谱管控、网络攻防、电子对抗在现代作战体系中的地位与运用方式。",
+          "cognitive_dimension": "relational_reasoning"
+        },
+        {
+          "id": "mil_003_5",
+          "name": "指挥控制与决策",
+          "description": "指挥信息系统支撑下的OODA循环加速、任务式指挥与集中指挥的适用场景。",
+          "cognitive_dimension": "comparative_analysis",
+          "children": [
+            {
+              "id": "mil_003_5_1",
+              "name": "OODA循环比较分析",
+              "description": "比较对抗双方观察-判断-决策-行动循环速度对作战结局的影响机制。",
+              "cognitive_dimension": "comparative_analysis"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mil_004",
+      "name": "国防建设与动员",
+      "description": "国防力量建设、国防动员与国家安全议题。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "mil_004_1",
+          "name": "国防领导体制",
+          "description": "党对军队绝对领导制度、军委机关与战区职能划分的体制结构。",
+          "cognitive_dimension": "concept_explanation"
+        },
+        {
+          "id": "mil_004_2",
+          "name": "国防动员体系",
+          "description": "人民武装动员、国民经济动员、人民防空、交通战备等动员分体系及平战转换机制。",
+          "cognitive_dimension": "procedural_knowledge",
+          "children": [
+            {
+              "id": "mil_004_2_1",
+              "name": "国民经济动员",
+              "description": "工业产能转产、战略物资储备与调配的动员程序与组织方式。",
+              "cognitive_dimension": "procedural_knowledge"
+            },
+            {
+              "id": "mil_004_2_2",
+              "name": "后备力量建设",
+              "description": "预备役部队与民兵的组织形态、训练体系与征召使用规则。",
+              "cognitive_dimension": "rule_compliance"
+            }
+          ]
+        },
+        {
+          "id": "mil_004_3",
+          "name": "国防法规体系",
+          "description": "国防法、兵役法、国防动员法等法律法规的规范对象与相互关系。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "mil_004_4",
+          "name": "国家安全形势研判",
+          "description": "总体国家安全观框架下各安全领域的威胁识别与优先级排序方法。",
+          "cognitive_dimension": "anomaly_diagnosis"
+        }
+      ]
+    },
+    {
+      "id": "mil_005",
+      "name": "军事技术与现代战争",
+      "description": "技术变革驱动下的战争形态演进与新型作战域理论。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "mil_005_1",
+          "name": "战争形态演进",
+          "description": "从机械化、信息化到智能化战争的形态跃迁标志与代际特征比较。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "mil_005_2",
+          "name": "信息化装备体系",
+          "description": "侦察预警、指挥控制、精确打击、综合保障装备体系的构成与耦合关系。",
+          "cognitive_dimension": "relational_reasoning"
+        },
+        {
+          "id": "mil_005_3",
+          "name": "智能化作战",
+          "description": "无人自主系统、算法辅助决策、马赛克战等智能化作战概念的机理与趋势。",
+          "cognitive_dimension": "concept_explanation",
+          "children": [
+            {
+              "id": "mil_005_3_1",
+              "name": "无人集群作战",
+              "description": "无人集群的协同机理、任务分配算法思路与反制手段分析。",
+              "cognitive_dimension": "relational_reasoning"
+            }
+          ]
+        },
+        {
+          "id": "mil_005_4",
+          "name": "新型作战域",
+          "description": "太空、网络、电磁、认知等新型作战域的对抗特点与跨域融合作战理论。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "mil_005_5",
+          "name": "混合战争与灰色地带",
+          "description": "介于战争与和平之间的混合战争手段特征、归因难题与应对策略。",
+          "cognitive_dimension": "anomaly_diagnosis"
+        }
+      ]
+    }
+  ]
+}

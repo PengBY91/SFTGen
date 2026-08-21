@@ -172,7 +172,12 @@
         @row-click="selectTaxonomy"
         style="cursor: pointer"
       >
-        <el-table-column prop="name" label="名称" />
+        <el-table-column prop="name" label="名称">
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+            <el-tag v-if="row.builtin" size="small" type="warning" style="margin-left: 8px">内置</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="domain" label="领域" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.domain" size="small">{{ row.domain }}</el-tag>

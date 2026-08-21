@@ -1,0 +1,281 @@
+{
+  "name": "重大决策与战略评估咨询 Taxonomy",
+  "domain": "strategic_evaluation",
+  "description": "面向重大决策、重大政策、重大项目、重大规定的宏观战略评估咨询领域意图树：覆盖决策法定程序、政策评估、项目后评价、规划评估、社会稳定风险评估、第三方评估方法论六大分支",
+  "nodes": [
+    {
+      "id": "se_001",
+      "name": "重大决策法定程序",
+      "description": "《重大行政决策程序暂行条例》确立的重大决策作出、执行、调整与问责的制度框架和法定程序链条。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "se_001_1",
+          "name": "决策事项范围界定",
+          "description": "依据决策事项目录判断事项是否属于重大行政决策，识别应当履行法定程序的决策范围。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_001_2",
+          "name": "公众参与程序",
+          "description": "通过座谈会、听证会、实地走访、向社会公开征求意见等方式听取民意，及意见采纳情况反馈的操作规范。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_001_3",
+          "name": "专家论证组织",
+          "description": "对专业性、技术性较强的决策事项组织专家论证必要性、可行性、科学性，含专家遴选与论证意见处理。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_001_4",
+          "name": "合法性审查",
+          "description": "决策草案提交集体讨论前由合法性审查部门审查的主体、内容与时限要求，不得以征求意见、会签等方式替代。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_001_5",
+          "name": "集体讨论决定",
+          "description": "决策机关常务会议或全体会议讨论决定的议事规则，行政首长在集体讨论基础上作出决定的程序要求。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_001_6",
+          "name": "决策后评估",
+          "description": "决策实施后对决策质量与效果进行评估，判定决策中止、终止或调整的启动情形、评估内容与结果运用。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_001_7",
+          "name": "决策责任追究",
+          "description": "违反法定程序决策、造成重大损失或恶劣影响时的责任倒查与终身责任追究机制。",
+          "cognitive_dimension": "rule_compliance"
+        }
+      ]
+    },
+    {
+      "id": "se_002",
+      "name": "重大政策与规定评估",
+      "description": "面向重大政策、法规规章的出台前审查与实施后评估业务族，含一致性评估、公平竞争审查与后评估。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "se_002_1",
+          "name": "宏观政策取向一致性评估",
+          "description": "对照国家发展规划评估政策在目标、工具、时机、力度、节奏上的协调性，覆盖经济与非经济性政策。",
+          "cognitive_dimension": "concept_explanation",
+          "children": [
+            {
+              "id": "se_002_1_1",
+              "name": "政策冲突识别",
+              "description": "识别新旧政策之间、跨部门政策之间在目标与工具上的冲突情形与效应抵消问题。",
+              "cognitive_dimension": "anomaly_diagnosis"
+            }
+          ]
+        },
+        {
+          "id": "se_002_2",
+          "name": "公平竞争审查",
+          "description": "按市场准入和退出、商品要素自由流动、影响生产经营成本、影响生产经营行为四类标准审查政策措施。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_002_3",
+          "name": "立法后评估与规章后评估",
+          "description": "法规规章实施一段时间后对立法质量、执行效果、存在问题进行评估并驱动动态清理的程序与内容要求。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_002_4",
+          "name": "政策效应评估",
+          "description": "从政策实施效果中分离净效应，评估政策作用机制与传导路径的分析框架。",
+          "cognitive_dimension": "relational_reasoning",
+          "children": [
+            {
+              "id": "se_002_4_1",
+              "name": "归因陷阱识别",
+              "description": "识别选择偏差、同期事件干扰、幸存者偏差等导致政策效果误判的常见归因错误。",
+              "cognitive_dimension": "anomaly_diagnosis"
+            }
+          ]
+        },
+        {
+          "id": "se_002_5",
+          "name": "存量政策清理评估",
+          "description": "对与上位政策冲突、适用时效已过或调整对象消失的存量政策开展清理评估的启动条件与处置方式。",
+          "cognitive_dimension": "rule_compliance"
+        }
+      ]
+    },
+    {
+      "id": "se_003",
+      "name": "重大项目评估与后评价",
+      "description": "依据重大项目后评价管理办法，对项目前期决策、实施过程、效益效果与可持续性开展的全生命周期评价。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "se_003_1",
+          "name": "项目前期决策评估",
+          "description": "对项目建议书、可行性研究报告、审批核准备案等前期环节决策依据与决策质量的评价要点。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_003_2",
+          "name": "项目过程评价",
+          "description": "对建设准备、招投标、投资概算控制、实施进度等项目执行过程的回顾性评价方法。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_003_3",
+          "name": "项目效益效果评价",
+          "description": "对照可研批复比较全生命周期经济效益、间接效益与社会环境效果的实际达成情况。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "se_003_4",
+          "name": "目标实现与可持续性评价",
+          "description": "评价项目目标实现程度、资源利用效率以及建成运营持续发挥效益的条件与风险。",
+          "cognitive_dimension": "relational_reasoning"
+        },
+        {
+          "id": "se_003_5",
+          "name": "项目成功度评价",
+          "description": "综合各专项评价结果按成功度等级判定项目总体成败的标准、打分依据与专家评议程序。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_003_6",
+          "name": "逻辑框架法应用",
+          "description": "运用垂直逻辑与水平逻辑梳理投入、产出、目的、目标的因果链条并检验关键假设的评价方法。",
+          "cognitive_dimension": "procedural_knowledge"
+        }
+      ]
+    },
+    {
+      "id": "se_004",
+      "name": "规划评估",
+      "description": "五年规划纲要与专项规划、区域规划实施情况的中期评估与终期评估业务族。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "se_004_1",
+          "name": "五年规划中期评估",
+          "description": "自评估与第三方评估相结合，评估主要指标、重大战略任务、重大工程项目进展的操作流程与重点。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_004_2",
+          "name": "规划终期评估",
+          "description": "规划期末对目标指标完成情况、重大任务落地与经验教训的全面总结评估。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_004_3",
+          "name": "规划指标完成度监测",
+          "description": "区分预期性与约束性指标，设定统计口径、监测频率与完成度判定标准的技术规范。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_004_4",
+          "name": "专项规划衔接评估",
+          "description": "对专项规划、区域规划与总体规划之间目标衔接、任务配套、时序协调的比较评估。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "se_004_5",
+          "name": "评估结果与规划衔接",
+          "description": "将规划评估结论转化为下轮规划编制依据与政策调整建议的反馈机制。",
+          "cognitive_dimension": "relational_reasoning"
+        }
+      ]
+    },
+    {
+      "id": "se_005",
+      "name": "社会稳定风险评估",
+      "description": "重大决策实施前对社会稳定风险进行调查、识别、定级与防范化解的稳评业务族。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "se_005_1",
+          "name": "稳评范围与责任主体",
+          "description": "应评尽评的重大事项范围界定，及谁主管谁负责、谁牵头谁评估的责任划分规则。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_005_2",
+          "name": "风险调查",
+          "description": "通过公示、问卷调查、实地走访、听证访谈识别利益相关方诉求与不满情绪的调查组织方法。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_005_3",
+          "name": "四性分析",
+          "description": "从合法性、合理性、可行性、可控性四方面审查决策事项的社会稳定风险分析框架。",
+          "cognitive_dimension": "rule_compliance"
+        },
+        {
+          "id": "se_005_4",
+          "name": "风险识别与等级判定",
+          "description": "建立风险因素清单，按发生可能性与影响程度矩阵判定高、中、低风险等级的定级方法。",
+          "cognitive_dimension": "anomaly_diagnosis"
+        },
+        {
+          "id": "se_005_5",
+          "name": "防范化解与应急预案",
+          "description": "按风险等级匹配防范化解措施，制定应急处置预案并安排跟踪反馈的闭环机制。",
+          "cognitive_dimension": "procedural_knowledge"
+        }
+      ]
+    },
+    {
+      "id": "se_006",
+      "name": "第三方评估与方法论",
+      "description": "第三方评估机构承接宏观评估咨询业务的方法工具体系，含评估设计、调查、效应识别与综合评价。",
+      "cognitive_dimension": "concept_explanation",
+      "children": [
+        {
+          "id": "se_006_1",
+          "name": "第三方评估机构与独立性",
+          "description": "高校智库、咨询公司、社会调查机构等评估主体的独立性保障、专业能力与利益冲突回避要求。",
+          "cognitive_dimension": "relational_reasoning"
+        },
+        {
+          "id": "se_006_2",
+          "name": "评估指标体系构建",
+          "description": "指标筛选、层次分析法设定权重、确定标准值与评分规则的技术流程。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_006_3",
+          "name": "社会调查方法",
+          "description": "问卷设计与抽样、深度访谈、座谈会、大数据舆情分析等数据收集手段的组合运用。",
+          "cognitive_dimension": "procedural_knowledge"
+        },
+        {
+          "id": "se_006_4",
+          "name": "效应识别方法",
+          "description": "双重差分、断点回归、合成控制、工具变量等准实验方法的适用条件比较与选择逻辑。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "se_006_5",
+          "name": "综合评价方法",
+          "description": "专家打分法、模糊综合评价、数据包络分析等多指标综合评价技术的适用场景比较。",
+          "cognitive_dimension": "comparative_analysis"
+        },
+        {
+          "id": "se_006_6",
+          "name": "预算绩效评价",
+          "description": "事前绩效评估、绩效运行监控、事后绩效评价的全周期预算绩效管理链条与指标框架。",
+          "cognitive_dimension": "concept_explanation"
+        },
+        {
+          "id": "se_006_7",
+          "name": "评估报告与结果运用",
+          "description": "评估报告的要素构成、结论表述规范，及评估结果反馈决策、挂钩考核的运用机制。",
+          "cognitive_dimension": "rule_compliance"
+        }
+      ]
+    }
+  ]
+}

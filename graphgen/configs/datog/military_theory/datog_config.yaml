@@ -1,0 +1,20 @@
+# 军事理论领域 DA-ToG 配置
+# 领域特点：概念体系与机理推演为主，知识点关联紧密；
+# 参照 cybersecurity 模板用 depth_weighted 偏好深层（更具体）意图节点，
+# markdown 序列化便于表达层次化的理论关系。
+datog:
+  taxonomy:
+    path: graphgen/configs/datog/military_theory/taxonomy.json
+    sampling_strategy: depth_weighted
+  graph:
+    adapter: networkx
+    max_hops: 3
+    max_nodes_per_subgraph: 15
+    serialization_format: markdown
+  critic:
+    type: llm
+    min_score: 0.7
+  generation:
+    target_qa_pairs: 50
+    batch_size: 5
+    data_format: ChatML
