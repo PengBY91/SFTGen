@@ -102,7 +102,7 @@ async def save_datog_config(
     return JSONResponse(content={"success": True, "message": "配置保存成功"})
 
 
-@router.post("/datog/config/load")
+@router.get("/datog/config/load")
 async def load_datog_config(
     current_user: User = Depends(get_current_user),
 ):

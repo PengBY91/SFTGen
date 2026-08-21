@@ -294,11 +294,11 @@ const taskInfo = ref({
   task_description: ''
 })
 
-// 评测配置
+// 评测配置（LLM 字段默认值以服务端 /config/llm-defaults 为准）
 const evalConfig = ref({
   api_key: '',
-  synthesizer_url: 'https://api.siliconflow.cn/v1',
-  synthesizer_model: 'Qwen/Qwen2.5-7B-Instruct',
+  synthesizer_url: '',
+  synthesizer_model: '',
   rpm: 500,
   tpm: 100000,
   chunk_size: 1024,
@@ -468,17 +468,17 @@ const submitTask = async () => {
   }
 }
 // 加载配置
-onMounted(() => {
+onMounted(async () => {
   try {
     const saved = localStorage.getItem('evaluation_config')
     if (saved) {
       const savedConfig = JSON.parse(saved)
-      
+
       // 更新评测配置
       evalConfig.value = {
         api_key: savedConfig.api_key || '',
-        synthesizer_url: savedConfig.synthesizer_url || 'https://api.siliconflow.cn/v1',
-        synthesizer_model: savedConfig.synthesizer_model || 'Qwen/Qwen2.5-7B-Instruct',
+        synthesizer_url: savedConfig.synthesizer_url || '',
+        synthesizer_model: savedConfig.synthesizer_model || '',
         rpm: savedConfig.rpm || 500,
         tpm: savedConfig.tpm || 100000,
         chunk_size: savedConfig.chunk_size || 1024,
@@ -486,7 +486,7 @@ onMounted(() => {
         evaluation_dataset_name: savedConfig.evaluation_dataset_name || 'Domain Knowledge Evaluation Dataset',
         evaluation_target_items: savedConfig.evaluation_target_items || 200
       }
-      
+
       // 更新评测类型分布
       if (savedConfig.evaluation_type_distribution) {
         evalTypeDistribution.value = {
@@ -496,7 +496,7 @@ onMounted(() => {
           comprehensive: Math.round(savedConfig.evaluation_type_distribution.comprehensive * 100)
         }
       }
-      
+
       // 更新难度分布
       if (savedConfig.evaluation_difficulty_distribution) {
         evalDifficultyDistribution.value = {
@@ -505,11 +505,31 @@ onMounted(() => {
           hard: Math.round(savedConfig.evaluation_difficulty_distribution.hard * 100)
         }
       }
-      
-      ElMessage.success('已加载默认评测配置')
+
+      if (savedConfig.api_key) {
+        ElMessage.success('已加载默认评测配置')
+      }
     }
   } catch (error) {
     console.error('加载默认配置失败:', error)
+  }
+
+  // 用服务端默认 LLM 配置填充空字段（不覆盖已保存的值）
+  try {
+    const response = await api.getLLMDefaults()
+    if (response.success && response.data) {
+      const fields = ['api_key', 'synthesizer_url', 'synthesizer_model', 'rpm', 'tpm'] as const
+      for (const field of fields) {
+        const current = (evalConfig.value as Record<string, unknown>)[field]
+        const server = (response.data as Record<string, unknown>)[field]
+        const isEmpty = current === undefined || current === null || current === ''
+        if (server !== undefined && server !== null && server !== '' && isEmpty) {
+          ;(evalConfig.value as Record<string, unknown>)[field] = server
+        }
+      }
+    }
+  } catch (error) {
+    console.log('使用本地兜底 LLM 配置')
   }
 })
 </script>

@@ -258,12 +258,12 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 
-// 默认配置
+// 默认配置（LLM 相关字段以服务端 /config/llm-defaults 为准，此处仅为兜底）
 const defaultConfig = {
   // 模型配置
   tokenizer: 'cl100k_base',
-  synthesizer_url: 'https://api.siliconflow.cn/v1',
-  synthesizer_model: 'Qwen/Qwen2.5-7B-Instruct',
+  synthesizer_url: '',
+  synthesizer_model: '',
   api_key: '',
   rpm: 500,
   tpm: 100000,
@@ -389,7 +389,7 @@ const handleReset = async () => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
+
     config.value = { ...defaultConfig }
     evalTypeDistribution.value = {
       knowledge_coverage: 30,
@@ -402,7 +402,23 @@ const handleReset = async () => {
       medium: 50,
       hard: 20
     }
-    
+
+    // LLM 字段使用服务端默认值
+    try {
+      const response = await api.getLLMDefaults()
+      if (response.success && response.data) {
+        const fields = ['tokenizer', 'synthesizer_url', 'synthesizer_model', 'api_key', 'rpm', 'tpm'] as const
+        for (const field of fields) {
+          const server = (response.data as Record<string, unknown>)[field]
+          if (server !== undefined && server !== null && server !== '') {
+            ;(config.value as Record<string, unknown>)[field] = server
+          }
+        }
+      }
+    } catch {
+      // 服务端不可达时保留本地兜底
+    }
+
     ElMessage.success('配置已重置')
   } catch {
     // 用户取消操作
@@ -410,13 +426,13 @@ const handleReset = async () => {
 }
 
 // 加载配置
-onMounted(() => {
+onMounted(async () => {
   try {
     const saved = localStorage.getItem('evaluation_config')
     if (saved) {
       const savedConfig = JSON.parse(saved)
       config.value = { ...defaultConfig, ...savedConfig }
-      
+
       // 加载分布数据
       if (savedConfig.evaluation_type_distribution) {
         evalTypeDistribution.value = {
@@ -426,7 +442,7 @@ onMounted(() => {
           comprehensive: Math.round(savedConfig.evaluation_type_distribution.comprehensive * 100)
         }
       }
-      
+
       if (savedConfig.evaluation_difficulty_distribution) {
         evalDifficultyDistribution.value = {
           easy: Math.round(savedConfig.evaluation_difficulty_distribution.easy * 100),
@@ -437,6 +453,24 @@ onMounted(() => {
     }
   } catch (error) {
     console.error('加载配置失败:', error)
+  }
+
+  // 用服务端默认 LLM 配置填充空字段（不覆盖已保存/已填写的值）
+  try {
+    const response = await api.getLLMDefaults()
+    if (response.success && response.data) {
+      const fields = ['tokenizer', 'synthesizer_url', 'synthesizer_model', 'api_key', 'rpm', 'tpm'] as const
+      for (const field of fields) {
+        const current = (config.value as Record<string, unknown>)[field]
+        const server = (response.data as Record<string, unknown>)[field]
+        const isEmpty = current === undefined || current === null || current === ''
+        if (server !== undefined && server !== null && server !== '' && isEmpty) {
+          ;(config.value as Record<string, unknown>)[field] = server
+        }
+      }
+    }
+  } catch (error) {
+    console.log('使用本地兜底 LLM 配置')
   }
 })
 </script>
